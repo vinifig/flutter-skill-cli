@@ -388,6 +388,66 @@ class FlutterSkillBinding {
       }
     });
 
+    // ==================== COORDINATE-BASED ACTIONS ====================
+
+    // 27. Tap At Coordinates
+    developer.registerExtension('ext.flutter.flutter_skill.tapAt', (method, parameters) async {
+      try {
+        final x = double.tryParse(parameters['x'] ?? '0') ?? 0;
+        final y = double.tryParse(parameters['y'] ?? '0') ?? 0;
+        await _performTapAt(x, y);
+        return developer.ServiceExtensionResponse.result(
+          jsonEncode({'success': true, 'message': 'Tapped at ($x, $y)'}),
+        );
+      } catch (e, stack) {
+        return _errorResponse(e, stack);
+      }
+    });
+
+    // 28. Long Press At Coordinates
+    developer.registerExtension('ext.flutter.flutter_skill.longPressAt', (method, parameters) async {
+      try {
+        final x = double.tryParse(parameters['x'] ?? '0') ?? 0;
+        final y = double.tryParse(parameters['y'] ?? '0') ?? 0;
+        final duration = int.tryParse(parameters['duration'] ?? '500') ?? 500;
+        await _performLongPressAt(x, y, duration: duration);
+        return developer.ServiceExtensionResponse.result(
+          jsonEncode({'success': true, 'message': 'Long pressed at ($x, $y)'}),
+        );
+      } catch (e, stack) {
+        return _errorResponse(e, stack);
+      }
+    });
+
+    // 29. Swipe Coordinates
+    developer.registerExtension('ext.flutter.flutter_skill.swipeCoordinates', (method, parameters) async {
+      try {
+        final startX = double.tryParse(parameters['startX'] ?? '0') ?? 0;
+        final startY = double.tryParse(parameters['startY'] ?? '0') ?? 0;
+        final endX = double.tryParse(parameters['endX'] ?? '0') ?? 0;
+        final endY = double.tryParse(parameters['endY'] ?? '0') ?? 0;
+        final duration = int.tryParse(parameters['duration'] ?? '300') ?? 300;
+        await _performSwipeCoordinates(startX, startY, endX, endY, duration: duration);
+        return developer.ServiceExtensionResponse.result(
+          jsonEncode({'success': true, 'message': 'Swiped from ($startX, $startY) to ($endX, $endY)'}),
+        );
+      } catch (e, stack) {
+        return _errorResponse(e, stack);
+      }
+    });
+
+    // ==================== PERFORMANCE & MEMORY ====================
+
+    // 30. Get Frame Stats
+    developer.registerExtension('ext.flutter.flutter_skill.getFrameStats', (method, parameters) async {
+      try {
+        final stats = _getFrameStats();
+        return developer.ServiceExtensionResponse.result(jsonEncode(stats));
+      } catch (e, stack) {
+        return _errorResponse(e, stack);
+      }
+    });
+
     // Setup error handler
     FlutterError.onError = (FlutterErrorDetails details) {
       _errors.add({
@@ -678,6 +738,74 @@ class FlutterSkillBinding {
 
     _log('Double tap completed (key: $key, text: $text)');
     return true;
+  }
+
+  // ==================== COORDINATE-BASED ACTIONS ====================
+
+  static Future<void> _performTapAt(double x, double y) async {
+    final position = Offset(x, y);
+    await _dispatchTap(position);
+    _log('Tap at coordinates ($x, $y) completed');
+  }
+
+  static Future<void> _performLongPressAt(double x, double y, {int duration = 500}) async {
+    final position = Offset(x, y);
+    final binding = WidgetsBinding.instance;
+    final pointer = _pointerCounter++;
+
+    binding.handlePointerEvent(PointerDownEvent(position: position, pointer: pointer));
+    await Future.delayed(Duration(milliseconds: duration));
+    binding.handlePointerEvent(PointerUpEvent(position: position, pointer: pointer));
+    await Future.delayed(const Duration(milliseconds: 100));
+
+    _log('Long press at coordinates ($x, $y) completed');
+  }
+
+  static Future<void> _performSwipeCoordinates(
+    double startX,
+    double startY,
+    double endX,
+    double endY, {
+    int duration = 300,
+  }) async {
+    final binding = WidgetsBinding.instance;
+    final pointer = _pointerCounter++;
+
+    final start = Offset(startX, startY);
+    final end = Offset(endX, endY);
+    final delta = end - start;
+
+    binding.handlePointerEvent(PointerDownEvent(position: start, pointer: pointer));
+    await Future.delayed(const Duration(milliseconds: 16));
+
+    final steps = (duration / 16).round().clamp(5, 30);
+    final stepDuration = duration ~/ steps;
+
+    for (int i = 1; i <= steps; i++) {
+      final current = Offset.lerp(start, end, i / steps)!;
+      binding.handlePointerEvent(PointerMoveEvent(
+        position: current,
+        pointer: pointer,
+        delta: delta / steps.toDouble(),
+      ));
+      await Future.delayed(Duration(milliseconds: stepDuration));
+    }
+
+    binding.handlePointerEvent(PointerUpEvent(position: end, pointer: pointer));
+    await Future.delayed(const Duration(milliseconds: 100));
+
+    _log('Swipe from ($startX, $startY) to ($endX, $endY) completed');
+  }
+
+  // ==================== PERFORMANCE ====================
+
+  static Map<String, dynamic> _getFrameStats() {
+    return {
+      'timestamp': DateTime.now().toIso8601String(),
+      'logCount': _logs.length,
+      'errorCount': _errors.length,
+      'message': 'Frame stats available via DevTools timeline',
+    };
   }
 
   // ==================== UI INSPECTION ====================

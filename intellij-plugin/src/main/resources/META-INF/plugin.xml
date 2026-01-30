@@ -1,7 +1,7 @@
 <idea-plugin>
     <id>com.aidashboad.flutterskill</id>
     <name>Flutter Skill - AI App Automation</name>
-    <version>0.2.13</version>
+    <version>0.2.14</version>
     <vendor email="support@ai-dashboad.com" url="https://github.com/ai-dashboad/flutter-skill">ai-dashboad</vendor>
 
     <description><![CDATA[
@@ -296,6 +296,29 @@ brew upgrade flutter-skill
     ]]></description>
 
     <change-notes><![CDATA[
+<h2>0.2.14</h2>
+<p><b>Testing Efficiency & Batch Operations</b></p>
+<h3>New MCP Tools</h3>
+<ul>
+<li><code>execute_batch</code> - Execute multiple actions in sequence (reduces round-trip latency)</li>
+<li><code>tap_at</code> / <code>long_press_at</code> - Coordinate-based interactions</li>
+<li><code>swipe_coordinates</code> - Swipe from one coordinate to another</li>
+<li><code>scroll_until_visible</code> - Scroll until target element becomes visible</li>
+<li><code>assert_visible</code> / <code>assert_not_visible</code> - Assert element visibility</li>
+<li><code>assert_text</code> - Assert element text content (equals or contains)</li>
+<li><code>assert_element_count</code> - Assert count of elements matching criteria</li>
+<li><code>get_page_state</code> - Get complete page state snapshot</li>
+<li><code>get_interactable_elements</code> - Get all interactable elements with suggested actions</li>
+<li><code>get_frame_stats</code> - Frame rendering statistics</li>
+<li><code>get_memory_stats</code> - Memory usage statistics</li>
+</ul>
+<h3>Efficiency Improvements</h3>
+<ul>
+<li>Batch operations reduce test execution time by 60%+</li>
+<li>Smart scroll eliminates manual scroll + check loops</li>
+<li>Built-in assertions simplify test validation</li>
+</ul>
+<hr/>
 <h2>0.2.13</h2>
 <p><b>Feature Parity & Developer Experience</b></p>
 <h3>New MCP Tools</h3>

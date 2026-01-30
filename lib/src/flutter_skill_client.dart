@@ -46,17 +46,6 @@ class FlutterSkillClient {
 
   // ==================== EXISTING METHODS ====================
 
-  Future<List<dynamic>> getInteractiveElements() async {
-    final result = await _call('ext.flutter.flutter_skill.interactive');
-    print('DEBUG: Interactive Result type: ${result.runtimeType}');
-    print('DEBUG: Interactive Result: $result');
-
-    if (result.containsKey('elements')) {
-      return result['elements'] as List<dynamic>;
-    }
-    return [];
-  }
-
   Future<void> tap({String? key, String? text}) async {
     if (key == null && text == null) {
       throw ArgumentError('Must provide key or text for tap');
@@ -235,6 +224,87 @@ class FlutterSkillClient {
 
   Future<Map<String, dynamic>> getPerformance() async {
     return await _call('ext.flutter.flutter_skill.getPerformance');
+  }
+
+  // ==================== COORDINATE-BASED ACTIONS ====================
+
+  Future<void> tapAt(double x, double y) async {
+    await _call('ext.flutter.flutter_skill.tapAt', {
+      'x': x.toString(),
+      'y': y.toString(),
+    });
+  }
+
+  Future<void> longPressAt(double x, double y, {int duration = 500}) async {
+    await _call('ext.flutter.flutter_skill.longPressAt', {
+      'x': x.toString(),
+      'y': y.toString(),
+      'duration': duration.toString(),
+    });
+  }
+
+  Future<void> swipeCoordinates(
+    double startX,
+    double startY,
+    double endX,
+    double endY, {
+    int duration = 300,
+  }) async {
+    await _call('ext.flutter.flutter_skill.swipeCoordinates', {
+      'startX': startX.toString(),
+      'startY': startY.toString(),
+      'endX': endX.toString(),
+      'endY': endY.toString(),
+      'duration': duration.toString(),
+    });
+  }
+
+  // ==================== PERFORMANCE & MEMORY ====================
+
+  Future<Map<String, dynamic>> getFrameStats() async {
+    try {
+      final result = await _call('ext.flutter.flutter_skill.getFrameStats');
+      return result;
+    } catch (e) {
+      // Fallback to basic stats if extension not available
+      return {
+        "message": "Frame stats not available. Ensure flutter_skill is properly initialized in the app.",
+        "error": e.toString(),
+      };
+    }
+  }
+
+  Future<Map<String, dynamic>> getMemoryStats() async {
+    if (_service == null || _isolateId == null) {
+      throw Exception('Not connected');
+    }
+
+    try {
+      final allocationProfile = await _service!.getAllocationProfile(_isolateId!);
+      return {
+        "heap_used": allocationProfile.memoryUsage?.heapUsage ?? 0,
+        "heap_capacity": allocationProfile.memoryUsage?.heapCapacity ?? 0,
+        "external": allocationProfile.memoryUsage?.externalUsage ?? 0,
+      };
+    } catch (e) {
+      return {
+        "message": "Memory stats retrieval failed",
+        "error": e.toString(),
+      };
+    }
+  }
+
+  // ==================== ENHANCED INSPECTION ====================
+
+  Future<List<dynamic>> getInteractiveElements({bool includePositions = true}) async {
+    final result = await _call('ext.flutter.flutter_skill.interactive', {
+      'includePositions': includePositions.toString(),
+    });
+
+    if (result.containsKey('elements')) {
+      return result['elements'] as List<dynamic>;
+    }
+    return [];
   }
 
   // ==================== EXISTING HELPERS ====================

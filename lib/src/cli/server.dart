@@ -6,7 +6,7 @@ import 'package:http/http.dart' as http;
 import '../flutter_skill_client.dart';
 import 'setup.dart';
 
-const String _currentVersion = '0.2.13';
+const String _currentVersion = '0.2.14';
 
 Future<void> runServer(List<String> args) async {
   // Check for updates in background
@@ -445,6 +445,176 @@ class FlutterMcpServer {
           "required": ["query"],
         },
       },
+
+      // === NEW: Batch Operations ===
+      {
+        "name": "execute_batch",
+        "description": "Execute multiple actions in sequence. Reduces round-trip latency for complex test flows.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "actions": {
+              "type": "array",
+              "description": "List of actions to execute",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "action": {"type": "string", "description": "Action name (tap, enter_text, swipe, wait, screenshot, assert_visible, assert_text)"},
+                  "key": {"type": "string"},
+                  "text": {"type": "string"},
+                  "value": {"type": "string"},
+                  "direction": {"type": "string"},
+                  "duration": {"type": "integer"},
+                  "expected": {"type": "string"},
+                },
+                "required": ["action"],
+              },
+            },
+            "stop_on_failure": {"type": "boolean", "description": "Stop execution on first failure (default: true)"},
+          },
+          "required": ["actions"],
+        },
+      },
+
+      // === NEW: Coordinate-based Actions ===
+      {
+        "name": "tap_at",
+        "description": "Tap at specific screen coordinates",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "x": {"type": "number", "description": "X coordinate"},
+            "y": {"type": "number", "description": "Y coordinate"},
+          },
+          "required": ["x", "y"],
+        },
+      },
+      {
+        "name": "long_press_at",
+        "description": "Long press at specific screen coordinates",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "x": {"type": "number", "description": "X coordinate"},
+            "y": {"type": "number", "description": "Y coordinate"},
+            "duration": {"type": "integer", "description": "Duration in ms (default: 500)"},
+          },
+          "required": ["x", "y"],
+        },
+      },
+      {
+        "name": "swipe_coordinates",
+        "description": "Swipe from one coordinate to another",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "start_x": {"type": "number", "description": "Start X coordinate"},
+            "start_y": {"type": "number", "description": "Start Y coordinate"},
+            "end_x": {"type": "number", "description": "End X coordinate"},
+            "end_y": {"type": "number", "description": "End Y coordinate"},
+            "duration": {"type": "integer", "description": "Duration in ms (default: 300)"},
+          },
+          "required": ["start_x", "start_y", "end_x", "end_y"],
+        },
+      },
+
+      // === NEW: Smart Scroll ===
+      {
+        "name": "scroll_until_visible",
+        "description": "Scroll in a direction until target element becomes visible",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "key": {"type": "string", "description": "Target element key"},
+            "text": {"type": "string", "description": "Target element text"},
+            "direction": {"type": "string", "enum": ["up", "down", "left", "right"], "description": "Scroll direction (default: down)"},
+            "max_scrolls": {"type": "integer", "description": "Maximum scroll attempts (default: 10)"},
+            "scrollable_key": {"type": "string", "description": "Key of the scrollable container (optional)"},
+          },
+        },
+      },
+
+      // === NEW: Assertions ===
+      {
+        "name": "assert_visible",
+        "description": "Assert that an element is visible on screen",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "key": {"type": "string", "description": "Element key"},
+            "text": {"type": "string", "description": "Element text"},
+            "timeout": {"type": "integer", "description": "Wait timeout in ms (default: 5000)"},
+          },
+        },
+      },
+      {
+        "name": "assert_not_visible",
+        "description": "Assert that an element is NOT visible on screen",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "key": {"type": "string", "description": "Element key"},
+            "text": {"type": "string", "description": "Element text"},
+            "timeout": {"type": "integer", "description": "Wait timeout in ms (default: 5000)"},
+          },
+        },
+      },
+      {
+        "name": "assert_text",
+        "description": "Assert that an element contains specific text",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "key": {"type": "string", "description": "Element key"},
+            "expected": {"type": "string", "description": "Expected text content"},
+            "contains": {"type": "boolean", "description": "Use contains instead of equals (default: false)"},
+          },
+          "required": ["key", "expected"],
+        },
+      },
+      {
+        "name": "assert_element_count",
+        "description": "Assert the count of elements matching criteria",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "type": {"type": "string", "description": "Widget type to count"},
+            "text": {"type": "string", "description": "Text to match"},
+            "expected_count": {"type": "integer", "description": "Expected count"},
+            "min_count": {"type": "integer", "description": "Minimum count (alternative to exact)"},
+            "max_count": {"type": "integer", "description": "Maximum count (alternative to exact)"},
+          },
+        },
+      },
+
+      // === NEW: Page State ===
+      {
+        "name": "get_page_state",
+        "description": "Get complete page state snapshot (route, scroll position, focused element, keyboard, loading indicators)",
+        "inputSchema": {"type": "object", "properties": {}},
+      },
+      {
+        "name": "get_interactable_elements",
+        "description": "Get all interactable elements on current screen with suggested actions",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "include_positions": {"type": "boolean", "description": "Include x/y positions (default: true)"},
+          },
+        },
+      },
+
+      // === NEW: Performance & Memory ===
+      {
+        "name": "get_frame_stats",
+        "description": "Get frame rendering statistics (FPS, jank, build/raster times)",
+        "inputSchema": {"type": "object", "properties": {}},
+      },
+      {
+        "name": "get_memory_stats",
+        "description": "Get memory usage statistics (heap, external)",
+        "inputSchema": {"type": "object", "properties": {}},
+      },
     ];
   }
 
@@ -708,9 +878,345 @@ class FlutterMcpServer {
       case 'get_performance':
         return await _client!.getPerformance();
 
+      // === NEW: Batch Operations ===
+      case 'execute_batch':
+        return await _executeBatch(args);
+
+      // === NEW: Coordinate-based Actions ===
+      case 'tap_at':
+        final x = (args['x'] as num).toDouble();
+        final y = (args['y'] as num).toDouble();
+        await _client!.tapAt(x, y);
+        return {"success": true, "action": "tap_at", "x": x, "y": y};
+
+      case 'long_press_at':
+        final x = (args['x'] as num).toDouble();
+        final y = (args['y'] as num).toDouble();
+        final duration = args['duration'] ?? 500;
+        await _client!.longPressAt(x, y, duration: duration);
+        return {"success": true, "action": "long_press_at", "x": x, "y": y};
+
+      case 'swipe_coordinates':
+        final startX = (args['start_x'] as num).toDouble();
+        final startY = (args['start_y'] as num).toDouble();
+        final endX = (args['end_x'] as num).toDouble();
+        final endY = (args['end_y'] as num).toDouble();
+        final duration = args['duration'] ?? 300;
+        await _client!.swipeCoordinates(startX, startY, endX, endY, duration: duration);
+        return {"success": true, "action": "swipe_coordinates"};
+
+      // === NEW: Smart Scroll ===
+      case 'scroll_until_visible':
+        return await _scrollUntilVisible(args);
+
+      // === NEW: Assertions ===
+      case 'assert_visible':
+        return await _assertVisible(args, shouldBeVisible: true);
+
+      case 'assert_not_visible':
+        return await _assertVisible(args, shouldBeVisible: false);
+
+      case 'assert_text':
+        return await _assertText(args);
+
+      case 'assert_element_count':
+        return await _assertElementCount(args);
+
+      // === NEW: Page State ===
+      case 'get_page_state':
+        return await _getPageState();
+
+      case 'get_interactable_elements':
+        final includePositions = args['include_positions'] ?? true;
+        return await _client!.getInteractiveElements(includePositions: includePositions);
+
+      // === NEW: Performance & Memory ===
+      case 'get_frame_stats':
+        return await _client!.getFrameStats();
+
+      case 'get_memory_stats':
+        return await _client!.getMemoryStats();
+
       default:
         throw Exception("Unknown tool: $name");
     }
+  }
+
+  /// Execute a batch of actions in sequence
+  Future<Map<String, dynamic>> _executeBatch(Map<String, dynamic> args) async {
+    final actions = args['actions'] as List<dynamic>;
+    final stopOnFailure = args['stop_on_failure'] ?? true;
+
+    final results = <Map<String, dynamic>>[];
+    var allSuccess = true;
+
+    for (var i = 0; i < actions.length; i++) {
+      final action = actions[i] as Map<String, dynamic>;
+      final actionName = action['action'] as String;
+      final startTime = DateTime.now();
+
+      try {
+        dynamic result;
+
+        switch (actionName) {
+          case 'tap':
+            await _client!.tap(key: action['key'], text: action['text']);
+            result = "Tapped";
+            break;
+
+          case 'enter_text':
+            await _client!.enterText(action['key'], action['text'] ?? action['value']);
+            result = "Entered text";
+            break;
+
+          case 'swipe':
+            final distance = (action['distance'] ?? 300).toDouble();
+            await _client!.swipe(
+              direction: action['direction'] ?? 'down',
+              distance: distance,
+              key: action['key'],
+            );
+            result = "Swiped";
+            break;
+
+          case 'wait':
+            final duration = action['duration'] ?? 500;
+            await Future.delayed(Duration(milliseconds: duration));
+            result = "Waited ${duration}ms";
+            break;
+
+          case 'screenshot':
+            final image = await _client!.takeScreenshot();
+            result = {"image": image};
+            break;
+
+          case 'assert_visible':
+            final timeout = action['timeout'] ?? 5000;
+            final found = await _client!.waitForElement(
+              key: action['key'],
+              text: action['text'],
+              timeout: timeout,
+            );
+            if (!found) throw Exception("Element not visible");
+            result = "Visible";
+            break;
+
+          case 'assert_text':
+            final actual = await _client!.getTextValue(action['key']);
+            final expected = action['expected'];
+            if (actual != expected) {
+              throw Exception("Text mismatch: expected '$expected', got '$actual'");
+            }
+            result = "Text matches";
+            break;
+
+          case 'long_press':
+            final duration = action['duration'] ?? 500;
+            await _client!.longPress(key: action['key'], text: action['text'], duration: duration);
+            result = "Long pressed";
+            break;
+
+          case 'double_tap':
+            await _client!.doubleTap(key: action['key'], text: action['text']);
+            result = "Double tapped";
+            break;
+
+          case 'scroll_to':
+            await _client!.scrollTo(key: action['key'], text: action['text']);
+            result = "Scrolled";
+            break;
+
+          default:
+            throw Exception("Unknown batch action: $actionName");
+        }
+
+        final duration = DateTime.now().difference(startTime).inMilliseconds;
+        results.add({
+          "step": i + 1,
+          "action": actionName,
+          "success": true,
+          "duration_ms": duration,
+          "result": result,
+        });
+
+      } catch (e) {
+        allSuccess = false;
+        final duration = DateTime.now().difference(startTime).inMilliseconds;
+        results.add({
+          "step": i + 1,
+          "action": actionName,
+          "success": false,
+          "duration_ms": duration,
+          "error": e.toString(),
+        });
+
+        if (stopOnFailure) break;
+      }
+    }
+
+    return {
+      "success": allSuccess,
+      "total_steps": actions.length,
+      "completed_steps": results.length,
+      "results": results,
+    };
+  }
+
+  /// Scroll until element becomes visible
+  Future<Map<String, dynamic>> _scrollUntilVisible(Map<String, dynamic> args) async {
+    final key = args['key'] as String?;
+    final text = args['text'] as String?;
+    final direction = args['direction'] ?? 'down';
+    final maxScrolls = args['max_scrolls'] ?? 10;
+    final scrollableKey = args['scrollable_key'] as String?;
+
+    for (var i = 0; i < maxScrolls; i++) {
+      // Check if element is visible
+      final found = await _client!.waitForElement(
+        key: key,
+        text: text,
+        timeout: 500,
+      );
+
+      if (found) {
+        return {
+          "success": true,
+          "found": true,
+          "scrolls_needed": i,
+        };
+      }
+
+      // Scroll
+      await _client!.swipe(
+        direction: direction,
+        distance: 300,
+        key: scrollableKey,
+      );
+
+      // Wait for scroll animation
+      await Future.delayed(const Duration(milliseconds: 300));
+    }
+
+    return {
+      "success": false,
+      "found": false,
+      "scrolls_attempted": maxScrolls,
+      "message": "Element not found after $maxScrolls scrolls",
+    };
+  }
+
+  /// Assert element visibility
+  Future<Map<String, dynamic>> _assertVisible(Map<String, dynamic> args, {required bool shouldBeVisible}) async {
+    final key = args['key'] as String?;
+    final text = args['text'] as String?;
+    final timeout = args['timeout'] ?? 5000;
+
+    if (shouldBeVisible) {
+      final found = await _client!.waitForElement(key: key, text: text, timeout: timeout);
+      return {
+        "success": found,
+        "assertion": "visible",
+        "element": key ?? text,
+        "message": found ? "Element is visible" : "Element not found within ${timeout}ms",
+      };
+    } else {
+      final gone = await _client!.waitForGone(key: key, text: text, timeout: timeout);
+      return {
+        "success": gone,
+        "assertion": "not_visible",
+        "element": key ?? text,
+        "message": gone ? "Element is not visible" : "Element still visible after ${timeout}ms",
+      };
+    }
+  }
+
+  /// Assert text content
+  Future<Map<String, dynamic>> _assertText(Map<String, dynamic> args) async {
+    final key = args['key'] as String;
+    final expected = args['expected'] as String;
+    final useContains = args['contains'] ?? false;
+
+    final actual = await _client!.getTextValue(key);
+
+    bool matches;
+    if (useContains) {
+      matches = actual?.contains(expected) ?? false;
+    } else {
+      matches = actual == expected;
+    }
+
+    return {
+      "success": matches,
+      "assertion": useContains ? "text_contains" : "text_equals",
+      "element": key,
+      "expected": expected,
+      "actual": actual,
+      "message": matches
+          ? "Text assertion passed"
+          : "Text mismatch: expected ${useContains ? 'to contain' : ''} '$expected', got '$actual'",
+    };
+  }
+
+  /// Assert element count
+  Future<Map<String, dynamic>> _assertElementCount(Map<String, dynamic> args) async {
+    final type = args['type'] as String?;
+    final text = args['text'] as String?;
+    final expectedCount = args['expected_count'] as int?;
+    final minCount = args['min_count'] as int?;
+    final maxCount = args['max_count'] as int?;
+
+    int count = 0;
+
+    if (type != null) {
+      final elements = await _client!.findByType(type);
+      count = elements.length;
+    } else if (text != null) {
+      final allText = await _client!.getTextContent();
+      count = RegExp(RegExp.escape(text)).allMatches(allText.toString()).length;
+    }
+
+    bool success = true;
+    String message = "";
+
+    if (expectedCount != null) {
+      success = count == expectedCount;
+      message = success
+          ? "Count matches: $count"
+          : "Count mismatch: expected $expectedCount, got $count";
+    } else {
+      if (minCount != null && count < minCount) {
+        success = false;
+        message = "Count $count is less than minimum $minCount";
+      }
+      if (maxCount != null && count > maxCount) {
+        success = false;
+        message = "Count $count is greater than maximum $maxCount";
+      }
+      if (success) {
+        message = "Count $count is within expected range";
+      }
+    }
+
+    return {
+      "success": success,
+      "assertion": "element_count",
+      "count": count,
+      "message": message,
+    };
+  }
+
+  /// Get complete page state snapshot
+  Future<Map<String, dynamic>> _getPageState() async {
+    final route = await _client!.getCurrentRoute();
+    final interactables = await _client!.getInteractiveElements();
+    final textContent = await _client!.getTextContent();
+
+    return {
+      "route": route,
+      "interactive_elements_count": (interactables as List?)?.length ?? 0,
+      "text_content_preview": textContent.toString().substring(0, textContent.toString().length.clamp(0, 500)),
+      "timestamp": DateTime.now().toIso8601String(),
+    };
   }
 
   void _requireConnection() {

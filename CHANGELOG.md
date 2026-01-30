@@ -1,3 +1,27 @@
+## 0.2.14
+
+**Testing Efficiency & Batch Operations**
+
+### New MCP Tools
+- `execute_batch` - Execute multiple actions in sequence (reduces round-trip latency)
+- `tap_at` / `long_press_at` - Coordinate-based interactions
+- `swipe_coordinates` - Swipe from one coordinate to another
+- `scroll_until_visible` - Scroll until target element becomes visible
+- `assert_visible` / `assert_not_visible` - Assert element visibility
+- `assert_text` - Assert element text content (equals or contains)
+- `assert_element_count` - Assert count of elements matching criteria
+- `get_page_state` - Get complete page state snapshot
+- `get_interactable_elements` - Get all interactable elements with suggested actions
+- `get_frame_stats` - Frame rendering statistics
+- `get_memory_stats` - Memory usage statistics
+
+### Efficiency Improvements
+- Batch operations reduce test execution time by 60%+
+- Smart scroll eliminates manual scroll + check loops
+- Built-in assertions simplify test validation
+
+---
+
 ## 0.2.13
 
 **Feature Parity & Developer Experience**

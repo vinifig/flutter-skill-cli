@@ -9,7 +9,7 @@ import { promptSetupFlutterSkill, setupFlutterSkill, hasFlutterSkillDependency }
 import { ensureNativeBinary, getBestBinaryPath } from './nativeBinary';
 import { checkForUpdates } from './updateChecker';
 
-const EXTENSION_VERSION = '0.2.13';
+const EXTENSION_VERSION = '0.2.14';
 
 let mcpServerProcess: child_process.ChildProcess | undefined;
 let outputChannel: vscode.OutputChannel;
