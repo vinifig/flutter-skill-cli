@@ -56,7 +56,7 @@ You don't need to manually edit your code. The skill handles it for you.
 Run the launch script pointing to your project directory:
 
 ```bash
-dart run bin/launch.dart /path/to/your/flutter_project
+flutter_skill launch /path/to/your/flutter_project
 ```
 
 **What happens automatically:**
@@ -71,10 +71,10 @@ Once launched, your Agent has full control using the provided tools.
 **CLI Mode (e.g. Claude Code):**
 ```bash
 # Inspect the screen
-dart run bin/inspect.dart
+flutter_skill inspect
 
 # Tap a button
-dart run bin/act.dart tap "login_button"
+flutter_skill act tap "login_button"
 ```
 
 **MCP Mode (e.g. Cursor):**

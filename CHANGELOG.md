@@ -1,3 +1,7 @@
+## 0.1.6
+
+- Docs: Updated README to reflect unified `flutter_skill` global commands.
+
 ## 0.1.5
 
 - Fix: Added missing implementation for `scroll` extension found during comprehensive verification.

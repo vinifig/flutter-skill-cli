@@ -1,6 +1,6 @@
 name: flutter_skill
 description: Give your AI Agent eyes and hands inside your Flutter app.
-version: 0.1.5
+version: 0.1.6
 homepage: https://github.com/yourusername/flutter-skill
 # publish_to: 'none' # Remove this when ready to publish to pub.dev
 
