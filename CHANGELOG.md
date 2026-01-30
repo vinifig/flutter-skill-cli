@@ -1,3 +1,44 @@
+## 0.2.19
+
+**Smart Diagnosis Tool**
+
+### New MCP Tools
+
+- `diagnose` - Intelligent log and UI analysis with fix suggestions
+  - Analyzes logs for common error patterns (network, layout, null errors)
+  - Detects UI issues (empty state, high memory usage)
+  - Returns structured diagnosis with issues, suggestions, and next steps
+  - Calculates health score (0-100)
+
+### Supported Issue Detection
+
+| Type | Severity | Detection |
+|------|----------|-----------|
+| Network connection error | critical | Log pattern matching |
+| Timeout exception | critical | Log pattern matching |
+| Layout overflow | warning | Log pattern matching |
+| Null check error | critical | Log pattern matching |
+| State error (disposed widget) | warning | Log pattern matching |
+| High memory usage | warning | Memory threshold check |
+| Empty UI state | warning | UI element inspection |
+
+### Example Usage
+
+```json
+// Call diagnose tool
+{ "tool": "diagnose", "arguments": { "scope": "all" } }
+
+// Returns
+{
+  "summary": { "total_issues": 2, "critical": 1, "warning": 1, "health_score": 60 },
+  "issues": [ { "id": "E001", "type": "network_connection_error", "severity": "critical" } ],
+  "suggestions": [ { "for_issue": "E001", "action": "Check network configuration", "steps": [...] } ],
+  "next_steps": [ { "tool": "tap", "params": { "text": "Retry" } } ]
+}
+```
+
+---
+
 ## 0.2.18
 
 **Connection Reliability & Error Handling Improvements**

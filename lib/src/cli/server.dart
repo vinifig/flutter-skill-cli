@@ -674,6 +674,30 @@ class FlutterMcpServer {
         "description": "Get memory usage statistics (heap, external)",
         "inputSchema": {"type": "object", "properties": {}},
       },
+
+      // === Smart Diagnosis ===
+      {
+        "name": "diagnose",
+        "description": "Analyze logs and UI state to detect issues and provide fix suggestions. Returns structured diagnosis with issues, suggestions, and next steps.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "scope": {
+              "type": "string",
+              "enum": ["all", "logs", "ui", "performance"],
+              "description": "Diagnosis scope (default: all)"
+            },
+            "log_lines": {
+              "type": "integer",
+              "description": "Number of recent log lines to analyze (default: 100)"
+            },
+            "include_screenshot": {
+              "type": "boolean",
+              "description": "Include screenshot in diagnosis (default: false)"
+            },
+          },
+        },
+      },
     ];
   }
 
@@ -1100,6 +1124,10 @@ class FlutterMcpServer {
 
       case 'get_memory_stats':
         return await _client!.getMemoryStats();
+
+      // === Smart Diagnosis ===
+      case 'diagnose':
+        return await _performDiagnosis(args);
 
       default:
         throw Exception("Unknown tool: $name");
@@ -1610,6 +1638,298 @@ Tip: Use get_connection_status() to see available running apps.''');
     }
     return null;
   }
+
+  // ==================== Smart Diagnosis ====================
+
+  /// Diagnose patterns for log analysis
+  static const List<Map<String, dynamic>> _diagnosisPatterns = [
+    // Network errors
+    {
+      'pattern': r'DioException.*connection',
+      'type': 'network_connection_error',
+      'severity': 'critical',
+      'message': 'API connection failed',
+      'suggestion': {
+        'action': 'Check network and API configuration',
+        'steps': [
+          '1. Verify device network connection',
+          '2. Check if API endpoint is accessible',
+          '3. If using local mock, ensure server is running',
+        ],
+      },
+      'next_step': {'tool': 'tap', 'params': {'text': 'Retry'}, 'description': 'Tap retry button'},
+    },
+    {
+      'pattern': r'SocketException',
+      'type': 'network_connection_error',
+      'severity': 'critical',
+      'message': 'Socket connection failed',
+      'suggestion': {
+        'action': 'Check network connectivity',
+        'steps': [
+          '1. Verify network connection',
+          '2. Check firewall settings',
+          '3. Verify server is running',
+        ],
+      },
+      'next_step': {'tool': 'hot_restart', 'params': {}, 'description': 'Restart app to retry connection'},
+    },
+    {
+      'pattern': r'TimeoutException',
+      'type': 'network_timeout',
+      'severity': 'critical',
+      'message': 'Request timeout',
+      'suggestion': {
+        'action': 'Handle slow network or server',
+        'steps': [
+          '1. Check server response time',
+          '2. Consider increasing timeout',
+          '3. Check for network congestion',
+        ],
+      },
+      'next_step': {'tool': 'tap', 'params': {'text': 'Retry'}, 'description': 'Retry the operation'},
+    },
+    // Layout errors
+    {
+      'pattern': r'RenderFlex overflowed',
+      'type': 'layout_overflow',
+      'severity': 'warning',
+      'message': 'Layout overflow detected',
+      'suggestion': {
+        'action': 'Fix layout overflow',
+        'steps': [
+          '1. Use Expanded or Flexible to wrap child widgets',
+          '2. Add SingleChildScrollView for scrollable content',
+          '3. Check fixed sizes and constraints',
+        ],
+        'code_example': '''// Before: Row(children: [Text('Long text...')])
+// After: Row(children: [Expanded(child: Text('Long text...', overflow: TextOverflow.ellipsis))])''',
+      },
+      'next_step': {'tool': 'hot_reload', 'params': {}, 'description': 'Hot reload after fixing code'},
+    },
+    // Null errors
+    {
+      'pattern': r'Null check operator',
+      'type': 'null_check_error',
+      'severity': 'critical',
+      'message': 'Null check failed',
+      'suggestion': {
+        'action': 'Handle null value properly',
+        'steps': [
+          '1. Check data loading state before accessing',
+          '2. Use null-aware operators (?., ??)',
+          '3. Add proper null checks',
+        ],
+      },
+      'next_step': {'tool': 'hot_restart', 'params': {}, 'description': 'Restart after fixing null issue'},
+    },
+    // State errors
+    {
+      'pattern': r'setState.*disposed',
+      'type': 'state_error',
+      'severity': 'warning',
+      'message': 'setState called on disposed widget',
+      'suggestion': {
+        'action': 'Check mounted state before setState',
+        'steps': [
+          '1. Add if (mounted) before setState',
+          '2. Cancel async operations in dispose()',
+          '3. Use proper lifecycle management',
+        ],
+        'code_example': '''// Add mounted check
+if (mounted) {
+  setState(() { ... });
+}''',
+      },
+      'next_step': {'tool': 'hot_reload', 'params': {}, 'description': 'Hot reload after fixing'},
+    },
+    // Memory warnings
+    {
+      'pattern': r'memory.*warning|OutOfMemory',
+      'type': 'memory_high',
+      'severity': 'warning',
+      'message': 'High memory usage detected',
+      'suggestion': {
+        'action': 'Optimize memory usage',
+        'steps': [
+          '1. Check for large images not being disposed',
+          '2. Use ListView.builder instead of ListView',
+          '3. Cancel streams and timers in dispose()',
+        ],
+      },
+      'next_step': {'tool': 'hot_restart', 'params': {}, 'description': 'Restart to free memory'},
+    },
+  ];
+
+  /// Perform comprehensive diagnosis
+  Future<Map<String, dynamic>> _performDiagnosis(Map<String, dynamic> args) async {
+    final scope = args['scope'] ?? 'all';
+    // ignore: unused_local_variable
+    final logLines = args['log_lines'] ?? 100;  // Reserved for future use
+    final includeScreenshot = args['include_screenshot'] ?? false;
+
+    final issues = <Map<String, dynamic>>[];
+    final suggestions = <Map<String, dynamic>>[];
+    final nextSteps = <Map<String, dynamic>>[];
+    var issueCounter = 1;
+
+    // Analyze logs if scope includes logs
+    if (scope == 'all' || scope == 'logs') {
+      try {
+        final logs = await _client!.getLogs();
+        final logsStr = logs.toString();
+
+        // Check each pattern
+        for (final pattern in _diagnosisPatterns) {
+          final regex = RegExp(pattern['pattern'] as String, caseSensitive: false);
+          if (regex.hasMatch(logsStr)) {
+            final issueId = 'E${issueCounter.toString().padLeft(3, '0')}';
+            issueCounter++;
+
+            issues.add({
+              'id': issueId,
+              'type': pattern['type'],
+              'severity': pattern['severity'],
+              'message': pattern['message'],
+            });
+
+            final suggestion = pattern['suggestion'] as Map<String, dynamic>;
+            suggestions.add({
+              'for_issue': issueId,
+              'priority': pattern['severity'] == 'critical' ? 1 : 2,
+              ...suggestion,
+            });
+
+            if (pattern['next_step'] != null) {
+              nextSteps.add({
+                ...pattern['next_step'] as Map<String, dynamic>,
+                'for_issue': issueId,
+              });
+            }
+          }
+        }
+      } catch (e) {
+        // Log analysis failed, continue with other diagnostics
+      }
+    }
+
+    // Analyze UI state if scope includes UI
+    if (scope == 'all' || scope == 'ui') {
+      try {
+        final elements = await _client!.getInteractiveElements();
+
+        // Check for empty state
+        if (elements.isEmpty) {
+          final issueId = 'E${issueCounter.toString().padLeft(3, '0')}';
+          issueCounter++;
+
+          issues.add({
+            'id': issueId,
+            'type': 'empty_state',
+            'severity': 'warning',
+            'message': 'No interactive elements found on screen',
+          });
+
+          suggestions.add({
+            'for_issue': issueId,
+            'priority': 2,
+            'action': 'Check page loading state',
+            'steps': [
+              '1. Verify data loaded successfully',
+              '2. Check if showing loading indicator',
+              '3. Review error handling logic',
+            ],
+          });
+
+          nextSteps.add({
+            'tool': 'screenshot',
+            'params': {},
+            'description': 'Take screenshot to inspect current state',
+            'for_issue': issueId,
+          });
+        }
+      } catch (e) {
+        // UI analysis failed
+      }
+    }
+
+    // Analyze performance if scope includes performance
+    if (scope == 'all' || scope == 'performance') {
+      try {
+        final memoryStats = await _client!.getMemoryStats();
+        final heapUsed = memoryStats['heapUsed'] as int? ?? 0;
+        final heapMB = heapUsed / (1024 * 1024);
+
+        // Check high memory usage (> 300MB)
+        if (heapMB > 300) {
+          final issueId = 'E${issueCounter.toString().padLeft(3, '0')}';
+          issueCounter++;
+
+          issues.add({
+            'id': issueId,
+            'type': 'memory_high',
+            'severity': heapMB > 500 ? 'critical' : 'warning',
+            'message': 'Memory usage ${heapMB.toStringAsFixed(1)}MB exceeds 300MB threshold',
+          });
+
+          suggestions.add({
+            'for_issue': issueId,
+            'priority': heapMB > 500 ? 1 : 2,
+            'action': 'Reduce memory usage',
+            'steps': [
+              '1. Dispose large images when not visible',
+              '2. Use ListView.builder for long lists',
+              '3. Check for memory leaks in streams/timers',
+            ],
+          });
+
+          nextSteps.add({
+            'tool': 'hot_restart',
+            'params': {},
+            'description': 'Restart app to release memory',
+            'for_issue': issueId,
+          });
+        }
+      } catch (e) {
+        // Performance analysis failed
+      }
+    }
+
+    // Calculate health score
+    final criticalCount = issues.where((i) => i['severity'] == 'critical').length;
+    final warningCount = issues.where((i) => i['severity'] == 'warning').length;
+    final healthScore = (100 - (criticalCount * 30) - (warningCount * 10)).clamp(0, 100);
+
+    // Build result
+    final result = <String, dynamic>{
+      'success': true,
+      'timestamp': DateTime.now().toIso8601String(),
+      'summary': {
+        'total_issues': issues.length,
+        'critical': criticalCount,
+        'warning': warningCount,
+        'info': issues.where((i) => i['severity'] == 'info').length,
+        'health_score': healthScore,
+      },
+      'issues': issues,
+      'suggestions': suggestions,
+      'next_steps': nextSteps,
+    };
+
+    // Include screenshot if requested
+    if (includeScreenshot) {
+      try {
+        final screenshot = await _client!.takeScreenshot();
+        result['screenshot'] = screenshot;
+      } catch (e) {
+        // Screenshot failed
+      }
+    }
+
+    return result;
+  }
+
+  // ==================== End Smart Diagnosis ====================
 
   void _sendResult(dynamic id, dynamic result) {
     if (id == null) return;

@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "com.aidashboad"
-version = "0.2.18"
+version = "0.2.19"
 
 repositories {
     mavenCentral()
@@ -30,7 +30,7 @@ intellijPlatform {
         name = "Flutter Skill"
         ideaVersion {
             sinceBuild = "233"
-            untilBuild = "243.*"
+            untilBuild = "253.*"
         }
     }
 

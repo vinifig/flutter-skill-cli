@@ -1,6 +1,6 @@
 {
   "name": "flutter-skill-mcp",
-  "version": "0.2.18",
+  "version": "0.2.19",
   "description": "MCP Server for Flutter app automation - Give your AI Agent eyes and hands inside your Flutter app",
   "main": "index.js",
   "bin": {
