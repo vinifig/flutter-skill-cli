@@ -178,16 +178,16 @@ jobs:
           VERSION=${{ needs.prepare.outputs.version }}
           SHA256=${{ steps.sha256.outputs.sha256 }}
 
-          # Update the formula file
-          sed -i "s|url \".*\"|url \"https://github.com/ai-dashboad/flutter-skill/archive/refs/tags/v${VERSION}.tar.gz\"|" homebrew-tap/flutter-skill.rb
-          sed -i "s|sha256 \".*\"|sha256 \"${SHA256}\"|" homebrew-tap/flutter-skill.rb
+          # Update the formula file (in Formula/ directory)
+          sed -i "s|url \".*\"|url \"https://github.com/ai-dashboad/flutter-skill/archive/refs/tags/v${VERSION}.tar.gz\"|" homebrew-tap/Formula/flutter-skill.rb
+          sed -i "s|sha256 \".*\"|sha256 \"${SHA256}\"|" homebrew-tap/Formula/flutter-skill.rb
 
       - name: Commit and push
         run: |
           cd homebrew-tap
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add flutter-skill.rb
+          git add Formula/flutter-skill.rb
           git commit -m "Update flutter-skill to v${{ needs.prepare.outputs.version }}" || echo "No changes to commit"
           git push
 
