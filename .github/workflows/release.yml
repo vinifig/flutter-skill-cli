@@ -309,7 +309,7 @@ jobs:
           - os: macos-latest
             arch: arm64
             artifact: flutter-skill-macos-arm64
-          - os: macos-15
+          - os: macos-13
             arch: x64
             artifact: flutter-skill-macos-x64
           - os: ubuntu-latest
