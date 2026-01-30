@@ -1,0 +1,41 @@
+name: Snap
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build snap
+        uses: snapcore/action-build@v1
+        id: build
+
+      - name: Upload snap artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: flutter-skill-snap
+          path: ${{ steps.build.outputs.snap }}
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release'
+    steps:
+      - name: Download snap
+        uses: actions/download-artifact@v4
+        with:
+          name: flutter-skill-snap
+
+      - name: Publish to Snap Store
+        uses: snapcore/action-publish@v1
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_TOKEN }}
+        with:
+          snap: flutter-skill_*.snap
+          release: stable
