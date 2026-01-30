@@ -2,7 +2,7 @@ class FlutterSkill < Formula
   desc "MCP Server for Flutter app automation - AI Agent control for Flutter apps"
   homepage "https://github.com/ai-dashboad/flutter-skill"
   url "https://github.com/ai-dashboad/flutter-skill/archive/refs/tags/v0.2.0.tar.gz"
-  sha256 "0019dfc4b32d63c1392aa264aed2253c1e0c2fb09216f8e2cc269bbfb8bb49b5"
+  sha256 "2b1afa456eacc6ad555678346eed8e7d7b9ea5c0f113e9cd1f47f2ff53bd2385"
   license "MIT"
 
   depends_on "dart-lang/dart/dart" => :recommended
@@ -11,10 +11,16 @@ class FlutterSkill < Formula
     # Install Dart source files
     libexec.install Dir["*"]
 
-    # Create wrapper script
+    # Create wrapper script that handles pub get on first run
     (bin/"flutter-skill").write <<~EOS
       #!/bin/bash
       cd "#{libexec}"
+      # Run flutter pub get if .dart_tool doesn't exist or is incomplete
+      if [ ! -f ".dart_tool/package_config.json" ] || ! grep -q "flutter_skill" ".dart_tool/package_config.json" 2>/dev/null; then
+        if command -v flutter &> /dev/null; then
+          flutter pub get >/dev/null 2>&1
+        fi
+      fi
       exec dart run bin/flutter_skill.dart "$@"
     EOS
 
@@ -22,19 +28,33 @@ class FlutterSkill < Formula
     (bin/"flutter-skill-mcp").write <<~EOS
       #!/bin/bash
       cd "#{libexec}"
+      # Run flutter pub get if .dart_tool doesn't exist or is incomplete
+      if [ ! -f ".dart_tool/package_config.json" ] || ! grep -q "flutter_skill" ".dart_tool/package_config.json" 2>/dev/null; then
+        if command -v flutter &> /dev/null; then
+          flutter pub get >/dev/null 2>&1
+        fi
+      fi
       exec dart run bin/server.dart "$@"
     EOS
   end
 
   def post_install
-    # Get pub dependencies
-    system "dart", "pub", "get", chdir: libexec
+    # Try flutter pub get first (preferred for Flutter packages)
+    # Fall back to dart pub get if flutter is not available
+    if system("which flutter > /dev/null 2>&1")
+      system "flutter", "pub", "get", chdir: libexec
+    else
+      ohai "Flutter not found, skipping pub get. Run 'flutter pub get' in #{libexec} after installing Flutter."
+    end
   end
 
   def caveats
     <<~EOS
       flutter-skill requires Flutter SDK for full functionality.
       Install Flutter: https://docs.flutter.dev/get-started/install
+
+      After installing Flutter, run:
+        cd #{libexec} && flutter pub get
 
       MCP Configuration:
         {

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const { spawn } = require('child_process');
+const { spawn, execSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
@@ -11,7 +11,7 @@ const serverScript = path.join(dartDir, 'bin', 'server.dart');
 // Check if Dart is installed
 function checkDart() {
   try {
-    require('child_process').execSync('dart --version', { stdio: 'ignore' });
+    execSync('dart --version', { stdio: 'ignore' });
     return true;
   } catch (e) {
     return false;
@@ -21,7 +21,7 @@ function checkDart() {
 // Check if Flutter is installed
 function checkFlutter() {
   try {
-    require('child_process').execSync('flutter --version', { stdio: 'ignore' });
+    execSync('flutter --version', { stdio: 'ignore' });
     return true;
   } catch (e) {
     return false;
@@ -34,40 +34,34 @@ if (!checkDart()) {
   process.exit(1);
 }
 
-if (!checkFlutter()) {
-  console.error('Warning: Flutter SDK not found. Some features may not work.');
-}
-
 // Check if server script exists
 if (!fs.existsSync(serverScript)) {
   console.error('Error: Server script not found at:', serverScript);
   process.exit(1);
 }
 
-// Get dependencies first (use flutter pub for Flutter packages)
+// Get dependencies silently (redirect to stderr to not interfere with MCP JSON-RPC)
 const pubCmd = checkFlutter() ? 'flutter' : 'dart';
-const pubGet = spawn(pubCmd, ['pub', 'get'], {
-  cwd: dartDir,
-  stdio: 'inherit'
-});
-
-pubGet.on('close', (code) => {
-  if (code !== 0) {
-    console.error('Failed to get dependencies');
-    process.exit(1);
-  }
-
-  // Start the MCP server
-  const server = spawn('dart', ['run', serverScript], {
+try {
+  execSync(`${pubCmd} pub get`, {
     cwd: dartDir,
-    stdio: 'inherit'
+    stdio: ['ignore', 'pipe', 'pipe']  // Silent - don't interfere with MCP stdin/stdout
   });
+} catch (e) {
+  // Log to stderr if pub get fails
+  console.error('Warning: pub get failed, dependencies may be missing');
+}
 
-  server.on('close', (code) => {
-    process.exit(code || 0);
-  });
-
-  // Forward signals
-  process.on('SIGINT', () => server.kill('SIGINT'));
-  process.on('SIGTERM', () => server.kill('SIGTERM'));
+// Start the MCP server with proper stdio for JSON-RPC
+const server = spawn('dart', ['run', serverScript], {
+  cwd: dartDir,
+  stdio: 'inherit'  // stdin/stdout/stderr passed through for MCP communication
 });
+
+server.on('close', (code) => {
+  process.exit(code || 0);
+});
+
+// Forward signals
+process.on('SIGINT', () => server.kill('SIGINT'));
+process.on('SIGTERM', () => server.kill('SIGTERM'));
