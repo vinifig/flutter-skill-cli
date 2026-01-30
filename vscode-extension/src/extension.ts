@@ -6,6 +6,9 @@ import { configureAllAgents, detectAiAgents, checkExistingConfigs } from './mcpC
 import { VmServiceScanner } from './vmServiceScanner';
 import { StatusBar, showStatusMenu } from './statusBar';
 import { promptSetupFlutterSkill, setupFlutterSkill, hasFlutterSkillDependency } from './flutterSetup';
+import { ensureNativeBinary, getBestBinaryPath } from './nativeBinary';
+
+const EXTENSION_VERSION = '0.2.9';
 
 let mcpServerProcess: child_process.ChildProcess | undefined;
 let outputChannel: vscode.OutputChannel;
@@ -67,6 +70,9 @@ export function activate(context: vscode.ExtensionContext) {
         if (config.get('autoSetupDependency')) {
             promptSetupFlutterSkill(outputChannel);
         }
+
+        // Download native binary in background for faster MCP startup
+        ensureNativeBinary(EXTENSION_VERSION, outputChannel);
     }
 
     outputChannel.appendLine('Flutter Skill extension activated');
@@ -245,12 +251,22 @@ async function startMcpServer(): Promise<void> {
         return;
     }
 
-    const config = vscode.workspace.getConfiguration('flutter-skill');
-    const dartPath = config.get<string>('dartPath') || 'dart';
+    // Get the best available binary (native or dart fallback)
+    const { path: binaryPath, isNative } = await getBestBinaryPath(EXTENSION_VERSION, outputChannel);
 
-    mcpServerProcess = child_process.spawn(dartPath, ['pub', 'global', 'run', 'flutter_skill', 'server'], {
-        stdio: ['pipe', 'pipe', 'pipe']
-    });
+    if (isNative) {
+        outputChannel.appendLine(`[MCP] Using native binary: ${binaryPath}`);
+        mcpServerProcess = child_process.spawn(binaryPath, ['server'], {
+            stdio: ['pipe', 'pipe', 'pipe']
+        });
+    } else {
+        outputChannel.appendLine('[MCP] Using Dart runtime (native binary not available)');
+        const config = vscode.workspace.getConfiguration('flutter-skill');
+        const dartPath = config.get<string>('dartPath') || 'dart';
+        mcpServerProcess = child_process.spawn(dartPath, ['pub', 'global', 'run', 'flutter_skill', 'server'], {
+            stdio: ['pipe', 'pipe', 'pipe']
+        });
+    }
 
     mcpServerProcess.stdout?.on('data', (data) => {
         outputChannel.appendLine(`[MCP] ${data}`);
