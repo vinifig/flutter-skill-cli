@@ -19,24 +19,35 @@ Future<void> runServer(List<String> args) async {
 /// Check pub.dev for newer version
 Future<void> _checkForUpdates() async {
   try {
-    final response = await http.get(
-      Uri.parse('https://pub.dev/api/packages/flutter_skill'),
-    ).timeout(const Duration(seconds: 5));
+    final response = await http
+        .get(
+          Uri.parse('https://pub.dev/api/packages/flutter_skill'),
+        )
+        .timeout(const Duration(seconds: 5));
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
       final latestVersion = data['latest']?['version'] as String?;
 
-      if (latestVersion != null && _isNewerVersion(latestVersion, _currentVersion)) {
+      if (latestVersion != null &&
+          _isNewerVersion(latestVersion, _currentVersion)) {
         stderr.writeln('');
-        stderr.writeln('╔══════════════════════════════════════════════════════════╗');
-        stderr.writeln('║  flutter-skill v$latestVersion available (current: v$_currentVersion)');
-        stderr.writeln('║                                                          ║');
-        stderr.writeln('║  Update with:                                            ║');
-        stderr.writeln('║    dart pub global activate flutter_skill                ║');
-        stderr.writeln('║  Or:                                                     ║');
-        stderr.writeln('║    npm update -g flutter-skill-mcp                       ║');
-        stderr.writeln('╚══════════════════════════════════════════════════════════╝');
+        stderr.writeln(
+            '╔══════════════════════════════════════════════════════════╗');
+        stderr.writeln(
+            '║  flutter-skill v$latestVersion available (current: v$_currentVersion)');
+        stderr.writeln(
+            '║                                                          ║');
+        stderr.writeln(
+            '║  Update with:                                            ║');
+        stderr.writeln(
+            '║    dart pub global activate flutter_skill                ║');
+        stderr.writeln(
+            '║  Or:                                                     ║');
+        stderr.writeln(
+            '║    npm update -g flutter-skill-mcp                       ║');
+        stderr.writeln(
+            '╚══════════════════════════════════════════════════════════╝');
         stderr.writeln('');
       }
     }
@@ -64,7 +75,10 @@ class FlutterMcpServer {
   Process? _flutterProcess;
 
   Future<void> run() async {
-    stdin.transform(utf8.decoder).transform(const LineSplitter()).listen((line) async {
+    stdin
+        .transform(utf8.decoder)
+        .transform(const LineSplitter())
+        .listen((line) async {
       if (line.trim().isEmpty) return;
       try {
         final request = jsonDecode(line);
@@ -87,7 +101,10 @@ class FlutterMcpServer {
         _sendResult(id, {
           "capabilities": {"tools": {}, "resources": {}},
           "protocolVersion": "2024-11-05",
-          "serverInfo": {"name": "flutter-skill-mcp", "version": _currentVersion},
+          "serverInfo": {
+            "name": "flutter-skill-mcp",
+            "version": _currentVersion
+          },
         });
       } else if (method == 'notifications/initialized') {
         // No op
@@ -119,7 +136,10 @@ class FlutterMcpServer {
         "inputSchema": {
           "type": "object",
           "properties": {
-            "uri": {"type": "string", "description": "WebSocket URI (ws://...)"},
+            "uri": {
+              "type": "string",
+              "description": "WebSocket URI (ws://...)"
+            },
           },
           "required": ["uri"],
         },
@@ -130,34 +150,62 @@ class FlutterMcpServer {
         "inputSchema": {
           "type": "object",
           "properties": {
-            "project_path": {"type": "string", "description": "Path to Flutter project"},
+            "project_path": {
+              "type": "string",
+              "description": "Path to Flutter project"
+            },
             "device_id": {"type": "string", "description": "Target device"},
-            "dart_defines": {"type": "array", "items": {"type": "string"}, "description": "Dart defines (e.g. ['ENV=staging', 'DEBUG=true'])"},
-            "extra_args": {"type": "array", "items": {"type": "string"}, "description": "Additional flutter run arguments"},
+            "dart_defines": {
+              "type": "array",
+              "items": {"type": "string"},
+              "description": "Dart defines (e.g. ['ENV=staging', 'DEBUG=true'])"
+            },
+            "extra_args": {
+              "type": "array",
+              "items": {"type": "string"},
+              "description": "Additional flutter run arguments"
+            },
             "flavor": {"type": "string", "description": "Build flavor"},
-            "target": {"type": "string", "description": "Target file (e.g. lib/main_staging.dart)"},
+            "target": {
+              "type": "string",
+              "description": "Target file (e.g. lib/main_staging.dart)"
+            },
           },
         },
       },
       {
         "name": "scan_and_connect",
-        "description": "Scan for running Flutter apps and auto-connect to the first one found",
+        "description":
+            "Scan for running Flutter apps and auto-connect to the first one found",
         "inputSchema": {
           "type": "object",
           "properties": {
-            "port_start": {"type": "integer", "description": "Start of port range (default: 50000)"},
-            "port_end": {"type": "integer", "description": "End of port range (default: 50100)"},
+            "port_start": {
+              "type": "integer",
+              "description": "Start of port range (default: 50000)"
+            },
+            "port_end": {
+              "type": "integer",
+              "description": "End of port range (default: 50100)"
+            },
           },
         },
       },
       {
         "name": "list_running_apps",
-        "description": "List all running Flutter apps (VM Services) on the system",
+        "description":
+            "List all running Flutter apps (VM Services) on the system",
         "inputSchema": {
           "type": "object",
           "properties": {
-            "port_start": {"type": "integer", "description": "Start of port range (default: 50000)"},
-            "port_end": {"type": "integer", "description": "End of port range (default: 50100)"},
+            "port_start": {
+              "type": "integer",
+              "description": "Start of port range (default: 50000)"
+            },
+            "port_end": {
+              "type": "integer",
+              "description": "End of port range (default: 50100)"
+            },
           },
         },
       },
@@ -168,7 +216,8 @@ class FlutterMcpServer {
       },
       {
         "name": "disconnect",
-        "description": "Disconnect from the current Flutter app (without stopping it)",
+        "description":
+            "Disconnect from the current Flutter app (without stopping it)",
         "inputSchema": {"type": "object", "properties": {}},
       },
       {
@@ -189,7 +238,10 @@ class FlutterMcpServer {
         "inputSchema": {
           "type": "object",
           "properties": {
-            "max_depth": {"type": "integer", "description": "Maximum tree depth (default: 10)"},
+            "max_depth": {
+              "type": "integer",
+              "description": "Maximum tree depth (default: 10)"
+            },
           },
         },
       },
@@ -215,7 +267,10 @@ class FlutterMcpServer {
         "inputSchema": {
           "type": "object",
           "properties": {
-            "type": {"type": "string", "description": "Widget type name to search"},
+            "type": {
+              "type": "string",
+              "description": "Widget type name to search"
+            },
           },
           "required": ["type"],
         },
@@ -266,7 +321,10 @@ class FlutterMcpServer {
           "properties": {
             "key": {"type": "string", "description": "Widget key"},
             "text": {"type": "string", "description": "Text to find"},
-            "duration": {"type": "integer", "description": "Duration in ms (default: 500)"},
+            "duration": {
+              "type": "integer",
+              "description": "Duration in ms (default: 500)"
+            },
           },
         },
       },
@@ -287,9 +345,18 @@ class FlutterMcpServer {
         "inputSchema": {
           "type": "object",
           "properties": {
-            "direction": {"type": "string", "enum": ["up", "down", "left", "right"]},
-            "distance": {"type": "number", "description": "Swipe distance in pixels (default: 300)"},
-            "key": {"type": "string", "description": "Start from element (optional)"},
+            "direction": {
+              "type": "string",
+              "enum": ["up", "down", "left", "right"]
+            },
+            "distance": {
+              "type": "number",
+              "description": "Swipe distance in pixels (default: 300)"
+            },
+            "key": {
+              "type": "string",
+              "description": "Start from element (optional)"
+            },
           },
           "required": ["direction"],
         },
@@ -349,7 +416,10 @@ class FlutterMcpServer {
           "properties": {
             "key": {"type": "string", "description": "Widget key"},
             "text": {"type": "string", "description": "Text to find"},
-            "timeout": {"type": "integer", "description": "Timeout in ms (default: 5000)"},
+            "timeout": {
+              "type": "integer",
+              "description": "Timeout in ms (default: 5000)"
+            },
           },
         },
       },
@@ -361,7 +431,10 @@ class FlutterMcpServer {
           "properties": {
             "key": {"type": "string", "description": "Widget key"},
             "text": {"type": "string", "description": "Text to find"},
-            "timeout": {"type": "integer", "description": "Timeout in ms (default: 5000)"},
+            "timeout": {
+              "type": "integer",
+              "description": "Timeout in ms (default: 5000)"
+            },
           },
         },
       },
@@ -373,8 +446,15 @@ class FlutterMcpServer {
         "inputSchema": {
           "type": "object",
           "properties": {
-            "quality": {"type": "number", "description": "Image quality 0.1-1.0 (default: 1.0, lower = smaller file)"},
-            "max_width": {"type": "integer", "description": "Maximum width in pixels (scales down if larger)"},
+            "quality": {
+              "type": "number",
+              "description":
+                  "Image quality 0.1-1.0 (default: 1.0, lower = smaller file)"
+            },
+            "max_width": {
+              "type": "integer",
+              "description": "Maximum width in pixels (scales down if larger)"
+            },
           },
         },
       },
@@ -384,8 +464,14 @@ class FlutterMcpServer {
         "inputSchema": {
           "type": "object",
           "properties": {
-            "x": {"type": "number", "description": "X coordinate of top-left corner"},
-            "y": {"type": "number", "description": "Y coordinate of top-left corner"},
+            "x": {
+              "type": "number",
+              "description": "X coordinate of top-left corner"
+            },
+            "y": {
+              "type": "number",
+              "description": "Y coordinate of top-left corner"
+            },
             "width": {"type": "number", "description": "Width of region"},
             "height": {"type": "number", "description": "Height of region"},
           },
@@ -469,7 +555,8 @@ class FlutterMcpServer {
       // === NEW: Batch Operations ===
       {
         "name": "execute_batch",
-        "description": "Execute multiple actions in sequence. Reduces round-trip latency for complex test flows.",
+        "description":
+            "Execute multiple actions in sequence. Reduces round-trip latency for complex test flows.",
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -479,7 +566,11 @@ class FlutterMcpServer {
               "items": {
                 "type": "object",
                 "properties": {
-                  "action": {"type": "string", "description": "Action name (tap, enter_text, swipe, wait, screenshot, assert_visible, assert_text)"},
+                  "action": {
+                    "type": "string",
+                    "description":
+                        "Action name (tap, enter_text, swipe, wait, screenshot, assert_visible, assert_text)"
+                  },
                   "key": {"type": "string"},
                   "text": {"type": "string"},
                   "value": {"type": "string"},
@@ -490,7 +581,10 @@ class FlutterMcpServer {
                 "required": ["action"],
               },
             },
-            "stop_on_failure": {"type": "boolean", "description": "Stop execution on first failure (default: true)"},
+            "stop_on_failure": {
+              "type": "boolean",
+              "description": "Stop execution on first failure (default: true)"
+            },
           },
           "required": ["actions"],
         },
@@ -517,7 +611,10 @@ class FlutterMcpServer {
           "properties": {
             "x": {"type": "number", "description": "X coordinate"},
             "y": {"type": "number", "description": "Y coordinate"},
-            "duration": {"type": "integer", "description": "Duration in ms (default: 500)"},
+            "duration": {
+              "type": "integer",
+              "description": "Duration in ms (default: 500)"
+            },
           },
           "required": ["x", "y"],
         },
@@ -532,47 +629,97 @@ class FlutterMcpServer {
             "start_y": {"type": "number", "description": "Start Y coordinate"},
             "end_x": {"type": "number", "description": "End X coordinate"},
             "end_y": {"type": "number", "description": "End Y coordinate"},
-            "duration": {"type": "integer", "description": "Duration in ms (default: 300)"},
+            "duration": {
+              "type": "integer",
+              "description": "Duration in ms (default: 300)"
+            },
           },
           "required": ["start_x", "start_y", "end_x", "end_y"],
         },
       },
       {
         "name": "edge_swipe",
-        "description": "Swipe from screen edge (for drawer menus, back gestures)",
+        "description":
+            "Swipe from screen edge (for drawer menus, back gestures)",
         "inputSchema": {
           "type": "object",
           "properties": {
-            "edge": {"type": "string", "enum": ["left", "right", "top", "bottom"], "description": "Screen edge to start from"},
-            "direction": {"type": "string", "enum": ["up", "down", "left", "right"], "description": "Swipe direction"},
-            "distance": {"type": "number", "description": "Swipe distance in pixels (default: 200)"},
+            "edge": {
+              "type": "string",
+              "enum": ["left", "right", "top", "bottom"],
+              "description": "Screen edge to start from"
+            },
+            "direction": {
+              "type": "string",
+              "enum": ["up", "down", "left", "right"],
+              "description": "Swipe direction"
+            },
+            "distance": {
+              "type": "number",
+              "description": "Swipe distance in pixels (default: 200)"
+            },
           },
           "required": ["edge", "direction"],
         },
       },
       {
         "name": "gesture",
-        "description": "Perform a gesture with preset or custom coordinates. Presets: drawer_open, drawer_close, pull_refresh, page_back, swipe_left, swipe_right",
+        "description":
+            "Perform a gesture with preset or custom coordinates. Presets: drawer_open, drawer_close, pull_refresh, page_back, swipe_left, swipe_right",
         "inputSchema": {
           "type": "object",
           "properties": {
-            "preset": {"type": "string", "enum": ["drawer_open", "drawer_close", "pull_refresh", "page_back", "swipe_left", "swipe_right"], "description": "Use a predefined gesture"},
-            "from_x": {"type": "number", "description": "Custom start X (0.0-1.0 as ratio, or pixels)"},
-            "from_y": {"type": "number", "description": "Custom start Y (0.0-1.0 as ratio, or pixels)"},
-            "to_x": {"type": "number", "description": "Custom end X (0.0-1.0 as ratio, or pixels)"},
-            "to_y": {"type": "number", "description": "Custom end Y (0.0-1.0 as ratio, or pixels)"},
-            "duration": {"type": "integer", "description": "Gesture duration in ms (default: 300)"},
+            "preset": {
+              "type": "string",
+              "enum": [
+                "drawer_open",
+                "drawer_close",
+                "pull_refresh",
+                "page_back",
+                "swipe_left",
+                "swipe_right"
+              ],
+              "description": "Use a predefined gesture"
+            },
+            "from_x": {
+              "type": "number",
+              "description": "Custom start X (0.0-1.0 as ratio, or pixels)"
+            },
+            "from_y": {
+              "type": "number",
+              "description": "Custom start Y (0.0-1.0 as ratio, or pixels)"
+            },
+            "to_x": {
+              "type": "number",
+              "description": "Custom end X (0.0-1.0 as ratio, or pixels)"
+            },
+            "to_y": {
+              "type": "number",
+              "description": "Custom end Y (0.0-1.0 as ratio, or pixels)"
+            },
+            "duration": {
+              "type": "integer",
+              "description": "Gesture duration in ms (default: 300)"
+            },
           },
         },
       },
       {
         "name": "wait_for_idle",
-        "description": "Wait for the app to become idle (no animations, no pending frames)",
+        "description":
+            "Wait for the app to become idle (no animations, no pending frames)",
         "inputSchema": {
           "type": "object",
           "properties": {
-            "timeout": {"type": "integer", "description": "Maximum wait time in ms (default: 5000)"},
-            "min_idle_time": {"type": "integer", "description": "Minimum idle duration to confirm stability (default: 500)"},
+            "timeout": {
+              "type": "integer",
+              "description": "Maximum wait time in ms (default: 5000)"
+            },
+            "min_idle_time": {
+              "type": "integer",
+              "description":
+                  "Minimum idle duration to confirm stability (default: 500)"
+            },
           },
         },
       },
@@ -580,15 +727,26 @@ class FlutterMcpServer {
       // === NEW: Smart Scroll ===
       {
         "name": "scroll_until_visible",
-        "description": "Scroll in a direction until target element becomes visible",
+        "description":
+            "Scroll in a direction until target element becomes visible",
         "inputSchema": {
           "type": "object",
           "properties": {
             "key": {"type": "string", "description": "Target element key"},
             "text": {"type": "string", "description": "Target element text"},
-            "direction": {"type": "string", "enum": ["up", "down", "left", "right"], "description": "Scroll direction (default: down)"},
-            "max_scrolls": {"type": "integer", "description": "Maximum scroll attempts (default: 10)"},
-            "scrollable_key": {"type": "string", "description": "Key of the scrollable container (optional)"},
+            "direction": {
+              "type": "string",
+              "enum": ["up", "down", "left", "right"],
+              "description": "Scroll direction (default: down)"
+            },
+            "max_scrolls": {
+              "type": "integer",
+              "description": "Maximum scroll attempts (default: 10)"
+            },
+            "scrollable_key": {
+              "type": "string",
+              "description": "Key of the scrollable container (optional)"
+            },
           },
         },
       },
@@ -602,7 +760,10 @@ class FlutterMcpServer {
           "properties": {
             "key": {"type": "string", "description": "Element key"},
             "text": {"type": "string", "description": "Element text"},
-            "timeout": {"type": "integer", "description": "Wait timeout in ms (default: 5000)"},
+            "timeout": {
+              "type": "integer",
+              "description": "Wait timeout in ms (default: 5000)"
+            },
           },
         },
       },
@@ -614,7 +775,10 @@ class FlutterMcpServer {
           "properties": {
             "key": {"type": "string", "description": "Element key"},
             "text": {"type": "string", "description": "Element text"},
-            "timeout": {"type": "integer", "description": "Wait timeout in ms (default: 5000)"},
+            "timeout": {
+              "type": "integer",
+              "description": "Wait timeout in ms (default: 5000)"
+            },
           },
         },
       },
@@ -625,8 +789,14 @@ class FlutterMcpServer {
           "type": "object",
           "properties": {
             "key": {"type": "string", "description": "Element key"},
-            "expected": {"type": "string", "description": "Expected text content"},
-            "contains": {"type": "boolean", "description": "Use contains instead of equals (default: false)"},
+            "expected": {
+              "type": "string",
+              "description": "Expected text content"
+            },
+            "contains": {
+              "type": "boolean",
+              "description": "Use contains instead of equals (default: false)"
+            },
           },
           "required": ["key", "expected"],
         },
@@ -639,9 +809,18 @@ class FlutterMcpServer {
           "properties": {
             "type": {"type": "string", "description": "Widget type to count"},
             "text": {"type": "string", "description": "Text to match"},
-            "expected_count": {"type": "integer", "description": "Expected count"},
-            "min_count": {"type": "integer", "description": "Minimum count (alternative to exact)"},
-            "max_count": {"type": "integer", "description": "Maximum count (alternative to exact)"},
+            "expected_count": {
+              "type": "integer",
+              "description": "Expected count"
+            },
+            "min_count": {
+              "type": "integer",
+              "description": "Minimum count (alternative to exact)"
+            },
+            "max_count": {
+              "type": "integer",
+              "description": "Maximum count (alternative to exact)"
+            },
           },
         },
       },
@@ -649,16 +828,21 @@ class FlutterMcpServer {
       // === NEW: Page State ===
       {
         "name": "get_page_state",
-        "description": "Get complete page state snapshot (route, scroll position, focused element, keyboard, loading indicators)",
+        "description":
+            "Get complete page state snapshot (route, scroll position, focused element, keyboard, loading indicators)",
         "inputSchema": {"type": "object", "properties": {}},
       },
       {
         "name": "get_interactable_elements",
-        "description": "Get all interactable elements on current screen with suggested actions",
+        "description":
+            "Get all interactable elements on current screen with suggested actions",
         "inputSchema": {
           "type": "object",
           "properties": {
-            "include_positions": {"type": "boolean", "description": "Include x/y positions (default: true)"},
+            "include_positions": {
+              "type": "boolean",
+              "description": "Include x/y positions (default: true)"
+            },
           },
         },
       },
@@ -666,7 +850,8 @@ class FlutterMcpServer {
       // === NEW: Performance & Memory ===
       {
         "name": "get_frame_stats",
-        "description": "Get frame rendering statistics (FPS, jank, build/raster times)",
+        "description":
+            "Get frame rendering statistics (FPS, jank, build/raster times)",
         "inputSchema": {"type": "object", "properties": {}},
       },
       {
@@ -678,7 +863,8 @@ class FlutterMcpServer {
       // === Smart Diagnosis ===
       {
         "name": "diagnose",
-        "description": "Analyze logs and UI state to detect issues and provide fix suggestions. Returns structured diagnosis with issues, suggestions, and next steps.",
+        "description":
+            "Analyze logs and UI state to detect issues and provide fix suggestions. Returns structured diagnosis with issues, suggestions, and next steps.",
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -689,7 +875,8 @@ class FlutterMcpServer {
             },
             "log_lines": {
               "type": "integer",
-              "description": "Number of recent log lines to analyze (default: 100)"
+              "description":
+                  "Number of recent log lines to analyze (default: 100)"
             },
             "include_screenshot": {
               "type": "boolean",
@@ -731,7 +918,8 @@ class FlutterMcpServer {
 
           if (attempt < maxRetries) {
             // Wait before retry (100ms, 200ms, 400ms)
-            await Future.delayed(Duration(milliseconds: 100 * (1 << (attempt - 1))));
+            await Future.delayed(
+                Duration(milliseconds: 100 * (1 << (attempt - 1))));
           }
         }
       }
@@ -789,11 +977,15 @@ class FlutterMcpServer {
         // Continue even if setup fails
       }
 
-      _flutterProcess = await Process.start('flutter', processArgs, workingDirectory: projectPath);
+      _flutterProcess = await Process.start('flutter', processArgs,
+          workingDirectory: projectPath);
 
       final completer = Completer<String>();
 
-      _flutterProcess!.stdout.transform(utf8.decoder).transform(const LineSplitter()).listen((line) {
+      _flutterProcess!.stdout
+          .transform(utf8.decoder)
+          .transform(const LineSplitter())
+          .listen((line) {
         if (line.contains('ws://')) {
           final uriRegex = RegExp(r'ws://[a-zA-Z0-9.:/-]+');
           final match = uriRegex.firstMatch(line);
@@ -802,9 +994,11 @@ class FlutterMcpServer {
             _client?.disconnect();
             _client = FlutterSkillClient(uri);
             _client!.connect().then((_) {
-              if (!completer.isCompleted) completer.complete("Launched and connected to $uri");
+              if (!completer.isCompleted)
+                completer.complete("Launched and connected to $uri");
             }).catchError((e) {
-              if (!completer.isCompleted) completer.completeError("Found URI but failed to connect: $e");
+              if (!completer.isCompleted)
+                completer.completeError("Found URI but failed to connect: $e");
             });
           }
         }
@@ -818,7 +1012,8 @@ class FlutterMcpServer {
       });
 
       try {
-        return await completer.future.timeout(const Duration(seconds: 180));  // 3 minutes for slow builds
+        return await completer.future
+            .timeout(const Duration(seconds: 180)); // 3 minutes for slow builds
       } on TimeoutException {
         return {
           "success": false,
@@ -950,8 +1145,10 @@ class FlutterMcpServer {
           return {
             "success": false,
             "error": result['error'] ?? {"message": "Element not found"},
-            "target": result['target'] ?? {"key": args['key'], "text": args['text']},
-            if (result['suggestions'] != null) "suggestions": result['suggestions'],
+            "target":
+                result['target'] ?? {"key": args['key'], "text": args['text']},
+            if (result['suggestions'] != null)
+              "suggestions": result['suggestions'],
           };
         }
         return {
@@ -967,13 +1164,15 @@ class FlutterMcpServer {
             "success": false,
             "error": result['error'] ?? {"message": "TextField not found"},
             "target": result['target'] ?? {"key": args['key']},
-            if (result['suggestions'] != null) "suggestions": result['suggestions'],
+            if (result['suggestions'] != null)
+              "suggestions": result['suggestions'],
           };
         }
         return {"success": true, "message": "Text entered"};
 
       case 'scroll_to':
-        final result = await _client!.scrollTo(key: args['key'], text: args['text']);
+        final result =
+            await _client!.scrollTo(key: args['key'], text: args['text']);
         if (result['success'] != true) {
           return {
             "success": false,
@@ -985,17 +1184,21 @@ class FlutterMcpServer {
       // Advanced Actions
       case 'long_press':
         final duration = args['duration'] ?? 500;
-        final success = await _client!.longPress(key: args['key'], text: args['text'], duration: duration);
+        final success = await _client!.longPress(
+            key: args['key'], text: args['text'], duration: duration);
         return success ? "Long pressed" : "Long press failed";
       case 'double_tap':
-        final success = await _client!.doubleTap(key: args['key'], text: args['text']);
+        final success =
+            await _client!.doubleTap(key: args['key'], text: args['text']);
         return success ? "Double tapped" : "Double tap failed";
       case 'swipe':
         final distance = (args['distance'] ?? 300).toDouble();
-        final success = await _client!.swipe(direction: args['direction'], distance: distance, key: args['key']);
+        final success = await _client!.swipe(
+            direction: args['direction'], distance: distance, key: args['key']);
         return success ? "Swiped ${args['direction']}" : "Swipe failed";
       case 'drag':
-        final success = await _client!.drag(fromKey: args['from_key'], toKey: args['to_key']);
+        final success = await _client!
+            .drag(fromKey: args['from_key'], toKey: args['to_key']);
         return success ? "Dragged" : "Drag failed";
 
       // State & Validation
@@ -1007,18 +1210,21 @@ class FlutterMcpServer {
         return await _client!.getSliderValue(args['key']);
       case 'wait_for_element':
         final timeout = args['timeout'] ?? 5000;
-        final found = await _client!.waitForElement(key: args['key'], text: args['text'], timeout: timeout);
+        final found = await _client!.waitForElement(
+            key: args['key'], text: args['text'], timeout: timeout);
         return {"found": found};
       case 'wait_for_gone':
         final timeout = args['timeout'] ?? 5000;
-        final gone = await _client!.waitForGone(key: args['key'], text: args['text'], timeout: timeout);
+        final gone = await _client!.waitForGone(
+            key: args['key'], text: args['text'], timeout: timeout);
         return {"gone": gone};
 
       // Screenshot
       case 'screenshot':
         final quality = (args['quality'] as num?)?.toDouble() ?? 1.0;
         final maxWidth = args['max_width'] as int?;
-        final image = await _client!.takeScreenshot(quality: quality, maxWidth: maxWidth);
+        final image =
+            await _client!.takeScreenshot(quality: quality, maxWidth: maxWidth);
         return {"image": image, "quality": quality, "max_width": maxWidth};
 
       case 'screenshot_region':
@@ -1027,7 +1233,10 @@ class FlutterMcpServer {
         final width = (args['width'] as num).toDouble();
         final height = (args['height'] as num).toDouble();
         final image = await _client!.takeRegionScreenshot(x, y, width, height);
-        return {"image": image, "region": {"x": x, "y": y, "width": width, "height": height}};
+        return {
+          "image": image,
+          "region": {"x": x, "y": y, "width": width, "height": height}
+        };
 
       case 'screenshot_element':
         final image = await _client!.takeElementScreenshot(args['key']);
@@ -1077,14 +1286,16 @@ class FlutterMcpServer {
         final endX = (args['end_x'] as num).toDouble();
         final endY = (args['end_y'] as num).toDouble();
         final duration = args['duration'] ?? 300;
-        await _client!.swipeCoordinates(startX, startY, endX, endY, duration: duration);
+        await _client!
+            .swipeCoordinates(startX, startY, endX, endY, duration: duration);
         return {"success": true, "action": "swipe_coordinates"};
 
       case 'edge_swipe':
         final edge = args['edge'] as String;
         final direction = args['direction'] as String;
         final distance = (args['distance'] as num?)?.toDouble() ?? 200;
-        final result = await _client!.edgeSwipe(edge: edge, direction: direction, distance: distance);
+        final result = await _client!
+            .edgeSwipe(edge: edge, direction: direction, distance: distance);
         return result;
 
       case 'gesture':
@@ -1116,7 +1327,8 @@ class FlutterMcpServer {
 
       case 'get_interactable_elements':
         final includePositions = args['include_positions'] ?? true;
-        return await _client!.getInteractiveElements(includePositions: includePositions);
+        return await _client!
+            .getInteractiveElements(includePositions: includePositions);
 
       // === NEW: Performance & Memory ===
       case 'get_frame_stats':
@@ -1152,7 +1364,8 @@ class FlutterMcpServer {
 
         switch (actionName) {
           case 'tap':
-            final tapResult = await _client!.tap(key: action['key'], text: action['text']);
+            final tapResult =
+                await _client!.tap(key: action['key'], text: action['text']);
             if (tapResult['success'] != true) {
               throw Exception(tapResult['message'] ?? "Element not found");
             }
@@ -1160,7 +1373,8 @@ class FlutterMcpServer {
             break;
 
           case 'enter_text':
-            final enterResult = await _client!.enterText(action['key'], action['text'] ?? action['value']);
+            final enterResult = await _client!
+                .enterText(action['key'], action['text'] ?? action['value']);
             if (enterResult['success'] != true) {
               throw Exception(enterResult['message'] ?? "TextField not found");
             }
@@ -1203,14 +1417,16 @@ class FlutterMcpServer {
             final actual = await _client!.getTextValue(action['key']);
             final expected = action['expected'];
             if (actual != expected) {
-              throw Exception("Text mismatch: expected '$expected', got '$actual'");
+              throw Exception(
+                  "Text mismatch: expected '$expected', got '$actual'");
             }
             result = "Text matches";
             break;
 
           case 'long_press':
             final duration = action['duration'] ?? 500;
-            await _client!.longPress(key: action['key'], text: action['text'], duration: duration);
+            await _client!.longPress(
+                key: action['key'], text: action['text'], duration: duration);
             result = "Long pressed";
             break;
 
@@ -1236,7 +1452,6 @@ class FlutterMcpServer {
           "duration_ms": duration,
           "result": result,
         });
-
       } catch (e) {
         allSuccess = false;
         final duration = DateTime.now().difference(startTime).inMilliseconds;
@@ -1331,7 +1546,8 @@ class FlutterMcpServer {
   };
 
   /// Perform gesture with preset or custom coordinates
-  Future<Map<String, dynamic>> _performGesture(Map<String, dynamic> args) async {
+  Future<Map<String, dynamic>> _performGesture(
+      Map<String, dynamic> args) async {
     final preset = args['preset'] as String?;
     final duration = args['duration'] as int? ?? 300;
 
@@ -1365,8 +1581,10 @@ class FlutterMcpServer {
 
     // Get screen size to convert ratios to pixels
     final layoutTree = await _client!.getLayoutTree();
-    final screenWidth = (layoutTree['size']?['width'] as num?)?.toDouble() ?? 400.0;
-    final screenHeight = (layoutTree['size']?['height'] as num?)?.toDouble() ?? 800.0;
+    final screenWidth =
+        (layoutTree['size']?['width'] as num?)?.toDouble() ?? 400.0;
+    final screenHeight =
+        (layoutTree['size']?['height'] as num?)?.toDouble() ?? 800.0;
 
     // Convert ratios (0.0-1.0) to pixels if values are small
     final startX = fromX <= 1.0 ? fromX * screenWidth : fromX;
@@ -1374,7 +1592,8 @@ class FlutterMcpServer {
     final endX = toX <= 1.0 ? toX * screenWidth : toX;
     final endY = toY <= 1.0 ? toY * screenHeight : toY;
 
-    await _client!.swipeCoordinates(startX, startY, endX, endY, duration: gestureDuration);
+    await _client!.swipeCoordinates(startX, startY, endX, endY,
+        duration: gestureDuration);
 
     return {
       "success": true,
@@ -1401,7 +1620,8 @@ class FlutterMcpServer {
 
       if (currentTree == previousTree) {
         // No changes detected
-        final idleTime = DateTime.now().difference(lastActivityTime).inMilliseconds;
+        final idleTime =
+            DateTime.now().difference(lastActivityTime).inMilliseconds;
         if (idleTime >= minIdleTime) {
           return {
             "success": true,
@@ -1429,7 +1649,8 @@ class FlutterMcpServer {
   }
 
   /// Scroll until element becomes visible
-  Future<Map<String, dynamic>> _scrollUntilVisible(Map<String, dynamic> args) async {
+  Future<Map<String, dynamic>> _scrollUntilVisible(
+      Map<String, dynamic> args) async {
     final key = args['key'] as String?;
     final text = args['text'] as String?;
     final direction = args['direction'] ?? 'down';
@@ -1472,26 +1693,33 @@ class FlutterMcpServer {
   }
 
   /// Assert element visibility
-  Future<Map<String, dynamic>> _assertVisible(Map<String, dynamic> args, {required bool shouldBeVisible}) async {
+  Future<Map<String, dynamic>> _assertVisible(Map<String, dynamic> args,
+      {required bool shouldBeVisible}) async {
     final key = args['key'] as String?;
     final text = args['text'] as String?;
     final timeout = args['timeout'] ?? 5000;
 
     if (shouldBeVisible) {
-      final found = await _client!.waitForElement(key: key, text: text, timeout: timeout);
+      final found =
+          await _client!.waitForElement(key: key, text: text, timeout: timeout);
       return {
         "success": found,
         "assertion": "visible",
         "element": key ?? text,
-        "message": found ? "Element is visible" : "Element not found within ${timeout}ms",
+        "message": found
+            ? "Element is visible"
+            : "Element not found within ${timeout}ms",
       };
     } else {
-      final gone = await _client!.waitForGone(key: key, text: text, timeout: timeout);
+      final gone =
+          await _client!.waitForGone(key: key, text: text, timeout: timeout);
       return {
         "success": gone,
         "assertion": "not_visible",
         "element": key ?? text,
-        "message": gone ? "Element is not visible" : "Element still visible after ${timeout}ms",
+        "message": gone
+            ? "Element is not visible"
+            : "Element still visible after ${timeout}ms",
       };
     }
   }
@@ -1524,7 +1752,8 @@ class FlutterMcpServer {
   }
 
   /// Assert element count
-  Future<Map<String, dynamic>> _assertElementCount(Map<String, dynamic> args) async {
+  Future<Map<String, dynamic>> _assertElementCount(
+      Map<String, dynamic> args) async {
     final type = args['type'] as String?;
     final text = args['text'] as String?;
     final expectedCount = args['expected_count'] as int?;
@@ -1580,7 +1809,9 @@ class FlutterMcpServer {
     return {
       "route": route,
       "interactive_elements_count": (interactables as List?)?.length ?? 0,
-      "text_content_preview": textContent.toString().substring(0, textContent.toString().length.clamp(0, 500)),
+      "text_content_preview": textContent
+          .toString()
+          .substring(0, textContent.toString().length.clamp(0, 500)),
       "timestamp": DateTime.now().toIso8601String(),
     };
   }
@@ -1616,7 +1847,8 @@ Tip: Use get_connection_status() to see available running apps.''');
   /// Check if a specific port has a VM Service
   Future<String?> _checkVmServicePort(int port) async {
     try {
-      final socket = await Socket.connect('127.0.0.1', port, timeout: const Duration(milliseconds: 200));
+      final socket = await Socket.connect('127.0.0.1', port,
+          timeout: const Duration(milliseconds: 200));
       await socket.close();
 
       // Try to get VM Service info via HTTP
@@ -1657,7 +1889,11 @@ Tip: Use get_connection_status() to see available running apps.''');
           '3. If using local mock, ensure server is running',
         ],
       },
-      'next_step': {'tool': 'tap', 'params': {'text': 'Retry'}, 'description': 'Tap retry button'},
+      'next_step': {
+        'tool': 'tap',
+        'params': {'text': 'Retry'},
+        'description': 'Tap retry button'
+      },
     },
     {
       'pattern': r'SocketException',
@@ -1672,7 +1908,11 @@ Tip: Use get_connection_status() to see available running apps.''');
           '3. Verify server is running',
         ],
       },
-      'next_step': {'tool': 'hot_restart', 'params': {}, 'description': 'Restart app to retry connection'},
+      'next_step': {
+        'tool': 'hot_restart',
+        'params': {},
+        'description': 'Restart app to retry connection'
+      },
     },
     {
       'pattern': r'TimeoutException',
@@ -1687,7 +1927,11 @@ Tip: Use get_connection_status() to see available running apps.''');
           '3. Check for network congestion',
         ],
       },
-      'next_step': {'tool': 'tap', 'params': {'text': 'Retry'}, 'description': 'Retry the operation'},
+      'next_step': {
+        'tool': 'tap',
+        'params': {'text': 'Retry'},
+        'description': 'Retry the operation'
+      },
     },
     // Layout errors
     {
@@ -1705,7 +1949,11 @@ Tip: Use get_connection_status() to see available running apps.''');
         'code_example': '''// Before: Row(children: [Text('Long text...')])
 // After: Row(children: [Expanded(child: Text('Long text...', overflow: TextOverflow.ellipsis))])''',
       },
-      'next_step': {'tool': 'hot_reload', 'params': {}, 'description': 'Hot reload after fixing code'},
+      'next_step': {
+        'tool': 'hot_reload',
+        'params': {},
+        'description': 'Hot reload after fixing code'
+      },
     },
     // Null errors
     {
@@ -1721,7 +1969,11 @@ Tip: Use get_connection_status() to see available running apps.''');
           '3. Add proper null checks',
         ],
       },
-      'next_step': {'tool': 'hot_restart', 'params': {}, 'description': 'Restart after fixing null issue'},
+      'next_step': {
+        'tool': 'hot_restart',
+        'params': {},
+        'description': 'Restart after fixing null issue'
+      },
     },
     // State errors
     {
@@ -1741,7 +1993,11 @@ if (mounted) {
   setState(() { ... });
 }''',
       },
-      'next_step': {'tool': 'hot_reload', 'params': {}, 'description': 'Hot reload after fixing'},
+      'next_step': {
+        'tool': 'hot_reload',
+        'params': {},
+        'description': 'Hot reload after fixing'
+      },
     },
     // Memory warnings
     {
@@ -1757,15 +2013,20 @@ if (mounted) {
           '3. Cancel streams and timers in dispose()',
         ],
       },
-      'next_step': {'tool': 'hot_restart', 'params': {}, 'description': 'Restart to free memory'},
+      'next_step': {
+        'tool': 'hot_restart',
+        'params': {},
+        'description': 'Restart to free memory'
+      },
     },
   ];
 
   /// Perform comprehensive diagnosis
-  Future<Map<String, dynamic>> _performDiagnosis(Map<String, dynamic> args) async {
+  Future<Map<String, dynamic>> _performDiagnosis(
+      Map<String, dynamic> args) async {
     final scope = args['scope'] ?? 'all';
     // ignore: unused_local_variable
-    final logLines = args['log_lines'] ?? 100;  // Reserved for future use
+    final logLines = args['log_lines'] ?? 100; // Reserved for future use
     final includeScreenshot = args['include_screenshot'] ?? false;
 
     final issues = <Map<String, dynamic>>[];
@@ -1781,7 +2042,8 @@ if (mounted) {
 
         // Check each pattern
         for (final pattern in _diagnosisPatterns) {
-          final regex = RegExp(pattern['pattern'] as String, caseSensitive: false);
+          final regex =
+              RegExp(pattern['pattern'] as String, caseSensitive: false);
           if (regex.hasMatch(logsStr)) {
             final issueId = 'E${issueCounter.toString().padLeft(3, '0')}';
             issueCounter++;
@@ -1869,7 +2131,8 @@ if (mounted) {
             'id': issueId,
             'type': 'memory_high',
             'severity': heapMB > 500 ? 'critical' : 'warning',
-            'message': 'Memory usage ${heapMB.toStringAsFixed(1)}MB exceeds 300MB threshold',
+            'message':
+                'Memory usage ${heapMB.toStringAsFixed(1)}MB exceeds 300MB threshold',
           });
 
           suggestions.add({
@@ -1896,9 +2159,11 @@ if (mounted) {
     }
 
     // Calculate health score
-    final criticalCount = issues.where((i) => i['severity'] == 'critical').length;
+    final criticalCount =
+        issues.where((i) => i['severity'] == 'critical').length;
     final warningCount = issues.where((i) => i['severity'] == 'warning').length;
-    final healthScore = (100 - (criticalCount * 30) - (warningCount * 10)).clamp(0, 100);
+    final healthScore =
+        (100 - (criticalCount * 30) - (warningCount * 10)).clamp(0, 100);
 
     // Build result
     final result = <String, dynamic>{

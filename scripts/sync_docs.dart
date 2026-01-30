@@ -1,4 +1,5 @@
 #!/usr/bin/env dart
+
 /// Syncs README.md and CHANGELOG.md to all distribution channels.
 ///
 /// Usage: dart scripts/sync_docs.dart
@@ -147,7 +148,8 @@ String markdownToHtml(String markdown) {
 
     // Blockquotes
     if (line.startsWith('> ')) {
-      buffer.writeln('<blockquote>${formatInlineMarkdown(line.substring(2))}</blockquote>');
+      buffer.writeln(
+          '<blockquote>${formatInlineMarkdown(line.substring(2))}</blockquote>');
       continue;
     }
 

@@ -48,7 +48,8 @@ class FlutterSkillBinding {
     // ==================== EXISTING EXTENSIONS ====================
 
     // 1. Interactive Elements
-    developer.registerExtension('ext.flutter.flutter_skill.interactive', (method, parameters) async {
+    developer.registerExtension('ext.flutter.flutter_skill.interactive',
+        (method, parameters) async {
       try {
         final elements = _findInteractiveElements();
         return developer.ServiceExtensionResponse.result(
@@ -60,7 +61,8 @@ class FlutterSkillBinding {
     });
 
     // 2. Tap
-    developer.registerExtension('ext.flutter.flutter_skill.tap', (method, parameters) async {
+    developer.registerExtension('ext.flutter.flutter_skill.tap',
+        (method, parameters) async {
       try {
         final key = parameters['key'];
         final text = parameters['text'];
@@ -72,7 +74,8 @@ class FlutterSkillBinding {
     });
 
     // 3. Enter Text
-    developer.registerExtension('ext.flutter.flutter_skill.enterText', (method, parameters) async {
+    developer.registerExtension('ext.flutter.flutter_skill.enterText',
+        (method, parameters) async {
       try {
         final key = parameters['key'];
         final text = parameters['text'];
@@ -93,13 +96,17 @@ class FlutterSkillBinding {
     });
 
     // 4. Scroll
-    developer.registerExtension('ext.flutter.flutter_skill.scroll', (method, parameters) async {
+    developer.registerExtension('ext.flutter.flutter_skill.scroll',
+        (method, parameters) async {
       try {
         final key = parameters['key'];
         final text = parameters['text'];
         final success = await _performScroll(key: key, text: text);
         return developer.ServiceExtensionResponse.result(
-          jsonEncode({'success': success, 'message': success ? 'Scroll successful' : 'Element not found'}),
+          jsonEncode({
+            'success': success,
+            'message': success ? 'Scroll successful' : 'Element not found'
+          }),
         );
       } catch (e, stack) {
         return _errorResponse(e, stack);
@@ -109,18 +116,21 @@ class FlutterSkillBinding {
     // ==================== UI INSPECTION EXTENSIONS ====================
 
     // 5. Get Widget Tree
-    developer.registerExtension('ext.flutter.flutter_skill.getWidgetTree', (method, parameters) async {
+    developer.registerExtension('ext.flutter.flutter_skill.getWidgetTree',
+        (method, parameters) async {
       try {
         final maxDepth = int.tryParse(parameters['maxDepth'] ?? '10') ?? 10;
         final tree = _getWidgetTree(maxDepth: maxDepth);
-        return developer.ServiceExtensionResponse.result(jsonEncode({'tree': tree}));
+        return developer.ServiceExtensionResponse.result(
+            jsonEncode({'tree': tree}));
       } catch (e, stack) {
         return _errorResponse(e, stack);
       }
     });
 
     // 6. Get Widget Properties
-    developer.registerExtension('ext.flutter.flutter_skill.getWidgetProperties', (method, parameters) async {
+    developer.registerExtension('ext.flutter.flutter_skill.getWidgetProperties',
+        (method, parameters) async {
       try {
         final key = parameters['key'];
         if (key == null) {
@@ -130,24 +140,28 @@ class FlutterSkillBinding {
           );
         }
         final properties = _getWidgetProperties(key);
-        return developer.ServiceExtensionResponse.result(jsonEncode({'properties': properties}));
+        return developer.ServiceExtensionResponse.result(
+            jsonEncode({'properties': properties}));
       } catch (e, stack) {
         return _errorResponse(e, stack);
       }
     });
 
     // 7. Get Text Content
-    developer.registerExtension('ext.flutter.flutter_skill.getTextContent', (method, parameters) async {
+    developer.registerExtension('ext.flutter.flutter_skill.getTextContent',
+        (method, parameters) async {
       try {
         final textList = _getTextContent();
-        return developer.ServiceExtensionResponse.result(jsonEncode({'texts': textList}));
+        return developer.ServiceExtensionResponse.result(
+            jsonEncode({'texts': textList}));
       } catch (e, stack) {
         return _errorResponse(e, stack);
       }
     });
 
     // 8. Find By Type
-    developer.registerExtension('ext.flutter.flutter_skill.findByType', (method, parameters) async {
+    developer.registerExtension('ext.flutter.flutter_skill.findByType',
+        (method, parameters) async {
       try {
         final type = parameters['type'];
         if (type == null) {
@@ -157,7 +171,8 @@ class FlutterSkillBinding {
           );
         }
         final elements = _findByType(type);
-        return developer.ServiceExtensionResponse.result(jsonEncode({'elements': elements}));
+        return developer.ServiceExtensionResponse.result(
+            jsonEncode({'elements': elements}));
       } catch (e, stack) {
         return _errorResponse(e, stack);
       }
@@ -166,14 +181,19 @@ class FlutterSkillBinding {
     // ==================== MORE INTERACTIONS ====================
 
     // 9. Long Press
-    developer.registerExtension('ext.flutter.flutter_skill.longPress', (method, parameters) async {
+    developer.registerExtension('ext.flutter.flutter_skill.longPress',
+        (method, parameters) async {
       try {
         final key = parameters['key'];
         final text = parameters['text'];
         final duration = int.tryParse(parameters['duration'] ?? '500') ?? 500;
-        final success = await _performLongPress(key: key, text: text, duration: duration);
+        final success =
+            await _performLongPress(key: key, text: text, duration: duration);
         return developer.ServiceExtensionResponse.result(
-          jsonEncode({'success': success, 'message': success ? 'Long press successful' : 'Element not found'}),
+          jsonEncode({
+            'success': success,
+            'message': success ? 'Long press successful' : 'Element not found'
+          }),
         );
       } catch (e, stack) {
         return _errorResponse(e, stack);
@@ -181,14 +201,20 @@ class FlutterSkillBinding {
     });
 
     // 10. Swipe
-    developer.registerExtension('ext.flutter.flutter_skill.swipe', (method, parameters) async {
+    developer.registerExtension('ext.flutter.flutter_skill.swipe',
+        (method, parameters) async {
       try {
         final direction = parameters['direction'] ?? 'up';
-        final distance = double.tryParse(parameters['distance'] ?? '300') ?? 300;
+        final distance =
+            double.tryParse(parameters['distance'] ?? '300') ?? 300;
         final key = parameters['key'];
-        final success = await _performSwipe(direction: direction, distance: distance, key: key);
+        final success = await _performSwipe(
+            direction: direction, distance: distance, key: key);
         return developer.ServiceExtensionResponse.result(
-          jsonEncode({'success': success, 'message': success ? 'Swipe successful' : 'Swipe failed'}),
+          jsonEncode({
+            'success': success,
+            'message': success ? 'Swipe successful' : 'Swipe failed'
+          }),
         );
       } catch (e, stack) {
         return _errorResponse(e, stack);
@@ -196,13 +222,17 @@ class FlutterSkillBinding {
     });
 
     // 11. Drag
-    developer.registerExtension('ext.flutter.flutter_skill.drag', (method, parameters) async {
+    developer.registerExtension('ext.flutter.flutter_skill.drag',
+        (method, parameters) async {
       try {
         final fromKey = parameters['fromKey'];
         final toKey = parameters['toKey'];
         final success = await _performDrag(fromKey: fromKey, toKey: toKey);
         return developer.ServiceExtensionResponse.result(
-          jsonEncode({'success': success, 'message': success ? 'Drag successful' : 'Drag failed'}),
+          jsonEncode({
+            'success': success,
+            'message': success ? 'Drag successful' : 'Drag failed'
+          }),
         );
       } catch (e, stack) {
         return _errorResponse(e, stack);
@@ -210,13 +240,17 @@ class FlutterSkillBinding {
     });
 
     // 12. Double Tap
-    developer.registerExtension('ext.flutter.flutter_skill.doubleTap', (method, parameters) async {
+    developer.registerExtension('ext.flutter.flutter_skill.doubleTap',
+        (method, parameters) async {
       try {
         final key = parameters['key'];
         final text = parameters['text'];
         final success = await _performDoubleTap(key: key, text: text);
         return developer.ServiceExtensionResponse.result(
-          jsonEncode({'success': success, 'message': success ? 'Double tap successful' : 'Element not found'}),
+          jsonEncode({
+            'success': success,
+            'message': success ? 'Double tap successful' : 'Element not found'
+          }),
         );
       } catch (e, stack) {
         return _errorResponse(e, stack);
@@ -226,7 +260,8 @@ class FlutterSkillBinding {
     // ==================== STATE & VALIDATION ====================
 
     // 13. Get Text Value
-    developer.registerExtension('ext.flutter.flutter_skill.getTextValue', (method, parameters) async {
+    developer.registerExtension('ext.flutter.flutter_skill.getTextValue',
+        (method, parameters) async {
       try {
         final key = parameters['key'];
         if (key == null) {
@@ -236,14 +271,16 @@ class FlutterSkillBinding {
           );
         }
         final value = _getTextFieldValue(key);
-        return developer.ServiceExtensionResponse.result(jsonEncode({'value': value}));
+        return developer.ServiceExtensionResponse.result(
+            jsonEncode({'value': value}));
       } catch (e, stack) {
         return _errorResponse(e, stack);
       }
     });
 
     // 14. Get Checkbox State
-    developer.registerExtension('ext.flutter.flutter_skill.getCheckboxState', (method, parameters) async {
+    developer.registerExtension('ext.flutter.flutter_skill.getCheckboxState',
+        (method, parameters) async {
       try {
         final key = parameters['key'];
         if (key == null) {
@@ -253,14 +290,16 @@ class FlutterSkillBinding {
           );
         }
         final state = _getCheckboxState(key);
-        return developer.ServiceExtensionResponse.result(jsonEncode({'checked': state}));
+        return developer.ServiceExtensionResponse.result(
+            jsonEncode({'checked': state}));
       } catch (e, stack) {
         return _errorResponse(e, stack);
       }
     });
 
     // 15. Get Slider Value
-    developer.registerExtension('ext.flutter.flutter_skill.getSliderValue', (method, parameters) async {
+    developer.registerExtension('ext.flutter.flutter_skill.getSliderValue',
+        (method, parameters) async {
       try {
         final key = parameters['key'];
         if (key == null) {
@@ -270,21 +309,27 @@ class FlutterSkillBinding {
           );
         }
         final value = _getSliderValue(key);
-        return developer.ServiceExtensionResponse.result(jsonEncode({'value': value}));
+        return developer.ServiceExtensionResponse.result(
+            jsonEncode({'value': value}));
       } catch (e, stack) {
         return _errorResponse(e, stack);
       }
     });
 
     // 16. Wait For Element
-    developer.registerExtension('ext.flutter.flutter_skill.waitForElement', (method, parameters) async {
+    developer.registerExtension('ext.flutter.flutter_skill.waitForElement',
+        (method, parameters) async {
       try {
         final key = parameters['key'];
         final text = parameters['text'];
         final timeout = int.tryParse(parameters['timeout'] ?? '5000') ?? 5000;
-        final found = await _waitForElement(key: key, text: text, timeout: timeout);
+        final found =
+            await _waitForElement(key: key, text: text, timeout: timeout);
         return developer.ServiceExtensionResponse.result(
-          jsonEncode({'found': found, 'message': found ? 'Element found' : 'Timeout waiting for element'}),
+          jsonEncode({
+            'found': found,
+            'message': found ? 'Element found' : 'Timeout waiting for element'
+          }),
         );
       } catch (e, stack) {
         return _errorResponse(e, stack);
@@ -292,14 +337,18 @@ class FlutterSkillBinding {
     });
 
     // 17. Wait For Gone
-    developer.registerExtension('ext.flutter.flutter_skill.waitForGone', (method, parameters) async {
+    developer.registerExtension('ext.flutter.flutter_skill.waitForGone',
+        (method, parameters) async {
       try {
         final key = parameters['key'];
         final text = parameters['text'];
         final timeout = int.tryParse(parameters['timeout'] ?? '5000') ?? 5000;
         final gone = await _waitForGone(key: key, text: text, timeout: timeout);
         return developer.ServiceExtensionResponse.result(
-          jsonEncode({'gone': gone, 'message': gone ? 'Element is gone' : 'Element still present'}),
+          jsonEncode({
+            'gone': gone,
+            'message': gone ? 'Element is gone' : 'Element still present'
+          }),
         );
       } catch (e, stack) {
         return _errorResponse(e, stack);
@@ -309,33 +358,39 @@ class FlutterSkillBinding {
     // ==================== SCREENSHOT ====================
 
     // 18. Screenshot (with quality and maxWidth support)
-    developer.registerExtension('ext.flutter.flutter_skill.screenshot', (method, parameters) async {
+    developer.registerExtension('ext.flutter.flutter_skill.screenshot',
+        (method, parameters) async {
       try {
         final quality = double.tryParse(parameters['quality'] ?? '1.0') ?? 1.0;
         final maxWidth = int.tryParse(parameters['maxWidth'] ?? '');
-        final base64Image = await _takeScreenshot(quality: quality, maxWidth: maxWidth);
-        return developer.ServiceExtensionResponse.result(jsonEncode({'image': base64Image}));
+        final base64Image =
+            await _takeScreenshot(quality: quality, maxWidth: maxWidth);
+        return developer.ServiceExtensionResponse.result(
+            jsonEncode({'image': base64Image}));
       } catch (e, stack) {
         return _errorResponse(e, stack);
       }
     });
 
     // 18b. Screenshot Region
-    developer.registerExtension('ext.flutter.flutter_skill.screenshotRegion', (method, parameters) async {
+    developer.registerExtension('ext.flutter.flutter_skill.screenshotRegion',
+        (method, parameters) async {
       try {
         final x = double.tryParse(parameters['x'] ?? '0') ?? 0;
         final y = double.tryParse(parameters['y'] ?? '0') ?? 0;
         final width = double.tryParse(parameters['width'] ?? '100') ?? 100;
         final height = double.tryParse(parameters['height'] ?? '100') ?? 100;
         final base64Image = await _takeRegionScreenshot(x, y, width, height);
-        return developer.ServiceExtensionResponse.result(jsonEncode({'image': base64Image}));
+        return developer.ServiceExtensionResponse.result(
+            jsonEncode({'image': base64Image}));
       } catch (e, stack) {
         return _errorResponse(e, stack);
       }
     });
 
     // 19. Screenshot Element
-    developer.registerExtension('ext.flutter.flutter_skill.screenshotElement', (method, parameters) async {
+    developer.registerExtension('ext.flutter.flutter_skill.screenshotElement',
+        (method, parameters) async {
       try {
         final key = parameters['key'];
         if (key == null) {
@@ -345,7 +400,8 @@ class FlutterSkillBinding {
           );
         }
         final base64Image = await _takeElementScreenshot(key);
-        return developer.ServiceExtensionResponse.result(jsonEncode({'image': base64Image}));
+        return developer.ServiceExtensionResponse.result(
+            jsonEncode({'image': base64Image}));
       } catch (e, stack) {
         return _errorResponse(e, stack);
       }
@@ -354,21 +410,27 @@ class FlutterSkillBinding {
     // ==================== NAVIGATION ====================
 
     // 20. Get Current Route
-    developer.registerExtension('ext.flutter.flutter_skill.getCurrentRoute', (method, parameters) async {
+    developer.registerExtension('ext.flutter.flutter_skill.getCurrentRoute',
+        (method, parameters) async {
       try {
         final route = _getCurrentRoute();
-        return developer.ServiceExtensionResponse.result(jsonEncode({'route': route}));
+        return developer.ServiceExtensionResponse.result(
+            jsonEncode({'route': route}));
       } catch (e, stack) {
         return _errorResponse(e, stack);
       }
     });
 
     // 21. Go Back
-    developer.registerExtension('ext.flutter.flutter_skill.goBack', (method, parameters) async {
+    developer.registerExtension('ext.flutter.flutter_skill.goBack',
+        (method, parameters) async {
       try {
         final success = _goBack();
         return developer.ServiceExtensionResponse.result(
-          jsonEncode({'success': success, 'message': success ? 'Navigated back' : 'Cannot go back'}),
+          jsonEncode({
+            'success': success,
+            'message': success ? 'Navigated back' : 'Cannot go back'
+          }),
         );
       } catch (e, stack) {
         return _errorResponse(e, stack);
@@ -376,10 +438,12 @@ class FlutterSkillBinding {
     });
 
     // 22. Get Navigation Stack
-    developer.registerExtension('ext.flutter.flutter_skill.getNavigationStack', (method, parameters) async {
+    developer.registerExtension('ext.flutter.flutter_skill.getNavigationStack',
+        (method, parameters) async {
       try {
         final stack = _getNavigationStack();
-        return developer.ServiceExtensionResponse.result(jsonEncode({'stack': stack}));
+        return developer.ServiceExtensionResponse.result(
+            jsonEncode({'stack': stack}));
       } catch (e, stack) {
         return _errorResponse(e, stack);
       }
@@ -388,36 +452,43 @@ class FlutterSkillBinding {
     // ==================== DEBUG & LOGS ====================
 
     // 23. Get Logs
-    developer.registerExtension('ext.flutter.flutter_skill.getLogs', (method, parameters) async {
+    developer.registerExtension('ext.flutter.flutter_skill.getLogs',
+        (method, parameters) async {
       try {
-        return developer.ServiceExtensionResponse.result(jsonEncode({'logs': _logs}));
+        return developer.ServiceExtensionResponse.result(
+            jsonEncode({'logs': _logs}));
       } catch (e, stack) {
         return _errorResponse(e, stack);
       }
     });
 
     // 24. Get Errors
-    developer.registerExtension('ext.flutter.flutter_skill.getErrors', (method, parameters) async {
+    developer.registerExtension('ext.flutter.flutter_skill.getErrors',
+        (method, parameters) async {
       try {
-        return developer.ServiceExtensionResponse.result(jsonEncode({'errors': _errors}));
+        return developer.ServiceExtensionResponse.result(
+            jsonEncode({'errors': _errors}));
       } catch (e, stack) {
         return _errorResponse(e, stack);
       }
     });
 
     // 25. Clear Logs
-    developer.registerExtension('ext.flutter.flutter_skill.clearLogs', (method, parameters) async {
+    developer.registerExtension('ext.flutter.flutter_skill.clearLogs',
+        (method, parameters) async {
       try {
         _logs.clear();
         _errors.clear();
-        return developer.ServiceExtensionResponse.result(jsonEncode({'success': true}));
+        return developer.ServiceExtensionResponse.result(
+            jsonEncode({'success': true}));
       } catch (e, stack) {
         return _errorResponse(e, stack);
       }
     });
 
     // 26. Get Performance
-    developer.registerExtension('ext.flutter.flutter_skill.getPerformance', (method, parameters) async {
+    developer.registerExtension('ext.flutter.flutter_skill.getPerformance',
+        (method, parameters) async {
       try {
         final perf = _getPerformanceMetrics();
         return developer.ServiceExtensionResponse.result(jsonEncode(perf));
@@ -429,7 +500,8 @@ class FlutterSkillBinding {
     // ==================== COORDINATE-BASED ACTIONS ====================
 
     // 27. Tap At Coordinates
-    developer.registerExtension('ext.flutter.flutter_skill.tapAt', (method, parameters) async {
+    developer.registerExtension('ext.flutter.flutter_skill.tapAt',
+        (method, parameters) async {
       try {
         final x = double.tryParse(parameters['x'] ?? '0') ?? 0;
         final y = double.tryParse(parameters['y'] ?? '0') ?? 0;
@@ -443,7 +515,8 @@ class FlutterSkillBinding {
     });
 
     // 28. Long Press At Coordinates
-    developer.registerExtension('ext.flutter.flutter_skill.longPressAt', (method, parameters) async {
+    developer.registerExtension('ext.flutter.flutter_skill.longPressAt',
+        (method, parameters) async {
       try {
         final x = double.tryParse(parameters['x'] ?? '0') ?? 0;
         final y = double.tryParse(parameters['y'] ?? '0') ?? 0;
@@ -458,16 +531,21 @@ class FlutterSkillBinding {
     });
 
     // 29. Swipe Coordinates
-    developer.registerExtension('ext.flutter.flutter_skill.swipeCoordinates', (method, parameters) async {
+    developer.registerExtension('ext.flutter.flutter_skill.swipeCoordinates',
+        (method, parameters) async {
       try {
         final startX = double.tryParse(parameters['startX'] ?? '0') ?? 0;
         final startY = double.tryParse(parameters['startY'] ?? '0') ?? 0;
         final endX = double.tryParse(parameters['endX'] ?? '0') ?? 0;
         final endY = double.tryParse(parameters['endY'] ?? '0') ?? 0;
         final duration = int.tryParse(parameters['duration'] ?? '300') ?? 300;
-        await _performSwipeCoordinates(startX, startY, endX, endY, duration: duration);
+        await _performSwipeCoordinates(startX, startY, endX, endY,
+            duration: duration);
         return developer.ServiceExtensionResponse.result(
-          jsonEncode({'success': true, 'message': 'Swiped from ($startX, $startY) to ($endX, $endY)'}),
+          jsonEncode({
+            'success': true,
+            'message': 'Swiped from ($startX, $startY) to ($endX, $endY)'
+          }),
         );
       } catch (e, stack) {
         return _errorResponse(e, stack);
@@ -475,14 +553,20 @@ class FlutterSkillBinding {
     });
 
     // 30. Edge Swipe (for drawer menus, back gestures)
-    developer.registerExtension('ext.flutter.flutter_skill.edgeSwipe', (method, parameters) async {
+    developer.registerExtension('ext.flutter.flutter_skill.edgeSwipe',
+        (method, parameters) async {
       try {
         final edge = parameters['edge'] ?? 'left';
         final direction = parameters['direction'] ?? 'right';
-        final distance = double.tryParse(parameters['distance'] ?? '200') ?? 200;
-        final success = await _performEdgeSwipe(edge: edge, direction: direction, distance: distance);
+        final distance =
+            double.tryParse(parameters['distance'] ?? '200') ?? 200;
+        final success = await _performEdgeSwipe(
+            edge: edge, direction: direction, distance: distance);
         return developer.ServiceExtensionResponse.result(
-          jsonEncode({'success': success, 'message': success ? 'Edge swipe successful' : 'Edge swipe failed'}),
+          jsonEncode({
+            'success': success,
+            'message': success ? 'Edge swipe successful' : 'Edge swipe failed'
+          }),
         );
       } catch (e, stack) {
         return _errorResponse(e, stack);
@@ -492,7 +576,8 @@ class FlutterSkillBinding {
     // ==================== PERFORMANCE & MEMORY ====================
 
     // 30. Get Frame Stats
-    developer.registerExtension('ext.flutter.flutter_skill.getFrameStats', (method, parameters) async {
+    developer.registerExtension('ext.flutter.flutter_skill.getFrameStats',
+        (method, parameters) async {
       try {
         final stats = _getFrameStats();
         return developer.ServiceExtensionResponse.result(jsonEncode(stats));
@@ -513,7 +598,8 @@ class FlutterSkillBinding {
     };
   }
 
-  static developer.ServiceExtensionResponse _errorResponse(Object e, StackTrace stack) {
+  static developer.ServiceExtensionResponse _errorResponse(
+      Object e, StackTrace stack) {
     return developer.ServiceExtensionResponse.error(
       developer.ServiceExtensionResponse.extensionError,
       '$e\n$stack',
@@ -527,7 +613,8 @@ class FlutterSkillBinding {
     void visit(Element element) {
       if (found != null) return;
       final widget = element.widget;
-      if (widget.key is ValueKey<String> && (widget.key as ValueKey<String>).value == key) {
+      if (widget.key is ValueKey<String> &&
+          (widget.key as ValueKey<String>).value == key) {
         found = element;
         return;
       }
@@ -588,7 +675,8 @@ class FlutterSkillBinding {
       return false;
     }
 
-    final center = renderObject.localToGlobal(renderObject.size.center(Offset.zero));
+    final center =
+        renderObject.localToGlobal(renderObject.size.center(Offset.zero));
     _log('Tapping at $center (key: $key, text: $text)');
 
     await _dispatchTap(center);
@@ -597,7 +685,8 @@ class FlutterSkillBinding {
   }
 
   /// Enhanced tap with detailed error information and suggestions
-  static Future<Map<String, dynamic>> _performTapWithDetails({String? key, String? text}) async {
+  static Future<Map<String, dynamic>> _performTapWithDetails(
+      {String? key, String? text}) async {
     final element = _findElement(key: key, text: text);
 
     if (element == null) {
@@ -607,7 +696,8 @@ class FlutterSkillBinding {
       if (key != null) {
         final similarKeys = _findSimilarKeys(key);
         if (similarKeys.isNotEmpty) {
-          suggestions.add('Similar keys found: ${similarKeys.take(5).toList()}');
+          suggestions
+              .add('Similar keys found: ${similarKeys.take(5).toList()}');
         }
       }
 
@@ -615,7 +705,8 @@ class FlutterSkillBinding {
       if (text != null) {
         final similarTexts = _findSimilarTexts(text);
         if (similarTexts.isNotEmpty) {
-          suggestions.add('Similar texts found: ${similarTexts.take(5).toList()}');
+          suggestions
+              .add('Similar texts found: ${similarTexts.take(5).toList()}');
         }
       }
 
@@ -629,7 +720,8 @@ class FlutterSkillBinding {
         'success': false,
         'error': {
           'code': ErrorCode.elementNotFound,
-          'message': 'No element matching ${key != null ? "key '$key'" : "text '$text'"} found in widget tree',
+          'message':
+              'No element matching ${key != null ? "key '$key'" : "text '$text'"} found in widget tree',
         },
         'target': {'key': key, 'text': text},
         'suggestions': suggestions,
@@ -645,11 +737,15 @@ class FlutterSkillBinding {
           'message': 'Element found but has no valid render box',
         },
         'target': {'key': key, 'text': text},
-        'suggestions': ['Element may be offscreen or not yet laid out', 'Try waiting for the element to be visible'],
+        'suggestions': [
+          'Element may be offscreen or not yet laid out',
+          'Try waiting for the element to be visible'
+        ],
       };
     }
 
-    final center = renderObject.localToGlobal(renderObject.size.center(Offset.zero));
+    final center =
+        renderObject.localToGlobal(renderObject.size.center(Offset.zero));
     _log('Tapping at $center (key: $key, text: $text)');
 
     await _dispatchTap(center);
@@ -702,8 +798,10 @@ class FlutterSkillBinding {
       // Common prefix
       int prefixLen = 0;
       for (int i = 0; i < targetLower.length && i < keyLower.length; i++) {
-        if (targetLower[i] == keyLower[i]) prefixLen++;
-        else break;
+        if (targetLower[i] == keyLower[i])
+          prefixLen++;
+        else
+          break;
       }
       score += prefixLen * 10;
 
@@ -723,7 +821,10 @@ class FlutterSkillBinding {
 
   /// Find texts similar to the given text
   static List<String> _findSimilarTexts(String targetText) {
-    final allTexts = _getTextContent().map((t) => t['text'] as String?).whereType<String>().toList();
+    final allTexts = _getTextContent()
+        .map((t) => t['text'] as String?)
+        .whereType<String>()
+        .toList();
     final targetLower = targetText.toLowerCase();
 
     final scored = <MapEntry<String, int>>[];
@@ -755,14 +856,17 @@ class FlutterSkillBinding {
     final binding = WidgetsBinding.instance;
     final pointer = _pointerCounter++;
 
-    binding.handlePointerEvent(PointerDownEvent(position: position, pointer: pointer));
+    binding.handlePointerEvent(
+        PointerDownEvent(position: position, pointer: pointer));
     await Future.delayed(const Duration(milliseconds: 50));
-    binding.handlePointerEvent(PointerUpEvent(position: position, pointer: pointer));
+    binding.handlePointerEvent(
+        PointerUpEvent(position: position, pointer: pointer));
     await Future.delayed(const Duration(milliseconds: 100));
   }
 
   // ignore: unused_element
-  static Future<bool> _performEnterText({String? key, required String text}) async {
+  static Future<bool> _performEnterText(
+      {String? key, required String text}) async {
     final element = _findElement(key: key);
     if (element == null) {
       _log('TextField not found (key: $key)');
@@ -772,7 +876,8 @@ class FlutterSkillBinding {
     final renderObject = element.renderObject;
     if (renderObject is! RenderBox) return false;
 
-    final center = renderObject.localToGlobal(renderObject.size.center(Offset.zero));
+    final center =
+        renderObject.localToGlobal(renderObject.size.center(Offset.zero));
     await _dispatchTap(center);
     await Future.delayed(const Duration(milliseconds: 200));
 
@@ -785,6 +890,7 @@ class FlutterSkillBinding {
       }
       e.visitChildren(findEditable);
     }
+
     findEditable(element);
 
     if (editableTextState != null) {
@@ -808,7 +914,8 @@ class FlutterSkillBinding {
   }
 
   /// Enhanced enter text with detailed error information
-  static Future<Map<String, dynamic>> _performEnterTextWithDetails({String? key, required String text}) async {
+  static Future<Map<String, dynamic>> _performEnterTextWithDetails(
+      {String? key, required String text}) async {
     final element = _findElement(key: key);
 
     if (element == null) {
@@ -817,18 +924,21 @@ class FlutterSkillBinding {
       if (key != null) {
         final similarKeys = _findSimilarKeys(key);
         if (similarKeys.isNotEmpty) {
-          suggestions.add('Similar keys found: ${similarKeys.take(5).toList()}');
+          suggestions
+              .add('Similar keys found: ${similarKeys.take(5).toList()}');
         }
       }
 
       // Find TextField keys specifically
-      final textFieldKeys = _getAllKeys().where((k) =>
-        k.toLowerCase().contains('field') ||
-        k.toLowerCase().contains('input') ||
-        k.toLowerCase().contains('text')
-      ).toList();
+      final textFieldKeys = _getAllKeys()
+          .where((k) =>
+              k.toLowerCase().contains('field') ||
+              k.toLowerCase().contains('input') ||
+              k.toLowerCase().contains('text'))
+          .toList();
       if (textFieldKeys.isNotEmpty) {
-        suggestions.add('TextField keys available: ${textFieldKeys.take(5).toList()}');
+        suggestions
+            .add('TextField keys available: ${textFieldKeys.take(5).toList()}');
       }
 
       suggestions.add('Use inspect() to find TextField elements');
@@ -856,7 +966,8 @@ class FlutterSkillBinding {
       };
     }
 
-    final center = renderObject.localToGlobal(renderObject.size.center(Offset.zero));
+    final center =
+        renderObject.localToGlobal(renderObject.size.center(Offset.zero));
     await _dispatchTap(center);
     await Future.delayed(const Duration(milliseconds: 200));
 
@@ -869,6 +980,7 @@ class FlutterSkillBinding {
       }
       e.visitChildren(findEditable);
     }
+
     findEditable(element);
 
     if (editableTextState != null) {
@@ -910,7 +1022,8 @@ class FlutterSkillBinding {
     }
 
     try {
-      await Scrollable.ensureVisible(element, duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
+      await Scrollable.ensureVisible(element,
+          duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
       _log('Scrolled to element (key: $key, text: $text)');
       return true;
     } catch (e) {
@@ -919,27 +1032,32 @@ class FlutterSkillBinding {
     }
   }
 
-  static Future<bool> _performLongPress({String? key, String? text, int duration = 500}) async {
+  static Future<bool> _performLongPress(
+      {String? key, String? text, int duration = 500}) async {
     final element = _findElement(key: key, text: text);
     if (element == null) return false;
 
     final renderObject = element.renderObject;
     if (renderObject is! RenderBox || !renderObject.hasSize) return false;
 
-    final center = renderObject.localToGlobal(renderObject.size.center(Offset.zero));
+    final center =
+        renderObject.localToGlobal(renderObject.size.center(Offset.zero));
     final binding = WidgetsBinding.instance;
     final pointer = _pointerCounter++;
 
-    binding.handlePointerEvent(PointerDownEvent(position: center, pointer: pointer));
+    binding.handlePointerEvent(
+        PointerDownEvent(position: center, pointer: pointer));
     await Future.delayed(Duration(milliseconds: duration));
-    binding.handlePointerEvent(PointerUpEvent(position: center, pointer: pointer));
+    binding
+        .handlePointerEvent(PointerUpEvent(position: center, pointer: pointer));
     await Future.delayed(const Duration(milliseconds: 100));
 
     _log('Long press completed (key: $key, text: $text)');
     return true;
   }
 
-  static Future<bool> _performSwipe({required String direction, double distance = 300, String? key}) async {
+  static Future<bool> _performSwipe(
+      {required String direction, double distance = 300, String? key}) async {
     final binding = WidgetsBinding.instance;
     Offset start;
 
@@ -977,13 +1095,17 @@ class FlutterSkillBinding {
     final pointer = _pointerCounter++;
     final end = start + delta;
 
-    binding.handlePointerEvent(PointerDownEvent(position: start, pointer: pointer));
+    binding.handlePointerEvent(
+        PointerDownEvent(position: start, pointer: pointer));
     await Future.delayed(const Duration(milliseconds: 16));
 
     const steps = 10;
     for (int i = 1; i <= steps; i++) {
       final current = Offset.lerp(start, end, i / steps)!;
-      binding.handlePointerEvent(PointerMoveEvent(position: current, pointer: pointer, delta: delta / steps.toDouble()));
+      binding.handlePointerEvent(PointerMoveEvent(
+          position: current,
+          pointer: pointer,
+          delta: delta / steps.toDouble()));
       await Future.delayed(const Duration(milliseconds: 16));
     }
 
@@ -1011,13 +1133,15 @@ class FlutterSkillBinding {
     final binding = WidgetsBinding.instance;
     final pointer = _pointerCounter++;
 
-    binding.handlePointerEvent(PointerDownEvent(position: start, pointer: pointer));
+    binding.handlePointerEvent(
+        PointerDownEvent(position: start, pointer: pointer));
     await Future.delayed(const Duration(milliseconds: 100));
 
     const steps = 20;
     for (int i = 1; i <= steps; i++) {
       final current = Offset.lerp(start, end, i / steps)!;
-      binding.handlePointerEvent(PointerMoveEvent(position: current, pointer: pointer));
+      binding.handlePointerEvent(
+          PointerMoveEvent(position: current, pointer: pointer));
       await Future.delayed(const Duration(milliseconds: 16));
     }
 
@@ -1035,7 +1159,8 @@ class FlutterSkillBinding {
     final renderObject = element.renderObject;
     if (renderObject is! RenderBox || !renderObject.hasSize) return false;
 
-    final center = renderObject.localToGlobal(renderObject.size.center(Offset.zero));
+    final center =
+        renderObject.localToGlobal(renderObject.size.center(Offset.zero));
 
     await _dispatchTap(center);
     await Future.delayed(const Duration(milliseconds: 50));
@@ -1053,14 +1178,17 @@ class FlutterSkillBinding {
     _log('Tap at coordinates ($x, $y) completed');
   }
 
-  static Future<void> _performLongPressAt(double x, double y, {int duration = 500}) async {
+  static Future<void> _performLongPressAt(double x, double y,
+      {int duration = 500}) async {
     final position = Offset(x, y);
     final binding = WidgetsBinding.instance;
     final pointer = _pointerCounter++;
 
-    binding.handlePointerEvent(PointerDownEvent(position: position, pointer: pointer));
+    binding.handlePointerEvent(
+        PointerDownEvent(position: position, pointer: pointer));
     await Future.delayed(Duration(milliseconds: duration));
-    binding.handlePointerEvent(PointerUpEvent(position: position, pointer: pointer));
+    binding.handlePointerEvent(
+        PointerUpEvent(position: position, pointer: pointer));
     await Future.delayed(const Duration(milliseconds: 100));
 
     _log('Long press at coordinates ($x, $y) completed');
@@ -1080,7 +1208,8 @@ class FlutterSkillBinding {
     final end = Offset(endX, endY);
     final delta = end - start;
 
-    binding.handlePointerEvent(PointerDownEvent(position: start, pointer: pointer));
+    binding.handlePointerEvent(
+        PointerDownEvent(position: start, pointer: pointer));
     await Future.delayed(const Duration(milliseconds: 16));
 
     final steps = (duration / 16).round().clamp(5, 30);
@@ -1162,7 +1291,8 @@ class FlutterSkillBinding {
     endY = endY.clamp(0, screenSize.height);
 
     await _performSwipeCoordinates(startX, startY, endX, endY, duration: 300);
-    _log('Edge swipe from $edge edge, direction: $direction, distance: $distance');
+    _log(
+        'Edge swipe from $edge edge, direction: $direction, distance: $distance');
     return true;
   }
 
@@ -1196,8 +1326,11 @@ class FlutterSkillBinding {
         key = (widget.key as ValueKey<String>).value;
       }
 
-      if (widget is ElevatedButton || widget is TextButton || widget is OutlinedButton ||
-          widget is IconButton || widget is FloatingActionButton) {
+      if (widget is ElevatedButton ||
+          widget is TextButton ||
+          widget is OutlinedButton ||
+          widget is IconButton ||
+          widget is FloatingActionButton) {
         type = 'Button';
         text = _extractTextFrom(element);
         if (widget is IconButton && widget.icon is Icon) {
@@ -1252,7 +1385,8 @@ class FlutterSkillBinding {
 
         // Add ancestors (last 3 meaningful ancestors)
         final meaningfulAncestors = ancestors
-            .where((a) => !a.startsWith('_') && a != 'Builder' && a != 'StatefulWidget')
+            .where((a) =>
+                !a.startsWith('_') && a != 'Builder' && a != 'StatefulWidget')
             .toList();
         if (meaningfulAncestors.isNotEmpty) {
           entry['ancestors'] = meaningfulAncestors.reversed.take(3).toList();
@@ -1272,7 +1406,8 @@ class FlutterSkillBinding {
             'x': (offset.dx + renderObject.size.width / 2).round(),
             'y': (offset.dy + renderObject.size.height / 2).round(),
           };
-          entry['visible'] = renderObject.size.width > 0 && renderObject.size.height > 0;
+          entry['visible'] =
+              renderObject.size.width > 0 && renderObject.size.height > 0;
         }
 
         results.add(entry);
@@ -1311,7 +1446,10 @@ class FlutterSkillBinding {
 
       final renderObject = element.renderObject;
       if (renderObject is RenderBox && renderObject.hasSize) {
-        node['size'] = {'width': renderObject.size.width, 'height': renderObject.size.height};
+        node['size'] = {
+          'width': renderObject.size.width,
+          'height': renderObject.size.height
+        };
         final offset = renderObject.localToGlobal(Offset.zero);
         node['position'] = {'x': offset.dx, 'y': offset.dy};
       }
@@ -1349,10 +1487,15 @@ class FlutterSkillBinding {
 
     final renderObject = element.renderObject;
     if (renderObject is RenderBox && renderObject.hasSize) {
-      props['size'] = {'width': renderObject.size.width, 'height': renderObject.size.height};
+      props['size'] = {
+        'width': renderObject.size.width,
+        'height': renderObject.size.height
+      };
       final offset = renderObject.localToGlobal(Offset.zero);
       props['position'] = {'x': offset.dx, 'y': offset.dy};
-      props['visible'] = renderObject.attached && renderObject.size.width > 0 && renderObject.size.height > 0;
+      props['visible'] = renderObject.attached &&
+          renderObject.size.width > 0 &&
+          renderObject.size.height > 0;
     }
 
     if (widget is Text) {
@@ -1423,7 +1566,10 @@ class FlutterSkillBinding {
         if (renderObject is RenderBox && renderObject.hasSize) {
           final offset = renderObject.localToGlobal(Offset.zero);
           node['position'] = {'x': offset.dx, 'y': offset.dy};
-          node['size'] = {'width': renderObject.size.width, 'height': renderObject.size.height};
+          node['size'] = {
+            'width': renderObject.size.width,
+            'height': renderObject.size.height
+          };
         }
 
         results.add(node);
@@ -1456,6 +1602,7 @@ class FlutterSkillBinding {
       }
       e.visitChildren(findEditable);
     }
+
     findEditable(element);
 
     return editableTextState?.textEditingValue.text;
@@ -1486,7 +1633,8 @@ class FlutterSkillBinding {
     return null;
   }
 
-  static Future<bool> _waitForElement({String? key, String? text, int timeout = 5000}) async {
+  static Future<bool> _waitForElement(
+      {String? key, String? text, int timeout = 5000}) async {
     final endTime = DateTime.now().add(Duration(milliseconds: timeout));
 
     while (DateTime.now().isBefore(endTime)) {
@@ -1498,7 +1646,8 @@ class FlutterSkillBinding {
     return false;
   }
 
-  static Future<bool> _waitForGone({String? key, String? text, int timeout = 5000}) async {
+  static Future<bool> _waitForGone(
+      {String? key, String? text, int timeout = 5000}) async {
     final endTime = DateTime.now().add(Duration(milliseconds: timeout));
 
     while (DateTime.now().isBefore(endTime)) {
@@ -1512,7 +1661,8 @@ class FlutterSkillBinding {
 
   // ==================== SCREENSHOT ====================
 
-  static Future<String?> _takeScreenshot({double quality = 1.0, int? maxWidth}) async {
+  static Future<String?> _takeScreenshot(
+      {double quality = 1.0, int? maxWidth}) async {
     try {
       final binding = WidgetsBinding.instance;
       // ignore: invalid_use_of_protected_member
@@ -1531,6 +1681,7 @@ class FlutterSkillBinding {
           }
           obj.visitChildren(findBoundary);
         }
+
         renderObject?.visitChildren(findBoundary);
       }
 
@@ -1571,7 +1722,8 @@ class FlutterSkillBinding {
     }
   }
 
-  static Future<String?> _takeRegionScreenshot(double x, double y, double width, double height) async {
+  static Future<String?> _takeRegionScreenshot(
+      double x, double y, double width, double height) async {
     try {
       final binding = WidgetsBinding.instance;
       // ignore: invalid_use_of_protected_member
@@ -1589,6 +1741,7 @@ class FlutterSkillBinding {
           }
           obj.visitChildren(findBoundary);
         }
+
         renderObject?.visitChildren(findBoundary);
       }
 
@@ -1612,7 +1765,8 @@ class FlutterSkillBinding {
 
       final picture = recorder.endRecording();
       final croppedImage = await picture.toImage(width.toInt(), height.toInt());
-      final byteData = await croppedImage.toByteData(format: ui.ImageByteFormat.png);
+      final byteData =
+          await croppedImage.toByteData(format: ui.ImageByteFormat.png);
       if (byteData == null) return null;
       return base64Encode(byteData.buffer.asUint8List());
     } catch (e) {
@@ -1653,7 +1807,8 @@ class FlutterSkillBinding {
             final boundaryBox = current;
 
             // Get element position relative to boundary
-            final offset = box.localToGlobal(Offset.zero, ancestor: boundaryBox);
+            final offset =
+                box.localToGlobal(Offset.zero, ancestor: boundaryBox);
             final size = box.size;
 
             // Capture the boundary
@@ -1672,8 +1827,10 @@ class FlutterSkillBinding {
             );
 
             final picture = recorder.endRecording();
-            final croppedImage = await picture.toImage(size.width.toInt(), size.height.toInt());
-            final byteData = await croppedImage.toByteData(format: ui.ImageByteFormat.png);
+            final croppedImage =
+                await picture.toImage(size.width.toInt(), size.height.toInt());
+            final byteData =
+                await croppedImage.toByteData(format: ui.ImageByteFormat.png);
             if (byteData == null) return null;
             return base64Encode(byteData.buffer.asUint8List());
           }

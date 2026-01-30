@@ -29,7 +29,8 @@ class FlutterSkillClient {
     _isolateId = null;
   }
 
-  Future<Map<String, dynamic>> _call(String method, [Map<String, dynamic>? args]) async {
+  Future<Map<String, dynamic>> _call(String method,
+      [Map<String, dynamic>? args]) async {
     if (_service == null || _isolateId == null) {
       throw Exception('Not connected');
     }
@@ -88,7 +89,8 @@ class FlutterSkillClient {
   }
 
   Future<Map<String, dynamic>?> getWidgetProperties(String key) async {
-    final result = await _call('ext.flutter.flutter_skill.getWidgetProperties', {
+    final result =
+        await _call('ext.flutter.flutter_skill.getWidgetProperties', {
       'key': key,
     });
     return result['properties'];
@@ -108,7 +110,8 @@ class FlutterSkillClient {
 
   // ==================== MORE INTERACTIONS ====================
 
-  Future<bool> longPress({String? key, String? text, int duration = 500}) async {
+  Future<bool> longPress(
+      {String? key, String? text, int duration = 500}) async {
     final result = await _call('ext.flutter.flutter_skill.longPress', {
       if (key != null) 'key': key,
       if (text != null) 'text': text,
@@ -117,7 +120,8 @@ class FlutterSkillClient {
     return result['success'] == true;
   }
 
-  Future<bool> swipe({required String direction, double distance = 300, String? key}) async {
+  Future<bool> swipe(
+      {required String direction, double distance = 300, String? key}) async {
     final result = await _call('ext.flutter.flutter_skill.swipe', {
       'direction': direction,
       'distance': distance.toString(),
@@ -165,7 +169,8 @@ class FlutterSkillClient {
     return result['value']?.toDouble();
   }
 
-  Future<bool> waitForElement({String? key, String? text, int timeout = 5000}) async {
+  Future<bool> waitForElement(
+      {String? key, String? text, int timeout = 5000}) async {
     final result = await _call('ext.flutter.flutter_skill.waitForElement', {
       if (key != null) 'key': key,
       if (text != null) 'text': text,
@@ -174,7 +179,8 @@ class FlutterSkillClient {
     return result['found'] == true;
   }
 
-  Future<bool> waitForGone({String? key, String? text, int timeout = 5000}) async {
+  Future<bool> waitForGone(
+      {String? key, String? text, int timeout = 5000}) async {
     final result = await _call('ext.flutter.flutter_skill.waitForGone', {
       if (key != null) 'key': key,
       if (text != null) 'text': text,
@@ -252,8 +258,10 @@ class FlutterSkillClient {
 
   Future<Map<String, dynamic>> getLayoutTree() async {
     try {
-      final groupName = 'flutter_skill_${DateTime.now().millisecondsSinceEpoch}';
-      final result = await _call('ext.flutter.inspector.getRootWidgetSummaryTree', {
+      final groupName =
+          'flutter_skill_${DateTime.now().millisecondsSinceEpoch}';
+      final result =
+          await _call('ext.flutter.inspector.getRootWidgetSummaryTree', {
         'objectGroup': groupName,
       });
       return result;

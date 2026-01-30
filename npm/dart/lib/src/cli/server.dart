@@ -19,24 +19,35 @@ Future<void> runServer(List<String> args) async {
 /// Check pub.dev for newer version
 Future<void> _checkForUpdates() async {
   try {
-    final response = await http.get(
-      Uri.parse('https://pub.dev/api/packages/flutter_skill'),
-    ).timeout(const Duration(seconds: 5));
+    final response = await http
+        .get(
+          Uri.parse('https://pub.dev/api/packages/flutter_skill'),
+        )
+        .timeout(const Duration(seconds: 5));
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
       final latestVersion = data['latest']?['version'] as String?;
 
-      if (latestVersion != null && _isNewerVersion(latestVersion, _currentVersion)) {
+      if (latestVersion != null &&
+          _isNewerVersion(latestVersion, _currentVersion)) {
         stderr.writeln('');
-        stderr.writeln('╔══════════════════════════════════════════════════════════╗');
-        stderr.writeln('║  flutter-skill v$latestVersion available (current: v$_currentVersion)');
-        stderr.writeln('║                                                          ║');
-        stderr.writeln('║  Update with:                                            ║');
-        stderr.writeln('║    dart pub global activate flutter_skill                ║');
-        stderr.writeln('║  Or:                                                     ║');
-        stderr.writeln('║    npm update -g flutter-skill-mcp                       ║');
-        stderr.writeln('╚══════════════════════════════════════════════════════════╝');
+        stderr.writeln(
+            '╔══════════════════════════════════════════════════════════╗');
+        stderr.writeln(
+            '║  flutter-skill v$latestVersion available (current: v$_currentVersion)');
+        stderr.writeln(
+            '║                                                          ║');
+        stderr.writeln(
+            '║  Update with:                                            ║');
+        stderr.writeln(
+            '║    dart pub global activate flutter_skill                ║');
+        stderr.writeln(
+            '║  Or:                                                     ║');
+        stderr.writeln(
+            '║    npm update -g flutter-skill-mcp                       ║');
+        stderr.writeln(
+            '╚══════════════════════════════════════════════════════════╝');
         stderr.writeln('');
       }
     }
@@ -64,7 +75,10 @@ class FlutterMcpServer {
   Process? _flutterProcess;
 
   Future<void> run() async {
-    stdin.transform(utf8.decoder).transform(const LineSplitter()).listen((line) async {
+    stdin
+        .transform(utf8.decoder)
+        .transform(const LineSplitter())
+        .listen((line) async {
       if (line.trim().isEmpty) return;
       try {
         final request = jsonDecode(line);
@@ -87,7 +101,10 @@ class FlutterMcpServer {
         _sendResult(id, {
           "capabilities": {"tools": {}, "resources": {}},
           "protocolVersion": "2024-11-05",
-          "serverInfo": {"name": "flutter-skill-mcp", "version": _currentVersion},
+          "serverInfo": {
+            "name": "flutter-skill-mcp",
+            "version": _currentVersion
+          },
         });
       } else if (method == 'notifications/initialized') {
         // No op
@@ -119,7 +136,10 @@ class FlutterMcpServer {
         "inputSchema": {
           "type": "object",
           "properties": {
-            "uri": {"type": "string", "description": "WebSocket URI (ws://...)"},
+            "uri": {
+              "type": "string",
+              "description": "WebSocket URI (ws://...)"
+            },
           },
           "required": ["uri"],
         },
@@ -130,7 +150,10 @@ class FlutterMcpServer {
         "inputSchema": {
           "type": "object",
           "properties": {
-            "project_path": {"type": "string", "description": "Path to Flutter project"},
+            "project_path": {
+              "type": "string",
+              "description": "Path to Flutter project"
+            },
             "device_id": {"type": "string", "description": "Target device"},
           },
         },
@@ -148,7 +171,10 @@ class FlutterMcpServer {
         "inputSchema": {
           "type": "object",
           "properties": {
-            "max_depth": {"type": "integer", "description": "Maximum tree depth (default: 10)"},
+            "max_depth": {
+              "type": "integer",
+              "description": "Maximum tree depth (default: 10)"
+            },
           },
         },
       },
@@ -174,7 +200,10 @@ class FlutterMcpServer {
         "inputSchema": {
           "type": "object",
           "properties": {
-            "type": {"type": "string", "description": "Widget type name to search"},
+            "type": {
+              "type": "string",
+              "description": "Widget type name to search"
+            },
           },
           "required": ["type"],
         },
@@ -225,7 +254,10 @@ class FlutterMcpServer {
           "properties": {
             "key": {"type": "string", "description": "Widget key"},
             "text": {"type": "string", "description": "Text to find"},
-            "duration": {"type": "integer", "description": "Duration in ms (default: 500)"},
+            "duration": {
+              "type": "integer",
+              "description": "Duration in ms (default: 500)"
+            },
           },
         },
       },
@@ -246,9 +278,18 @@ class FlutterMcpServer {
         "inputSchema": {
           "type": "object",
           "properties": {
-            "direction": {"type": "string", "enum": ["up", "down", "left", "right"]},
-            "distance": {"type": "number", "description": "Swipe distance in pixels (default: 300)"},
-            "key": {"type": "string", "description": "Start from element (optional)"},
+            "direction": {
+              "type": "string",
+              "enum": ["up", "down", "left", "right"]
+            },
+            "distance": {
+              "type": "number",
+              "description": "Swipe distance in pixels (default: 300)"
+            },
+            "key": {
+              "type": "string",
+              "description": "Start from element (optional)"
+            },
           },
           "required": ["direction"],
         },
@@ -308,7 +349,10 @@ class FlutterMcpServer {
           "properties": {
             "key": {"type": "string", "description": "Widget key"},
             "text": {"type": "string", "description": "Text to find"},
-            "timeout": {"type": "integer", "description": "Timeout in ms (default: 5000)"},
+            "timeout": {
+              "type": "integer",
+              "description": "Timeout in ms (default: 5000)"
+            },
           },
         },
       },
@@ -320,7 +364,10 @@ class FlutterMcpServer {
           "properties": {
             "key": {"type": "string", "description": "Widget key"},
             "text": {"type": "string", "description": "Text to find"},
-            "timeout": {"type": "integer", "description": "Timeout in ms (default: 5000)"},
+            "timeout": {
+              "type": "integer",
+              "description": "Timeout in ms (default: 5000)"
+            },
           },
         },
       },
@@ -430,11 +477,15 @@ class FlutterMcpServer {
         // Continue even if setup fails
       }
 
-      _flutterProcess = await Process.start('flutter', processArgs, workingDirectory: projectPath);
+      _flutterProcess = await Process.start('flutter', processArgs,
+          workingDirectory: projectPath);
 
       final completer = Completer<String>();
 
-      _flutterProcess!.stdout.transform(utf8.decoder).transform(const LineSplitter()).listen((line) {
+      _flutterProcess!.stdout
+          .transform(utf8.decoder)
+          .transform(const LineSplitter())
+          .listen((line) {
         if (line.contains('ws://')) {
           final uriRegex = RegExp(r'ws://[a-zA-Z0-9.:/-]+');
           final match = uriRegex.firstMatch(line);
@@ -443,9 +494,11 @@ class FlutterMcpServer {
             _client?.disconnect();
             _client = FlutterSkillClient(uri);
             _client!.connect().then((_) {
-              if (!completer.isCompleted) completer.complete("Launched and connected to $uri");
+              if (!completer.isCompleted)
+                completer.complete("Launched and connected to $uri");
             }).catchError((e) {
-              if (!completer.isCompleted) completer.completeError("Found URI but failed to connect: $e");
+              if (!completer.isCompleted)
+                completer.completeError("Found URI but failed to connect: $e");
             });
           }
         }
@@ -510,17 +563,21 @@ class FlutterMcpServer {
       // Advanced Actions
       case 'long_press':
         final duration = args['duration'] ?? 500;
-        final success = await _client!.longPress(key: args['key'], text: args['text'], duration: duration);
+        final success = await _client!.longPress(
+            key: args['key'], text: args['text'], duration: duration);
         return success ? "Long pressed" : "Long press failed";
       case 'double_tap':
-        final success = await _client!.doubleTap(key: args['key'], text: args['text']);
+        final success =
+            await _client!.doubleTap(key: args['key'], text: args['text']);
         return success ? "Double tapped" : "Double tap failed";
       case 'swipe':
         final distance = (args['distance'] ?? 300).toDouble();
-        final success = await _client!.swipe(direction: args['direction'], distance: distance, key: args['key']);
+        final success = await _client!.swipe(
+            direction: args['direction'], distance: distance, key: args['key']);
         return success ? "Swiped ${args['direction']}" : "Swipe failed";
       case 'drag':
-        final success = await _client!.drag(fromKey: args['from_key'], toKey: args['to_key']);
+        final success = await _client!
+            .drag(fromKey: args['from_key'], toKey: args['to_key']);
         return success ? "Dragged" : "Drag failed";
 
       // State & Validation
@@ -532,11 +589,13 @@ class FlutterMcpServer {
         return await _client!.getSliderValue(args['key']);
       case 'wait_for_element':
         final timeout = args['timeout'] ?? 5000;
-        final found = await _client!.waitForElement(key: args['key'], text: args['text'], timeout: timeout);
+        final found = await _client!.waitForElement(
+            key: args['key'], text: args['text'], timeout: timeout);
         return {"found": found};
       case 'wait_for_gone':
         final timeout = args['timeout'] ?? 5000;
-        final gone = await _client!.waitForGone(key: args['key'], text: args['text'], timeout: timeout);
+        final gone = await _client!.waitForGone(
+            key: args['key'], text: args['text'], timeout: timeout);
         return {"gone": gone};
 
       // Screenshot
@@ -574,7 +633,8 @@ class FlutterMcpServer {
 
   void _requireConnection() {
     if (_client == null || !_client!.isConnected) {
-      throw Exception("Not connected. Call 'connect_app' or 'launch_app' first.");
+      throw Exception(
+          "Not connected. Call 'connect_app' or 'launch_app' first.");
     }
   }
 

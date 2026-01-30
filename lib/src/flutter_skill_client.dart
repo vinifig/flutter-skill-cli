@@ -32,7 +32,8 @@ class FlutterSkillClient {
     _isolateId = null;
   }
 
-  Future<Map<String, dynamic>> _call(String method, [Map<String, dynamic>? args]) async {
+  Future<Map<String, dynamic>> _call(String method,
+      [Map<String, dynamic>? args]) async {
     if (_service == null || _isolateId == null) {
       throw Exception('Not connected');
     }
@@ -86,7 +87,8 @@ class FlutterSkillClient {
   }
 
   Future<Map<String, dynamic>?> getWidgetProperties(String key) async {
-    final result = await _call('ext.flutter.flutter_skill.getWidgetProperties', {
+    final result =
+        await _call('ext.flutter.flutter_skill.getWidgetProperties', {
       'key': key,
     });
     return result['properties'];
@@ -106,7 +108,8 @@ class FlutterSkillClient {
 
   // ==================== MORE INTERACTIONS ====================
 
-  Future<bool> longPress({String? key, String? text, int duration = 500}) async {
+  Future<bool> longPress(
+      {String? key, String? text, int duration = 500}) async {
     final result = await _call('ext.flutter.flutter_skill.longPress', {
       if (key != null) 'key': key,
       if (text != null) 'text': text,
@@ -115,7 +118,8 @@ class FlutterSkillClient {
     return result['success'] == true;
   }
 
-  Future<bool> swipe({required String direction, double distance = 300, String? key}) async {
+  Future<bool> swipe(
+      {required String direction, double distance = 300, String? key}) async {
     final result = await _call('ext.flutter.flutter_skill.swipe', {
       'direction': direction,
       'distance': distance.toString(),
@@ -163,7 +167,8 @@ class FlutterSkillClient {
     return result['value']?.toDouble();
   }
 
-  Future<bool> waitForElement({String? key, String? text, int timeout = 5000}) async {
+  Future<bool> waitForElement(
+      {String? key, String? text, int timeout = 5000}) async {
     final result = await _call('ext.flutter.flutter_skill.waitForElement', {
       if (key != null) 'key': key,
       if (text != null) 'text': text,
@@ -172,7 +177,8 @@ class FlutterSkillClient {
     return result['found'] == true;
   }
 
-  Future<bool> waitForGone({String? key, String? text, int timeout = 5000}) async {
+  Future<bool> waitForGone(
+      {String? key, String? text, int timeout = 5000}) async {
     final result = await _call('ext.flutter.flutter_skill.waitForGone', {
       if (key != null) 'key': key,
       if (text != null) 'text': text,
@@ -191,7 +197,8 @@ class FlutterSkillClient {
     return result['image'];
   }
 
-  Future<String?> takeRegionScreenshot(double x, double y, double width, double height) async {
+  Future<String?> takeRegionScreenshot(
+      double x, double y, double width, double height) async {
     final result = await _call('ext.flutter.flutter_skill.screenshotRegion', {
       'x': x.toString(),
       'y': y.toString(),
@@ -254,7 +261,8 @@ class FlutterSkillClient {
     });
   }
 
-  Future<Map<String, dynamic>> longPressAt(double x, double y, {int duration = 500}) async {
+  Future<Map<String, dynamic>> longPressAt(double x, double y,
+      {int duration = 500}) async {
     return await _call('ext.flutter.flutter_skill.longPressAt', {
       'x': x.toString(),
       'y': y.toString(),
@@ -300,7 +308,8 @@ class FlutterSkillClient {
     } catch (e) {
       // Fallback to basic stats if extension not available
       return {
-        "message": "Frame stats not available. Ensure flutter_skill is properly initialized in the app.",
+        "message":
+            "Frame stats not available. Ensure flutter_skill is properly initialized in the app.",
         "error": e.toString(),
       };
     }
@@ -312,7 +321,8 @@ class FlutterSkillClient {
     }
 
     try {
-      final allocationProfile = await _service!.getAllocationProfile(_isolateId!);
+      final allocationProfile =
+          await _service!.getAllocationProfile(_isolateId!);
       return {
         "heap_used": allocationProfile.memoryUsage?.heapUsage ?? 0,
         "heap_capacity": allocationProfile.memoryUsage?.heapCapacity ?? 0,
@@ -328,7 +338,8 @@ class FlutterSkillClient {
 
   // ==================== ENHANCED INSPECTION ====================
 
-  Future<List<dynamic>> getInteractiveElements({bool includePositions = true}) async {
+  Future<List<dynamic>> getInteractiveElements(
+      {bool includePositions = true}) async {
     final result = await _call('ext.flutter.flutter_skill.interactive', {
       'includePositions': includePositions.toString(),
     });
@@ -357,8 +368,10 @@ class FlutterSkillClient {
 
   Future<Map<String, dynamic>> getLayoutTree() async {
     try {
-      final groupName = 'flutter_skill_${DateTime.now().millisecondsSinceEpoch}';
-      final result = await _call('ext.flutter.inspector.getRootWidgetSummaryTree', {
+      final groupName =
+          'flutter_skill_${DateTime.now().millisecondsSinceEpoch}';
+      final result =
+          await _call('ext.flutter.inspector.getRootWidgetSummaryTree', {
         'objectGroup': groupName,
       });
       return result;
