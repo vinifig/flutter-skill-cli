@@ -197,6 +197,12 @@ jobs:
         env:
           PUBLISH_TOKEN: ${{ secrets.JETBRAINS_MARKETPLACE_TOKEN }}
 
+      - name: Upload plugin zip as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: intellij-plugin
+          path: build/distributions/*.zip
+
   # Update Homebrew tap with native binaries
   update-homebrew:
     needs: [prepare, build-native-binaries]  # Wait for native binaries to be built
@@ -362,6 +368,8 @@ jobs:
           mkdir -p release-assets
           # Move all binaries to release-assets with proper names
           find artifacts -type f -name "flutter-skill-*" -exec mv {} release-assets/ \;
+          # Move IntelliJ plugin zip if exists
+          find artifacts -type f -name "*.zip" -exec mv {} release-assets/ \; 2>/dev/null || true
           ls -la release-assets/
 
       - name: Create Release
