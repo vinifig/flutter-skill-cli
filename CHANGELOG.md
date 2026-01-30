@@ -1,3 +1,35 @@
+## 0.2.16
+
+**P0/P1 Expert-level Optimizations**
+
+### Changes
+- TODO: Add your changes here
+
+---
+
+## 0.2.16
+
+**P0/P1 Expert-level Optimizations**
+
+### P0 - Fuzzy Match Suggestions
+- `tap()` and `enter_text()` return similar keys/texts when element not found
+- Helps developers quickly identify correct key names
+
+### P1 - Enhanced inspect()
+- Added `id` field for element identification
+- Added `ancestors` array (last 3 meaningful parent widgets)
+- Added `widgetType` for actual Flutter widget class
+- Added `tooltip` and `icon` extraction
+- Added `visible` status
+- Changed position/size to `bounds` object format
+
+### P1 - Error Code System
+- Added ErrorCode class (E001-E302)
+- Structured error responses with code, message, suggestions
+- Codes: elementNotFound, elementNotVisible, inputFailed, etc.
+
+---
+
 ## 0.2.15
 
 **Critical Bug Fixes & AI Agent Improvements**
