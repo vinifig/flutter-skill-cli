@@ -162,7 +162,13 @@ jobs:
           URL="https://github.com/ai-dashboad/flutter-skill/archive/refs/tags/v${VERSION}.tar.gz"
           SHA256=$(curl -sL "$URL" | sha256sum | cut -d' ' -f1)
           echo "sha256=$SHA256" >> $GITHUB_OUTPUT
-          echo "url=$URL" >> $GITHUB_OUTPUT
+
+      - name: Checkout Homebrew tap
+        uses: actions/checkout@v4
+        with:
+          repository: ai-dashboad/homebrew-flutter-skill
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: homebrew-tap
 
       - name: Update Homebrew formula
         run: |
@@ -170,19 +176,17 @@ jobs:
           SHA256=${{ steps.sha256.outputs.sha256 }}
 
           # Update the formula file
-          sed -i "s|url \".*\"|url \"https://github.com/ai-dashboad/flutter-skill/archive/refs/tags/v${VERSION}.tar.gz\"|" homebrew/flutter-skill.rb
-          sed -i "s|sha256 \".*\"|sha256 \"${SHA256}\"|" homebrew/flutter-skill.rb
+          sed -i "s|url \".*\"|url \"https://github.com/ai-dashboad/flutter-skill/archive/refs/tags/v${VERSION}.tar.gz\"|" homebrew-tap/flutter-skill.rb
+          sed -i "s|sha256 \".*\"|sha256 \"${SHA256}\"|" homebrew-tap/flutter-skill.rb
 
-      - name: Push to Homebrew tap repository
-        uses: cpina/github-action-push-to-another-repository@main
-        env:
-          SSH_DEPLOY_KEY: ${{ secrets.HOMEBREW_TAP_DEPLOY_KEY }}
-        with:
-          source-directory: 'homebrew'
-          destination-github-username: 'ai-dashboad'
-          destination-repository-name: 'homebrew-flutter-skill'
-          target-branch: main
-          commit-message: "Update flutter-skill to v${{ needs.prepare.outputs.version }}"
+      - name: Commit and push
+        run: |
+          cd homebrew-tap
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add flutter-skill.rb
+          git commit -m "Update flutter-skill to v${{ needs.prepare.outputs.version }}" || echo "No changes to commit"
+          git push
 
   # Create GitHub Release
   create-release:
