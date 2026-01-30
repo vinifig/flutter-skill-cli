@@ -32,3 +32,21 @@ demo_counter/
 
 # Checkpoints
 .DS_Store
+
+# npm package builds
+npm/*.tgz
+npm/node_modules/
+npm/dart/.dart_tool/
+
+# VSCode extension builds
+vscode-extension/*.vsix
+vscode-extension/out/
+vscode-extension/node_modules/
+
+# IntelliJ plugin builds
+intellij-plugin/.gradle/
+intellij-plugin/.intellijPlatform/
+intellij-plugin/build/
+intellij-plugin/gradle/
+intellij-plugin/gradlew
+intellij-plugin/gradlew.bat

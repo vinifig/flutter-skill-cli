@@ -2,10 +2,10 @@
 
 > **Give your AI Agent eyes and hands inside your Flutter app.**
 
+![Version](https://img.shields.io/pub/v/flutter_skill.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Dart](https://img.shields.io/badge/Dart-3.0%2B-blue)
 ![Platform](https://img.shields.io/badge/Platform-Flutter-02569B)
-![Status](https://img.shields.io/badge/Status-Beta-yellow)
 
 **Flutter Skill** is a bridge that connects AI Agents (like Claude Code, Cursor, Windsurf) directly to a running Flutter application. It creates a bi-directional control channel allowing agents to:
 
@@ -103,25 +103,42 @@ graph TD
 
 ---
 
+## Installation
+
+Choose your preferred method:
+
+### Option 1: pub.dev (Recommended)
+
+```bash
+dart pub global activate flutter_skill
+```
+
+### Option 2: Homebrew (macOS)
+
+```bash
+brew tap ai-dashboad/flutter-skill
+brew install flutter-skill
+```
+
+### Option 3: From Source
+
+```bash
+git clone https://github.com/ai-dashboad/flutter-skill.git
+cd flutter-skill
+dart pub global activate --source path .
+```
+
+---
+
 ## Quick Start
 
 You don't need to manually edit your code. The skill handles it for you.
 
-### 1. Install CLI (Optional)
+### 1. Launch with Auto-Setup
 
 ```bash
-# From the flutter-skill directory
-dart pub global activate --source path .
-```
-
-### 2. Launch with Auto-Setup
-
-```bash
-# Using global CLI
+# Launch your Flutter project
 flutter_skill launch /path/to/your/flutter_project
-
-# Or run directly
-dart run bin/flutter_skill.dart launch /path/to/your/flutter_project
 ```
 
 **What happens automatically:**
@@ -150,11 +167,31 @@ flutter_skill screenshot ./screenshot.png
 **MCP Mode (Cursor/Windsurf/Claude Desktop):**
 
 Add to your MCP configuration:
+
 ```json
 {
   "flutter-skill": {
+    "command": "flutter-skill",
+    "args": ["server"]
+  }
+}
+```
+
+Alternative configurations:
+
+```json
+// If installed via Homebrew
+{
+  "flutter-skill": {
+    "command": "flutter-skill-mcp"
+  }
+}
+
+// If running from source
+{
+  "flutter-skill": {
     "command": "dart",
-    "args": ["run", "/absolute/path/to/flutter-skill/bin/server.dart"]
+    "args": ["run", "/path/to/flutter-skill/bin/server.dart"]
   }
 }
 ```
@@ -231,6 +268,22 @@ The skill can find elements by:
 1. **Key** (most reliable): `tap "login_button"`
 2. **Text content**: `tap "Login"`
 3. **Widget type**: `find_by_type "ElevatedButton"`
+
+---
+
+## IDE Extensions
+
+### VSCode Extension
+
+Download from [GitHub Releases](https://github.com/ai-dashboad/flutter-skill/releases) and install manually:
+- Download `flutter-skill-0.2.0.vsix`
+- Run: `code --install-extension flutter-skill-0.2.0.vsix`
+
+### IntelliJ/Android Studio Plugin
+
+Download from [GitHub Releases](https://github.com/ai-dashboad/flutter-skill/releases) and install manually:
+- Download `flutter-skill-intellij-0.2.0.zip`
+- In IDE: Settings → Plugins → ⚙ → Install Plugin from Disk
 
 ---
 
