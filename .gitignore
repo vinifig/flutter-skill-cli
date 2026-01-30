@@ -24,5 +24,11 @@ tests/bin/flutter
 # actually tests/bin/flutter is a script we wrote, we should keep it.
 # But generated outputs inside test_dummy should be ignored.
 
+# Claude Code local settings
+.claude/
+
+# Demo projects
+demo_counter/
+
 # Checkpoints
 .DS_Store

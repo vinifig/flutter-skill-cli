@@ -1,0 +1,8 @@
+{
+  "startCommand": {
+    "type": "stdio",
+    "command": "dart",
+    "args": ["run", "bin/server.dart"]
+  },
+  "minFlutterVersion": "3.0.0"
+}

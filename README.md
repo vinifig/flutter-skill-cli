@@ -19,6 +19,15 @@
 
 - **Zero-Config Automation**: Just run the launch command. The skill automatically adds dependencies and injects initialization code into `main.dart`.
 - **Universal Compatibility**: Works as a **CLI tool** (for Claude Code) or an **MCP Server** (for Cursor/Windsurf).
+  > **MCP Server Config**:
+  > Add to `claude_desktop_config.json`:
+  > ```json
+  > "flutter-skill": {
+  >   "command": "dart",
+  >   "args": ["run", "/absolute/path/to/flutter-skill/bin/server.dart"]
+  > }
+  > ```
+
 - **Resilient Connection**: Uses Dart VM Service Protocol to communicate reliably with Debug/Profile builds.
 - **Smart Element Resolution**: Finds widgets by reliability keys, text content, or semantic labels.
 
