@@ -35,9 +35,11 @@ export function detectAiAgents(): AgentConfig[] {
     const homeDir = os.homedir();
     const agents: AgentConfig[] = [];
 
-    // Claude Code - check for ~/.claude.json or claude command
-    const claudeConfigPath = path.join(homeDir, '.claude.json');
-    const claudeDetected = fs.existsSync(claudeConfigPath) || isCommandAvailable('claude');
+    // Claude Code - check for ~/.claude/ directory or claude command
+    // Claude Code uses ~/.claude/settings.json for MCP config
+    const claudeDir = path.join(homeDir, '.claude');
+    const claudeConfigPath = path.join(claudeDir, 'settings.json');
+    const claudeDetected = fs.existsSync(claudeDir) || isCommandAvailable('claude');
     agents.push({
         name: 'claude-code',
         displayName: 'Claude Code',

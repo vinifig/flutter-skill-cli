@@ -48,9 +48,11 @@ class McpConfigManager {
         val homeDir = System.getProperty("user.home")
         val agents = mutableListOf<AgentConfig>()
 
-        // Claude Code - check for ~/.claude.json or claude command
-        val claudeConfigPath = "$homeDir/.claude.json"
-        val claudeDetected = File(claudeConfigPath).exists() || isCommandAvailable("claude")
+        // Claude Code - check for ~/.claude/ directory or claude command
+        // Claude Code uses ~/.claude/settings.json for MCP config
+        val claudeDir = "$homeDir/.claude"
+        val claudeConfigPath = "$claudeDir/settings.json"
+        val claudeDetected = File(claudeDir).exists() || isCommandAvailable("claude")
         agents.add(AgentConfig(
             name = "claude-code",
             displayName = "Claude Code",
