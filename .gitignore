@@ -1,0 +1,28 @@
+# Dart / Flutter
+.dart_tool/
+.packages
+build/
+pubspec.lock
+coverage/
+android/
+ios/
+linux/
+macos/
+web/
+windows/
+
+# IDEs
+.idea/
+.vscode/
+*.iml
+
+# Project Specific
+.flutter_skill_uri
+test_dummy/
+tests/bin/flutter 
+# We keep tests/mock_app.dart and tests/integration_test.dart but maybe ignore the wrapper script if it's considered localized? 
+# actually tests/bin/flutter is a script we wrote, we should keep it.
+# But generated outputs inside test_dummy should be ignored.
+
+# Checkpoints
+.DS_Store

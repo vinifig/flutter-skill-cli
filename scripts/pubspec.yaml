@@ -1,0 +1,19 @@
+name: flutter_skill_scripts
+description: CLI scripts for interacting with marionette_flutter.
+version: 1.0.0
+publish_to: none
+
+environment:
+  sdk: ^3.0.0
+
+dependencies:
+  args: ^2.4.0
+  vm_service: ^14.0.0
+  web_socket_channel: ^2.4.0
+  json_annotation: ^4.8.0
+  http: ^1.6.0
+
+dev_dependencies:
+  lints: ^3.0.0
+  build_runner: ^2.4.0
+  json_serializable: ^6.7.0
