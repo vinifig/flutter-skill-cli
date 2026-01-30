@@ -1,0 +1,38 @@
+# Git
+.git
+.gitignore
+
+# IDE
+.idea
+.vscode
+*.iml
+
+# Build artifacts
+build/
+.dart_tool/
+.packages
+
+# Distribution packages (not needed in Docker)
+vscode-extension/
+intellij-plugin/
+npm/
+homebrew/
+docker/
+
+# Documentation
+*.md
+docs/
+assets/
+
+# Tests
+test/
+test_dummy/
+integration_test/
+
+# Scripts
+scripts/
+
+# Config files
+.claude/
+.flutter_skill_uri
+*.log
