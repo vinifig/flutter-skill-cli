@@ -286,10 +286,26 @@ class FlutterSkillBinding {
 
     // ==================== SCREENSHOT ====================
 
-    // 18. Screenshot
+    // 18. Screenshot (with quality and maxWidth support)
     developer.registerExtension('ext.flutter.flutter_skill.screenshot', (method, parameters) async {
       try {
-        final base64Image = await _takeScreenshot();
+        final quality = double.tryParse(parameters['quality'] ?? '1.0') ?? 1.0;
+        final maxWidth = int.tryParse(parameters['maxWidth'] ?? '');
+        final base64Image = await _takeScreenshot(quality: quality, maxWidth: maxWidth);
+        return developer.ServiceExtensionResponse.result(jsonEncode({'image': base64Image}));
+      } catch (e, stack) {
+        return _errorResponse(e, stack);
+      }
+    });
+
+    // 18b. Screenshot Region
+    developer.registerExtension('ext.flutter.flutter_skill.screenshotRegion', (method, parameters) async {
+      try {
+        final x = double.tryParse(parameters['x'] ?? '0') ?? 0;
+        final y = double.tryParse(parameters['y'] ?? '0') ?? 0;
+        final width = double.tryParse(parameters['width'] ?? '100') ?? 100;
+        final height = double.tryParse(parameters['height'] ?? '100') ?? 100;
+        final base64Image = await _takeRegionScreenshot(x, y, width, height);
         return developer.ServiceExtensionResponse.result(jsonEncode({'image': base64Image}));
       } catch (e, stack) {
         return _errorResponse(e, stack);
@@ -430,6 +446,21 @@ class FlutterSkillBinding {
         await _performSwipeCoordinates(startX, startY, endX, endY, duration: duration);
         return developer.ServiceExtensionResponse.result(
           jsonEncode({'success': true, 'message': 'Swiped from ($startX, $startY) to ($endX, $endY)'}),
+        );
+      } catch (e, stack) {
+        return _errorResponse(e, stack);
+      }
+    });
+
+    // 30. Edge Swipe (for drawer menus, back gestures)
+    developer.registerExtension('ext.flutter.flutter_skill.edgeSwipe', (method, parameters) async {
+      try {
+        final edge = parameters['edge'] ?? 'left';
+        final direction = parameters['direction'] ?? 'right';
+        final distance = double.tryParse(parameters['distance'] ?? '200') ?? 200;
+        final success = await _performEdgeSwipe(edge: edge, direction: direction, distance: distance);
+        return developer.ServiceExtensionResponse.result(
+          jsonEncode({'success': success, 'message': success ? 'Edge swipe successful' : 'Edge swipe failed'}),
         );
       } catch (e, stack) {
         return _errorResponse(e, stack);
@@ -797,6 +828,70 @@ class FlutterSkillBinding {
     _log('Swipe from ($startX, $startY) to ($endX, $endY) completed');
   }
 
+  static Future<bool> _performEdgeSwipe({
+    required String edge,
+    required String direction,
+    double distance = 200,
+  }) async {
+    final binding = WidgetsBinding.instance;
+    final view = binding.platformDispatcher.views.first;
+    final screenSize = view.physicalSize / view.devicePixelRatio;
+
+    double startX, startY;
+
+    // Calculate start position based on edge
+    switch (edge) {
+      case 'left':
+        startX = 0;
+        startY = screenSize.height / 2;
+        break;
+      case 'right':
+        startX = screenSize.width;
+        startY = screenSize.height / 2;
+        break;
+      case 'top':
+        startX = screenSize.width / 2;
+        startY = 0;
+        break;
+      case 'bottom':
+        startX = screenSize.width / 2;
+        startY = screenSize.height;
+        break;
+      default:
+        _log('Invalid edge: $edge');
+        return false;
+    }
+
+    double endX = startX, endY = startY;
+
+    // Calculate end position based on direction
+    switch (direction) {
+      case 'right':
+        endX = startX + distance;
+        break;
+      case 'left':
+        endX = startX - distance;
+        break;
+      case 'up':
+        endY = startY - distance;
+        break;
+      case 'down':
+        endY = startY + distance;
+        break;
+      default:
+        _log('Invalid direction: $direction');
+        return false;
+    }
+
+    // Clamp to screen bounds
+    endX = endX.clamp(0, screenSize.width);
+    endY = endY.clamp(0, screenSize.height);
+
+    await _performSwipeCoordinates(startX, startY, endX, endY, duration: 300);
+    _log('Edge swipe from $edge edge, direction: $direction, distance: $distance');
+    return true;
+  }
+
   // ==================== PERFORMANCE ====================
 
   static Map<String, dynamic> _getFrameStats() {
@@ -818,6 +913,7 @@ class FlutterSkillBinding {
       String? type;
       String? text;
       String? key;
+      String? semanticsLabel;
 
       if (widget.key is ValueKey<String>) {
         key = (widget.key as ValueKey<String>).value;
@@ -839,16 +935,46 @@ class FlutterSkillBinding {
         type = 'Dropdown';
       } else if (widget is InkWell && widget.onTap != null) {
         type = 'Tappable';
+        text = _extractTextFrom(element);
       } else if (widget is GestureDetector && widget.onTap != null) {
         type = 'Tappable';
+        text = _extractTextFrom(element);
+      }
+
+      // Extract semantics label if available
+      if (widget is Semantics && widget.properties.label != null) {
+        semanticsLabel = widget.properties.label;
       }
 
       if (type != null) {
-        results.add({
-          if (key != null) 'key': key,
-          if (text != null) 'text': text,
+        final entry = <String, dynamic>{
           'type': type,
-        });
+        };
+
+        if (key != null) entry['key'] = key;
+        if (text != null) entry['text'] = text;
+        if (semanticsLabel != null) entry['semanticsLabel'] = semanticsLabel;
+
+        // Add position and size from render object
+        final renderObject = element.renderObject;
+        if (renderObject is RenderBox && renderObject.hasSize) {
+          final offset = renderObject.localToGlobal(Offset.zero);
+          entry['position'] = {
+            'x': offset.dx.round(),
+            'y': offset.dy.round(),
+          };
+          entry['size'] = {
+            'width': renderObject.size.width.round(),
+            'height': renderObject.size.height.round(),
+          };
+          // Add center point for easy tapping
+          entry['center'] = {
+            'x': (offset.dx + renderObject.size.width / 2).round(),
+            'y': (offset.dy + renderObject.size.height / 2).round(),
+          };
+        }
+
+        results.add(entry);
       }
 
       element.visitChildren(visit);
@@ -1081,14 +1207,17 @@ class FlutterSkillBinding {
 
   // ==================== SCREENSHOT ====================
 
-  static Future<String?> _takeScreenshot() async {
+  static Future<String?> _takeScreenshot({double quality = 1.0, int? maxWidth}) async {
     try {
       final binding = WidgetsBinding.instance;
       // ignore: invalid_use_of_protected_member
       final renderObject = binding.rootElement?.renderObject;
-      if (renderObject is! RenderRepaintBoundary) {
+
+      RenderRepaintBoundary? boundary;
+      if (renderObject is RenderRepaintBoundary) {
+        boundary = renderObject;
+      } else {
         // Try to find a RenderRepaintBoundary
-        RenderRepaintBoundary? boundary;
         void findBoundary(RenderObject obj) {
           if (boundary != null) return;
           if (obj is RenderRepaintBoundary) {
@@ -1098,24 +1227,91 @@ class FlutterSkillBinding {
           obj.visitChildren(findBoundary);
         }
         renderObject?.visitChildren(findBoundary);
-
-        if (boundary == null) {
-          _log('No RenderRepaintBoundary found');
-          return null;
-        }
-
-        final image = await boundary!.toImage(pixelRatio: 1.0);
-        final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-        if (byteData == null) return null;
-        return base64Encode(byteData.buffer.asUint8List());
       }
 
-      final image = await renderObject.toImage(pixelRatio: 1.0);
+      if (boundary == null) {
+        _log('No RenderRepaintBoundary found');
+        return null;
+      }
+
+      // Use quality as pixel ratio (lower = smaller image)
+      var pixelRatio = quality.clamp(0.1, 1.0);
+      var image = await boundary!.toImage(pixelRatio: pixelRatio);
+
+      // Scale down if maxWidth is specified
+      if (maxWidth != null && image.width > maxWidth) {
+        final scale = maxWidth / image.width;
+        final recorder = ui.PictureRecorder();
+        final canvas = Canvas(recorder);
+        final newWidth = (image.width * scale).toInt();
+        final newHeight = (image.height * scale).toInt();
+
+        canvas.drawImageRect(
+          image,
+          Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble()),
+          Rect.fromLTWH(0, 0, newWidth.toDouble(), newHeight.toDouble()),
+          Paint()..filterQuality = FilterQuality.medium,
+        );
+
+        final picture = recorder.endRecording();
+        image = await picture.toImage(newWidth, newHeight);
+      }
+
       final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
       if (byteData == null) return null;
       return base64Encode(byteData.buffer.asUint8List());
     } catch (e) {
       _log('Screenshot failed: $e');
+      return null;
+    }
+  }
+
+  static Future<String?> _takeRegionScreenshot(double x, double y, double width, double height) async {
+    try {
+      final binding = WidgetsBinding.instance;
+      // ignore: invalid_use_of_protected_member
+      final renderObject = binding.rootElement?.renderObject;
+
+      RenderRepaintBoundary? boundary;
+      if (renderObject is RenderRepaintBoundary) {
+        boundary = renderObject;
+      } else {
+        void findBoundary(RenderObject obj) {
+          if (boundary != null) return;
+          if (obj is RenderRepaintBoundary) {
+            boundary = obj;
+            return;
+          }
+          obj.visitChildren(findBoundary);
+        }
+        renderObject?.visitChildren(findBoundary);
+      }
+
+      if (boundary == null) {
+        _log('No RenderRepaintBoundary found');
+        return null;
+      }
+
+      final fullImage = await boundary!.toImage(pixelRatio: 1.0);
+
+      // Crop to specified region
+      final recorder = ui.PictureRecorder();
+      final canvas = Canvas(recorder);
+
+      canvas.drawImageRect(
+        fullImage,
+        Rect.fromLTWH(x, y, width, height),
+        Rect.fromLTWH(0, 0, width, height),
+        Paint(),
+      );
+
+      final picture = recorder.endRecording();
+      final croppedImage = await picture.toImage(width.toInt(), height.toInt());
+      final byteData = await croppedImage.toByteData(format: ui.ImageByteFormat.png);
+      if (byteData == null) return null;
+      return base64Encode(byteData.buffer.asUint8List());
+    } catch (e) {
+      _log('Region screenshot failed: $e');
       return null;
     }
   }

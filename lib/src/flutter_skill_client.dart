@@ -46,28 +46,34 @@ class FlutterSkillClient {
 
   // ==================== EXISTING METHODS ====================
 
-  Future<void> tap({String? key, String? text}) async {
+  /// Tap an element. Returns result with success status.
+  Future<Map<String, dynamic>> tap({String? key, String? text}) async {
     if (key == null && text == null) {
       throw ArgumentError('Must provide key or text for tap');
     }
-    await _call('ext.flutter.flutter_skill.tap', {
+    final result = await _call('ext.flutter.flutter_skill.tap', {
       if (key != null) 'key': key,
       if (text != null) 'text': text,
     });
+    return result;
   }
 
-  Future<void> enterText(String key, String text) async {
-    await _call('ext.flutter.flutter_skill.enterText', {
+  /// Enter text into a field. Returns result with success status.
+  Future<Map<String, dynamic>> enterText(String key, String text) async {
+    final result = await _call('ext.flutter.flutter_skill.enterText', {
       'key': key,
       'text': text,
     });
+    return result;
   }
 
-  Future<void> scrollTo({String? key, String? text}) async {
-    await _call('ext.flutter.flutter_skill.scroll', {
+  /// Scroll to element. Returns result with success status.
+  Future<Map<String, dynamic>> scrollTo({String? key, String? text}) async {
+    final result = await _call('ext.flutter.flutter_skill.scroll', {
       if (key != null) 'key': key,
       if (text != null) 'text': text,
     });
+    return result;
   }
 
   // ==================== UI INSPECTION ====================
@@ -177,8 +183,21 @@ class FlutterSkillClient {
 
   // ==================== SCREENSHOT ====================
 
-  Future<String?> takeScreenshot() async {
-    final result = await _call('ext.flutter.flutter_skill.screenshot');
+  Future<String?> takeScreenshot({double quality = 1.0, int? maxWidth}) async {
+    final result = await _call('ext.flutter.flutter_skill.screenshot', {
+      'quality': quality.toString(),
+      if (maxWidth != null) 'maxWidth': maxWidth.toString(),
+    });
+    return result['image'];
+  }
+
+  Future<String?> takeRegionScreenshot(double x, double y, double width, double height) async {
+    final result = await _call('ext.flutter.flutter_skill.screenshotRegion', {
+      'x': x.toString(),
+      'y': y.toString(),
+      'width': width.toString(),
+      'height': height.toString(),
+    });
     return result['image'];
   }
 
@@ -228,34 +247,47 @@ class FlutterSkillClient {
 
   // ==================== COORDINATE-BASED ACTIONS ====================
 
-  Future<void> tapAt(double x, double y) async {
-    await _call('ext.flutter.flutter_skill.tapAt', {
+  Future<Map<String, dynamic>> tapAt(double x, double y) async {
+    return await _call('ext.flutter.flutter_skill.tapAt', {
       'x': x.toString(),
       'y': y.toString(),
     });
   }
 
-  Future<void> longPressAt(double x, double y, {int duration = 500}) async {
-    await _call('ext.flutter.flutter_skill.longPressAt', {
+  Future<Map<String, dynamic>> longPressAt(double x, double y, {int duration = 500}) async {
+    return await _call('ext.flutter.flutter_skill.longPressAt', {
       'x': x.toString(),
       'y': y.toString(),
       'duration': duration.toString(),
     });
   }
 
-  Future<void> swipeCoordinates(
+  Future<Map<String, dynamic>> swipeCoordinates(
     double startX,
     double startY,
     double endX,
     double endY, {
     int duration = 300,
   }) async {
-    await _call('ext.flutter.flutter_skill.swipeCoordinates', {
+    return await _call('ext.flutter.flutter_skill.swipeCoordinates', {
       'startX': startX.toString(),
       'startY': startY.toString(),
       'endX': endX.toString(),
       'endY': endY.toString(),
       'duration': duration.toString(),
+    });
+  }
+
+  /// Edge swipe from screen edge
+  Future<Map<String, dynamic>> edgeSwipe({
+    required String edge, // left, right, top, bottom
+    required String direction, // up, down, left, right
+    double distance = 200,
+  }) async {
+    return await _call('ext.flutter.flutter_skill.edgeSwipe', {
+      'edge': edge,
+      'direction': direction,
+      'distance': distance.toString(),
     });
   }
 

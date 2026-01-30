@@ -370,7 +370,27 @@ class FlutterMcpServer {
       {
         "name": "screenshot",
         "description": "Take a screenshot of the app",
-        "inputSchema": {"type": "object", "properties": {}},
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "quality": {"type": "number", "description": "Image quality 0.1-1.0 (default: 1.0, lower = smaller file)"},
+            "max_width": {"type": "integer", "description": "Maximum width in pixels (scales down if larger)"},
+          },
+        },
+      },
+      {
+        "name": "screenshot_region",
+        "description": "Take a screenshot of a specific screen region",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "x": {"type": "number", "description": "X coordinate of top-left corner"},
+            "y": {"type": "number", "description": "Y coordinate of top-left corner"},
+            "width": {"type": "number", "description": "Width of region"},
+            "height": {"type": "number", "description": "Height of region"},
+          },
+          "required": ["x", "y", "width", "height"],
+        },
       },
       {
         "name": "screenshot_element",
@@ -515,6 +535,19 @@ class FlutterMcpServer {
             "duration": {"type": "integer", "description": "Duration in ms (default: 300)"},
           },
           "required": ["start_x", "start_y", "end_x", "end_y"],
+        },
+      },
+      {
+        "name": "edge_swipe",
+        "description": "Swipe from screen edge (for drawer menus, back gestures)",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "edge": {"type": "string", "enum": ["left", "right", "top", "bottom"], "description": "Screen edge to start from"},
+            "direction": {"type": "string", "enum": ["up", "down", "left", "right"], "description": "Swipe direction"},
+            "distance": {"type": "number", "description": "Swipe distance in pixels (default: 200)"},
+          },
+          "required": ["edge", "direction"],
         },
       },
 
@@ -809,14 +842,37 @@ class FlutterMcpServer {
 
       // Basic Actions
       case 'tap':
-        await _client!.tap(key: args['key'], text: args['text']);
-        return "Tapped";
+        final result = await _client!.tap(key: args['key'], text: args['text']);
+        if (result['success'] != true) {
+          return {
+            "success": false,
+            "error": result['message'] ?? "Element not found",
+            "key": args['key'],
+            "text": args['text'],
+          };
+        }
+        return {"success": true, "message": "Tapped"};
+
       case 'enter_text':
-        await _client!.enterText(args['key'], args['text']);
-        return "Entered text";
+        final result = await _client!.enterText(args['key'], args['text']);
+        if (result['success'] != true) {
+          return {
+            "success": false,
+            "error": result['message'] ?? "TextField not found",
+            "key": args['key'],
+          };
+        }
+        return {"success": true, "message": "Text entered"};
+
       case 'scroll_to':
-        await _client!.scrollTo(key: args['key'], text: args['text']);
-        return "Scrolled";
+        final result = await _client!.scrollTo(key: args['key'], text: args['text']);
+        if (result['success'] != true) {
+          return {
+            "success": false,
+            "error": result['message'] ?? "Element not found",
+          };
+        }
+        return {"success": true, "message": "Scrolled"};
 
       // Advanced Actions
       case 'long_press':
@@ -852,8 +908,19 @@ class FlutterMcpServer {
 
       // Screenshot
       case 'screenshot':
-        final image = await _client!.takeScreenshot();
-        return {"image": image};
+        final quality = (args['quality'] as num?)?.toDouble() ?? 1.0;
+        final maxWidth = args['max_width'] as int?;
+        final image = await _client!.takeScreenshot(quality: quality, maxWidth: maxWidth);
+        return {"image": image, "quality": quality, "max_width": maxWidth};
+
+      case 'screenshot_region':
+        final x = (args['x'] as num).toDouble();
+        final y = (args['y'] as num).toDouble();
+        final width = (args['width'] as num).toDouble();
+        final height = (args['height'] as num).toDouble();
+        final image = await _client!.takeRegionScreenshot(x, y, width, height);
+        return {"image": image, "region": {"x": x, "y": y, "width": width, "height": height}};
+
       case 'screenshot_element':
         final image = await _client!.takeElementScreenshot(args['key']);
         return {"image": image};
@@ -904,6 +971,13 @@ class FlutterMcpServer {
         final duration = args['duration'] ?? 300;
         await _client!.swipeCoordinates(startX, startY, endX, endY, duration: duration);
         return {"success": true, "action": "swipe_coordinates"};
+
+      case 'edge_swipe':
+        final edge = args['edge'] as String;
+        final direction = args['direction'] as String;
+        final distance = (args['distance'] as num?)?.toDouble() ?? 200;
+        final result = await _client!.edgeSwipe(edge: edge, direction: direction, distance: distance);
+        return result;
 
       // === NEW: Smart Scroll ===
       case 'scroll_until_visible':
@@ -960,12 +1034,18 @@ class FlutterMcpServer {
 
         switch (actionName) {
           case 'tap':
-            await _client!.tap(key: action['key'], text: action['text']);
+            final tapResult = await _client!.tap(key: action['key'], text: action['text']);
+            if (tapResult['success'] != true) {
+              throw Exception(tapResult['message'] ?? "Element not found");
+            }
             result = "Tapped";
             break;
 
           case 'enter_text':
-            await _client!.enterText(action['key'], action['text'] ?? action['value']);
+            final enterResult = await _client!.enterText(action['key'], action['text'] ?? action['value']);
+            if (enterResult['success'] != true) {
+              throw Exception(enterResult['message'] ?? "TextField not found");
+            }
             result = "Entered text";
             break;
 
