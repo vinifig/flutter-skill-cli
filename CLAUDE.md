@@ -61,6 +61,67 @@ The codebase has two main parts:
 - `lib/src/cli/setup.dart` - Auto-patches pubspec.yaml and main.dart
 - `test/bin/flutter` - Mock flutter CLI for integration tests
 
+## Release Process
+
+### Quick Release
+
+When the user asks to release a new version:
+
+```bash
+# Option 1: Automated (recommended)
+./scripts/release.sh 0.3.2 "Brief description"
+
+# Option 2: Manual (for fine control)
+# See RELEASE_PROCESS.md for detailed steps
+```
+
+### Manual Release Steps
+
+1. **Prepare CHANGELOG**
+   - If there's a `RELEASE_NOTES_vX.Y.Z.md`, extract key points
+   - Add concise entry to `CHANGELOG.md` (at the top)
+   - Follow existing format: version, description, features, docs
+
+2. **Update Version Numbers**
+   - `pubspec.yaml` - version: X.Y.Z
+   - `lib/src/cli/server.dart` - const String _currentVersion = 'X.Y.Z'
+   - `npm/package.json` - "version": "X.Y.Z"
+   - `vscode-extension/package.json` - "version": "X.Y.Z"
+   - `intellij-plugin/build.gradle.kts` - version = "X.Y.Z"
+   - `intellij-plugin/src/main/resources/META-INF/plugin.xml` - <version>X.Y.Z</version>
+   - `README.md` - flutter_skill: ^X.Y.Z
+
+3. **Commit and Tag**
+   ```bash
+   git add -A
+   git commit -m "chore: Release vX.Y.Z\n\n<description>"
+   git tag vX.Y.Z
+   git push origin main --tags
+   ```
+
+4. **Verify**
+   - Check GitHub Actions: https://github.com/ai-dashboad/flutter-skill/actions
+   - Verify auto-publish to: pub.dev, npm, VSCode, JetBrains, Homebrew
+
+### Version Numbering
+
+Follow [Semantic Versioning](https://semver.org/):
+- `MAJOR.MINOR.PATCH` (e.g., 0.3.1)
+- **PATCH** (0.3.0 → 0.3.1): Bug fixes, optimizations, small improvements
+- **MINOR** (0.3.0 → 0.4.0): New features, backward-compatible changes
+- **MAJOR** (0.x.x → 1.0.0): Breaking changes, major refactor
+
+### Complete Documentation
+
+See `RELEASE_PROCESS.md` for:
+- Detailed manual steps
+- Troubleshooting
+- Special release scenarios
+- Post-release checklist
+
 ## Project Rules
 
 - Do not include "Co-Authored-By: Claude" in commit messages
+- Always update CHANGELOG.md when releasing
+- Keep release notes concise but informative
+- Test on all platforms before major releases
