@@ -7,7 +7,7 @@ import '../flutter_skill_client.dart';
 import '../diagnostics/error_reporter.dart';
 import 'setup.dart';
 
-const String _currentVersion = '0.2.14';
+const String _currentVersion = '0.2.25';
 
 Future<void> runServer(List<String> args) async {
   // Check for updates in background
