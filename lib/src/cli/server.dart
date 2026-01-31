@@ -213,6 +213,13 @@ Launch and test a Flutter app on iOS simulator/Android emulator for UI validatio
 1. Launch app on device/simulator
 2. Auto-connect to VM Service
 3. Ready for: inspect() → tap() → enter_text() → screenshot()
+
+[FLUTTER 3.x COMPATIBILITY]
+⚠️ Flutter 3.x uses DTD protocol by default. This tool requires VM Service protocol.
+If launch fails with "getVM method not found" or "no VM Service URI":
+• Solution: Add --vm-service-port flag to extra_args
+• Example: launch_app(extra_args: ["--vm-service-port=50000"])
+• Alternative: Use Dart MCP tools for DTD-based testing
 """,
         "inputSchema": {
           "type": "object",
@@ -1148,27 +1155,40 @@ Base64-encoded PNG image that can be displayed to user.
 
       final completer = Completer<String>();
       final errorLines = <String>[];
+      String? dtdUri; // Store DTD URI as fallback
 
       // Capture stdout (includes Flutter output and errors)
       _flutterProcess!.stdout
           .transform(utf8.decoder)
           .transform(const LineSplitter())
           .listen((line) {
-        // Check for VM Service URI
-        if (line.contains('ws://')) {
-          final uriRegex = RegExp(r'ws://[a-zA-Z0-9.:/-]+');
-          final match = uriRegex.firstMatch(line);
-          if (match != null) {
+        // Priority 1: Look for VM Service URI (http://.../)
+        // Example: "The Dart VM service is listening on http://127.0.0.1:50753/xxxx=/"
+        if (line.contains('VM service') || line.contains('Observatory')) {
+          final vmRegex = RegExp(r'http://[a-zA-Z0-9.:\-_/=]+/');
+          final match = vmRegex.firstMatch(line);
+          if (match != null && !completer.isCompleted) {
             final uri = match.group(0)!;
             _client?.disconnect();
             _client = FlutterSkillClient(uri);
             _client!.connect().then((_) {
-              if (!completer.isCompleted)
-                completer.complete("Launched and connected to $uri");
+              completer.complete("Launched and connected to $uri");
             }).catchError((e) {
-              if (!completer.isCompleted)
-                completer.completeError("Found URI but failed to connect: $e");
+              completer.completeError("Found VM Service URI but failed to connect: $e");
             });
+            return; // Found VM Service URI, skip DTD check
+          }
+        }
+
+        // Priority 2: DTD URI as fallback (ws://...=/ws)
+        // Example: "ws://127.0.0.1:57868/8LD1UdC8wrc=/ws"
+        if (line.contains('ws://') && line.contains('=/ws')) {
+          final dtdRegex = RegExp(r'ws://[a-zA-Z0-9.:\-_/=]+/ws');
+          final match = dtdRegex.firstMatch(line);
+          if (match != null) {
+            dtdUri = match.group(0)!;
+            // Don't connect yet, wait for VM Service URI
+            // If no VM Service URI found after 5 seconds, will timeout with helpful message
           }
         }
 
@@ -1225,6 +1245,35 @@ Base64-encoded PNG image that can be displayed to user.
             .timeout(const Duration(seconds: 180)); // 3 minutes for slow builds
         return result; // Success message string
       } on TimeoutException {
+        // Check if we found DTD URI but no VM Service URI
+        if (dtdUri != null) {
+          return {
+            "success": false,
+            "error": {
+              "code": "E301",
+              "message": "Found DTD URI but no VM Service URI",
+              "details":
+                  "Flutter 3.x uses DTD protocol by default. VM Service URI not found in output.",
+            },
+            "found_uris": {"dtd": dtdUri},
+            "suggestions": [
+              "Flutter Skill requires VM Service URI, not DTD URI",
+              "",
+              "Option 1: Force VM Service protocol (recommended)",
+              "Add to your flutter run command:",
+              "  flutter run --vm-service-port=50000",
+              "",
+              "Option 2: Use Dart MCP for DTD-based testing",
+              "  mcp__dart__connect_dart_tooling_daemon(uri: '$dtdUri')",
+              "",
+              "Option 3: Enable both protocols",
+              "Check Flutter DevTools output for VM Service URI",
+            ],
+            "quick_fix":
+                "Launch with: flutter run -d <device> --vm-service-port=50000",
+          };
+        }
+
         return {
           "success": false,
           "error": {
