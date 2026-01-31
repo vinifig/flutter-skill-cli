@@ -165,7 +165,16 @@ class FlutterMcpServer {
       // Connection
       {
         "name": "connect_app",
-        "description": "Connect to a running Flutter App VM Service",
+        "description": """Connect to a running Flutter App VM Service using specific URI.
+
+[USE WHEN]
+• You have a specific VM Service URI (ws://...)
+• Reconnecting to a known app instance
+
+[ALTERNATIVES]
+• If you don't have URI: use scan_and_connect() to auto-find
+• If app not running: use launch_app() to start it
+""",
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -179,7 +188,32 @@ class FlutterMcpServer {
       },
       {
         "name": "launch_app",
-        "description": "Launch and test a Flutter app on iOS simulator/Android emulator. Use when user asks to 'test app', 'run on simulator', 'verify feature', or 'start E2E test'. Automatically sets up app for UI testing and connects for interaction.",
+        "description": """⚡ PRIORITY TOOL FOR UI TESTING ⚡
+
+[TRIGGER KEYWORDS]
+✓ English: test app | run app | launch | simulator | emulator | iOS test | Android test | E2E test | verify feature | validate UI | integration test | UI automation
+✓ 中文: 测试应用 | 运行app | 启动应用 | 模拟器测试 | iOS测试 | Android测试 | 验证功能 | 界面测试 | 集成测试 | UI自动化
+
+[PRIMARY PURPOSE]
+Launch and test a Flutter app on iOS simulator/Android emulator for UI validation and interaction testing.
+
+[USE WHEN]
+• User wants to test/verify a Flutter feature or UI behavior
+• User mentions iOS simulator or Android emulator
+• User needs to validate user flows or interactions
+• User asks to automate UI testing scenarios
+
+[DO NOT USE]
+✗ Unit testing (use 'flutter test' command instead)
+✗ Widget testing (use WidgetTester instead)
+✗ Code analysis or reading source files
+✗ Building APK/IPA (use 'flutter build' instead)
+
+[WORKFLOW]
+1. Launch app on device/simulator
+2. Auto-connect to VM Service
+3. Ready for: inspect() → tap() → enter_text() → screenshot()
+""",
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -208,8 +242,23 @@ class FlutterMcpServer {
       },
       {
         "name": "scan_and_connect",
-        "description":
-            "Scan for running Flutter apps and auto-connect to the first one found",
+        "description": """⚡ AUTO-CONNECT TOOL ⚡
+
+[TRIGGER KEYWORDS]
+✓ English: connect to app | find running app | auto-connect | connect to running Flutter | find app | detect app
+✓ 中文: 连接应用 | 查找运行的应用 | 自动连接 | 连接运行中的Flutter | 查找app | 检测应用
+
+[PRIMARY PURPOSE]
+Automatically scan for and connect to a running Flutter app (scans VM Service ports 50000-50100).
+
+[USE WHEN]
+• App is already running and you want to connect
+• Alternative to launch_app when app is already started
+• Quick reconnection to running app
+
+[WORKFLOW]
+Scans ports, finds first Flutter app, auto-connects. If no app found, use launch_app instead.
+""",
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -262,7 +311,24 @@ class FlutterMcpServer {
       // Basic Inspection
       {
         "name": "inspect",
-        "description": "See what UI elements are on screen (buttons, text fields, etc.). Use when user asks 'what's on the screen?', 'list buttons', 'show elements', or before interacting. Essential first step for any UI test or validation.",
+        "description": """⚡ UI DISCOVERY TOOL ⚡
+
+[TRIGGER KEYWORDS]
+✓ English: what's on screen | list buttons | show elements | see UI | find element | inspect UI | what elements | interactive elements
+✓ 中文: 屏幕上有什么 | 列出按钮 | 显示元素 | 查看界面 | 找元素 | 检查UI | 有哪些元素 | 可交互元素
+
+[PRIMARY PURPOSE]
+Discover and list all interactive UI elements currently visible on screen (buttons, text fields, switches, etc.).
+
+[USE WHEN]
+• User wants to know what UI elements are available
+• Before performing tap/enter_text actions (to find element keys)
+• User asks what's on the current screen/page
+• Debugging UI issues or verifying element presence
+
+[WORKFLOW]
+Essential first step for any UI interaction. Returns element list with keys/texts for use with tap() and enter_text().
+""",
         "inputSchema": {"type": "object", "properties": {}},
       },
       {
@@ -312,7 +378,23 @@ class FlutterMcpServer {
       // Basic Actions
       {
         "name": "tap",
-        "description": "Tap/click a button or UI element. Use when user asks to 'click button', 'press', 'tap', or 'select'. Simulates real user interaction in the app. Call inspect() first to see available elements.",
+        "description": """⚡ UI INTERACTION TOOL ⚡
+
+[TRIGGER KEYWORDS]
+✓ English: tap | click | press | select | activate | touch | hit button | click button | press button
+✓ 中文: 点击 | 点 | 按 | 选择 | 触摸 | 激活 | 按按钮 | 点按钮
+
+[PRIMARY PURPOSE]
+Tap/click a button or any interactive UI element. Simulates real user touch/click interaction.
+
+[USE WHEN]
+• User asks to click/press/tap a button or element
+• Testing button functionality or navigation
+• Automating user interactions in UI flows
+
+[WORKFLOW]
+Call inspect() first to see available elements and their keys/texts, then use tap() with the key or text.
+""",
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -323,7 +405,24 @@ class FlutterMcpServer {
       },
       {
         "name": "enter_text",
-        "description": "Type text into a text field (email, password, search, etc.). Use when testing forms, login screens, or any text input. Simulates user typing in the app.",
+        "description": """⚡ TEXT INPUT TOOL ⚡
+
+[TRIGGER KEYWORDS]
+✓ English: enter text | type | input | fill in | write | fill form | enter email | enter password
+✓ 中文: 输入文本 | 输入 | 填写 | 录入 | 键入 | 填表单 | 输入邮箱 | 输入密码
+
+[PRIMARY PURPOSE]
+Type text into text fields (email, password, search, forms, etc.). Simulates real user keyboard input.
+
+[USE WHEN]
+• User wants to fill in forms or input fields
+• Testing login screens (email/password)
+• Testing search functionality
+• Automating data entry in UI flows
+
+[WORKFLOW]
+Call inspect() first to find TextField keys, then use enter_text() with key and text value.
+""",
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -475,7 +574,24 @@ class FlutterMcpServer {
       // Screenshot
       {
         "name": "screenshot",
-        "description": "Capture a screenshot of the current app screen. Use for visual debugging, documentation, or when user asks 'show me what it looks like', 'take a picture', or 'how does it appear'. Returns base64 PNG image.",
+        "description": """⚡ VISUAL CAPTURE TOOL ⚡
+
+[TRIGGER KEYWORDS]
+✓ English: screenshot | take picture | capture screen | show me | how does it look | visual debugging | take photo | snap | show current screen
+✓ 中文: 截图 | 截屏 | 拍照 | 给我看看 | 看起来怎样 | 可视化调试 | 抓屏 | 显示当前界面
+
+[PRIMARY PURPOSE]
+Capture a screenshot of the current app screen for visual inspection, debugging, or documentation.
+
+[USE WHEN]
+• User wants to see what the current screen looks like
+• Visual debugging of UI issues
+• Documenting app state or test results
+• Verifying UI appearance after actions
+
+[RETURNS]
+Base64-encoded PNG image that can be displayed to user.
+""",
         "inputSchema": {
           "type": "object",
           "properties": {
