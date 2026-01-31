@@ -490,6 +490,9 @@ brew upgrade flutter-skill
         <!-- Application-level service for MCP config management -->
         <applicationService serviceImplementation="com.aidashboad.flutterskill.McpConfigManager"/>
 
+        <!-- Application-level service for AI tool detection -->
+        <applicationService serviceImplementation="com.aidashboad.flutterskill.AiToolDetector"/>
+
         <!-- Project startup activity -->
         <postStartupActivity implementation="com.aidashboad.flutterskill.FlutterSkillStartupActivity"/>
     </extensions>

@@ -221,6 +221,15 @@ class McpConfigManager {
         return detected.filter { it.name !in configured }
     }
 
+    /**
+     * Configure MCP for a specific tool by its config path
+     */
+    fun configureForTool(toolName: String, configPath: String): MergeResult {
+        val expandedPath = configPath.replace("~", System.getProperty("user.home"))
+        logger.info("Configuring $toolName at $expandedPath")
+        return mergeMcpConfig(expandedPath)
+    }
+
     data class MergeResult(
         val success: Boolean,
         val backupPath: String? = null,
