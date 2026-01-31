@@ -6,3 +6,31 @@ test_dummy/
 
 # Demo projects
 demo_counter/
+
+# Build artifacts
+build/
+.dart_tool/
+
+# IntelliJ plugin (separate package)
+intellij-plugin/
+
+# Homebrew formula (separate package)
+homebrew/
+
+# Dev container
+devcontainer-feature/
+
+# NPM package files
+npm/
+
+# Docker files
+Dockerfile
+.dockerignore
+
+# Development docs
+docs/
+PUBLISHING.md
+USAGE_GUIDE.md
+SKILL.md
+RELEASE_GUIDE.md
+CHANGELOG_FIXES.md

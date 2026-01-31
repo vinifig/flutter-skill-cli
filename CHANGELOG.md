@@ -1,3 +1,34 @@
+## 0.2.24
+
+**Critical Bug Fixes and Zero-Config Error Reporting**
+
+### 🐛 Bug Fixes
+- Fixed `LateInitializationError` causing MCP server crashes
+- Added process lock mechanism to prevent multiple instances (`~/.flutter_skill.lock`)
+- Improved connection state validation and error messages
+- Fixed `getMemoryStats()` exception handling
+- Auto-cleanup of stale processes (10-minute timeout)
+
+### ✨ New Features
+- **Zero-config automatic error reporting** - no GitHub token required!
+- Browser auto-opens with pre-filled issue template
+- New CLI command: `flutter_skill report-error`
+- Smart error filtering (only reports critical errors)
+- Cross-platform support (macOS/Linux/Windows)
+
+### 📝 Documentation
+- Added `ERROR_REPORTING.md` - complete error reporting guide
+- Added `CHANGELOG_FIXES.md` - detailed technical changelog
+- Added comprehensive test coverage (6/6 tests passing)
+
+### 🔧 Technical Details
+- Implemented file-based locking mechanism
+- Enhanced `_requireConnection()` with better diagnostics
+- Automatic browser opening for issue creation
+- Privacy-focused design (no sensitive data collected)
+
+---
+
 ## 0.2.23
 
 **Fix IntelliJ plugin publishing - upgrade Kotlin Gradle Plugin to 2.0.21**
