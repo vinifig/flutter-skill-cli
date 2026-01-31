@@ -1,6 +1,6 @@
 name: flutter-skill
 base: core22
-version: '0.2.20'
+version: '0.2.21'
 summary: AI Agent Bridge for Flutter Apps
 description: |
   Flutter Skill is a bridge that connects AI agents (Claude, Cursor, Windsurf)

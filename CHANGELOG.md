@@ -1,3 +1,23 @@
+## 0.2.21
+
+**IntelliJ Plugin Enhancement**
+
+### New Features
+
+- **Auto-open Tool Window** - Flutter Skill panel opens automatically for Flutter projects
+- **AI CLI Tool Detection** - Automatically detects installed AI tools:
+  - Claude Code, Cursor, Windsurf, Continue, Aider
+  - GitHub Copilot, OpenAI CLI, Gemini CLI, Ollama, LM Studio
+
+### Enhanced UI
+
+- Connection status section with visual indicator
+- Detected AI tools list with version info
+- "Configure" button for one-click MCP setup
+- "Copy Config" button for easy configuration sharing
+
+---
+
 ## 0.2.20
 
 **Multi-Platform Distribution**

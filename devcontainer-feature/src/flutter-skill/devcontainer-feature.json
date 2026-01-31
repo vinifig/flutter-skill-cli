@@ -1,6 +1,6 @@
 {
     "id": "flutter-skill",
-    "version": "0.2.20",
+    "version": "0.2.21",
     "name": "Flutter Skill",
     "documentationURL": "https://github.com/ai-dashboad/flutter-skill",
     "description": "AI Agent Bridge for Flutter Apps - Connect Claude, Cursor, and other AI agents to running Flutter applications",
