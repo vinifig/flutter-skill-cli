@@ -210,6 +210,53 @@ class FlutterMcpServer {
 
   List<Map<String, dynamic>> _getToolsList() {
     return [
+      // Session Management
+      {
+        "name": "list_sessions",
+        "description": """List all active Flutter app sessions.
+
+Returns information about all connected sessions including session ID, project path, device, and URI.
+Use this to see available sessions before switching or closing them.""",
+        "inputSchema": {
+          "type": "object",
+          "properties": {},
+        },
+      },
+      {
+        "name": "switch_session",
+        "description": """Switch the active session to a different Flutter app.
+
+After switching, all subsequent tool calls without an explicit session_id will use this session.
+Use list_sessions() to see available session IDs.""",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "session_id": {
+              "type": "string",
+              "description": "Session ID to switch to"
+            },
+          },
+          "required": ["session_id"],
+        },
+      },
+      {
+        "name": "close_session",
+        "description": """Close and disconnect a specific session.
+
+This will disconnect from the Flutter app and remove the session. The app will continue running.
+If closing the active session, the next session becomes active automatically.""",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "session_id": {
+              "type": "string",
+              "description": "Session ID to close"
+            },
+          },
+          "required": ["session_id"],
+        },
+      },
+
       // Connection
       {
         "name": "connect_app",
@@ -222,13 +269,24 @@ class FlutterMcpServer {
 [ALTERNATIVES]
 • If you don't have URI: use scan_and_connect() to auto-find
 • If app not running: use launch_app() to start it
-""",
+
+[MULTI-SESSION]
+Returns a session_id that can be used to target this specific app in subsequent tool calls.
+Omitting session_id in other tools will use the active session.""",
         "inputSchema": {
           "type": "object",
           "properties": {
             "uri": {
               "type": "string",
               "description": "WebSocket URI (ws://...)"
+            },
+            "session_id": {
+              "type": "string",
+              "description": "Optional session ID (auto-generated if not provided)"
+            },
+            "name": {
+              "type": "string",
+              "description": "Optional session name for identification"
             },
           },
           "required": ["uri"],
@@ -268,7 +326,10 @@ If launch fails with "getVM method not found" or "no VM Service URI":
 • Solution: Add --vm-service-port flag to extra_args
 • Example: launch_app(extra_args: ["--vm-service-port=50000"])
 • Alternative: Use Dart MCP tools for DTD-based testing
-""",
+
+[MULTI-SESSION]
+Returns a session_id that can be used to target this specific app in subsequent tool calls.
+Omitting session_id in other tools will use the active session.""",
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -292,6 +353,14 @@ If launch fails with "getVM method not found" or "no VM Service URI":
               "type": "string",
               "description": "Target file (e.g. lib/main_staging.dart)"
             },
+            "session_id": {
+              "type": "string",
+              "description": "Optional session ID (auto-generated if not provided)"
+            },
+            "name": {
+              "type": "string",
+              "description": "Optional session name for identification"
+            },
           },
         },
       },
@@ -313,7 +382,10 @@ Automatically scan for and connect to a running Flutter app (scans VM Service po
 
 [WORKFLOW]
 Scans ports, finds first Flutter app, auto-connects. If no app found, use launch_app instead.
-""",
+
+[MULTI-SESSION]
+Returns a session_id that can be used to target this specific app in subsequent tool calls.
+Omitting session_id in other tools will use the active session.""",
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -324,6 +396,14 @@ Scans ports, finds first Flutter app, auto-connects. If no app found, use launch
             "port_end": {
               "type": "integer",
               "description": "End of port range (default: 50100)"
+            },
+            "session_id": {
+              "type": "string",
+              "description": "Optional session ID (auto-generated if not provided)"
+            },
+            "name": {
+              "type": "string",
+              "description": "Optional session name for identification"
             },
           },
         },
@@ -349,18 +429,42 @@ Scans ports, finds first Flutter app, auto-connects. If no app found, use launch
       {
         "name": "stop_app",
         "description": "Stop the currently connected/launched Flutter app",
-        "inputSchema": {"type": "object", "properties": {}},
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "session_id": {
+              "type": "string",
+              "description": "Optional session ID (defaults to active session)"
+            },
+          },
+        },
       },
       {
         "name": "disconnect",
         "description":
             "Disconnect from the current Flutter app (without stopping it)",
-        "inputSchema": {"type": "object", "properties": {}},
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "session_id": {
+              "type": "string",
+              "description": "Optional session ID (defaults to active session)"
+            },
+          },
+        },
       },
       {
         "name": "get_connection_status",
-        "description": "Get current connection status and app info",
-        "inputSchema": {"type": "object", "properties": {}},
+        "description": "Get current connection status and app info. If session_id is provided, gets status for that specific session; otherwise uses active session.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "session_id": {
+              "type": "string",
+              "description": "Optional session ID (defaults to active session)"
+            },
+          },
+        },
       },
 
       // Basic Inspection
@@ -383,8 +487,19 @@ Discover and list all interactive UI elements currently visible on screen (butto
 
 [WORKFLOW]
 Essential first step for any UI interaction. Returns element list with keys/texts for use with tap() and enter_text().
+
+[MULTI-SESSION]
+All action tools support optional session_id parameter. If omitted, uses the active session.
 """,
-        "inputSchema": {"type": "object", "properties": {}},
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "session_id": {
+              "type": "string",
+              "description": "Optional session ID (defaults to active session)"
+            },
+          },
+        },
       },
       {
         "name": "get_widget_tree",
@@ -1109,7 +1224,103 @@ Base64-encoded PNG image that can be displayed to user.
     ];
   }
 
+  /// Get the client for a specific session or the active session
+  FlutterSkillClient? _getClient(Map<String, dynamic> args) {
+    final sessionId = args['session_id'] as String?;
+
+    if (sessionId != null) {
+      return _clients[sessionId];
+    }
+
+    // Use active session or first available
+    return _client;
+  }
+
+  /// Generate a unique session ID
+  String _generateSessionId() {
+    return 'session_${DateTime.now().millisecondsSinceEpoch}';
+  }
+
   Future<dynamic> _executeTool(String name, Map<String, dynamic> args) async {
+    // Session management tools
+    if (name == 'list_sessions') {
+      return {
+        "sessions": _sessions.values.map((s) => s.toJson()).toList(),
+        "active_session_id": _activeSessionId,
+        "count": _sessions.length,
+      };
+    }
+
+    if (name == 'switch_session') {
+      final sessionId = args['session_id'] as String?;
+      if (sessionId == null) {
+        return {
+          "success": false,
+          "error": {"code": "E401", "message": "session_id is required"},
+        };
+      }
+
+      if (!_sessions.containsKey(sessionId)) {
+        return {
+          "success": false,
+          "error": {
+            "code": "E402",
+            "message": "Session not found: $sessionId",
+          },
+          "available_sessions": _sessions.keys.toList(),
+        };
+      }
+
+      _activeSessionId = sessionId;
+      return {
+        "success": true,
+        "message": "Switched to session $sessionId",
+        "session": _sessions[sessionId]!.toJson(),
+      };
+    }
+
+    if (name == 'close_session') {
+      final sessionId = args['session_id'] as String?;
+      if (sessionId == null) {
+        return {
+          "success": false,
+          "error": {"code": "E401", "message": "session_id is required"},
+        };
+      }
+
+      if (!_sessions.containsKey(sessionId)) {
+        return {
+          "success": false,
+          "error": {
+            "code": "E402",
+            "message": "Session not found: $sessionId",
+          },
+        };
+      }
+
+      // Disconnect and remove client
+      final client = _clients[sessionId];
+      if (client != null) {
+        await client.disconnect();
+        _clients.remove(sessionId);
+      }
+
+      // Remove session
+      _sessions.remove(sessionId);
+
+      // Update active session
+      if (_activeSessionId == sessionId) {
+        _activeSessionId = _sessions.keys.isNotEmpty ? _sessions.keys.first : null;
+      }
+
+      return {
+        "success": true,
+        "message": "Closed session $sessionId",
+        "active_session_id": _activeSessionId,
+        "remaining_sessions": _sessions.length,
+      };
+    }
+
     // Connection tools
     if (name == 'connect_app') {
       var uri = args['uri'] as String;
@@ -1117,7 +1328,13 @@ Base64-encoded PNG image that can be displayed to user.
       // Normalize URI format
       uri = _normalizeVmServiceUri(uri);
 
-      if (_client != null) await _client!.disconnect();
+      // Create a new session for this connection
+      final sessionId = args['session_id'] as String? ?? _generateSessionId();
+
+      // If session already exists, disconnect it first
+      if (_clients.containsKey(sessionId)) {
+        await _clients[sessionId]!.disconnect();
+      }
 
       // Retry logic with exponential backoff
       const maxRetries = 3;
@@ -1125,17 +1342,35 @@ Base64-encoded PNG image that can be displayed to user.
 
       for (var attempt = 1; attempt <= maxRetries; attempt++) {
         try {
-          _client = FlutterSkillClient(uri);
-          await _client!.connect();
+          final client = FlutterSkillClient(uri);
+          await client.connect();
+
+          // Store client and session info
+          _clients[sessionId] = client;
+          _sessions[sessionId] = SessionInfo(
+            id: sessionId,
+            name: args['name'] as String? ?? 'Connection ${_sessions.length + 1}',
+            projectPath: args['project_path'] as String? ?? 'unknown',
+            deviceId: args['device_id'] as String? ?? 'unknown',
+            port: int.tryParse(uri.split(':').last.split('/').first) ?? 0,
+            vmServiceUri: uri,
+          );
+
+          // Set as active session if it's the first one
+          if (_activeSessionId == null) {
+            _activeSessionId = sessionId;
+          }
+
           return {
             "success": true,
             "message": "Connected to $uri",
             "uri": uri,
+            "session_id": sessionId,
             "attempts": attempt,
           };
         } catch (e) {
           lastError = e is Exception ? e : Exception(e.toString());
-          _client = null;
+          _clients.remove(sessionId);
 
           if (attempt < maxRetries) {
             // Wait before retry (100ms, 200ms, 400ms)
@@ -1167,6 +1402,15 @@ Base64-encoded PNG image that can be displayed to user.
       final extraArgs = args['extra_args'] as List<dynamic>?;
       final flavor = args['flavor'];
       final target = args['target'];
+
+      // Generate session ID for this launch
+      final sessionId = args['session_id'] as String? ?? _generateSessionId();
+
+      // If this session already has a running app, kill it
+      if (_clients.containsKey(sessionId)) {
+        await _clients[sessionId]!.disconnect();
+        _clients.remove(sessionId);
+      }
 
       if (_flutterProcess != null) {
         _flutterProcess!.kill();
@@ -1217,9 +1461,31 @@ Base64-encoded PNG image that can be displayed to user.
           final match = vmRegex.firstMatch(line);
           if (match != null && !completer.isCompleted) {
             final uri = match.group(0)!;
-            _client?.disconnect();
-            _client = FlutterSkillClient(uri);
-            _client!.connect().then((_) {
+
+            // Disconnect old client for this session if exists
+            if (_clients.containsKey(sessionId)) {
+              _clients[sessionId]!.disconnect();
+            }
+
+            // Create new client and session
+            final client = FlutterSkillClient(uri);
+            client.connect().then((_) {
+              // Store client and session info
+              _clients[sessionId] = client;
+              _sessions[sessionId] = SessionInfo(
+                id: sessionId,
+                name: args['name'] as String? ?? 'App on ${deviceId ?? 'device'}',
+                projectPath: projectPath,
+                deviceId: deviceId?.toString() ?? 'unknown',
+                port: int.tryParse(uri.split(':').last.split('/').first) ?? 0,
+                vmServiceUri: uri,
+              );
+
+              // Set as active session if it's the first one
+              if (_activeSessionId == null) {
+                _activeSessionId = sessionId;
+              }
+
               completer.complete("Launched and connected to $uri");
             }).catchError((e) {
               completer.completeError("Found VM Service URI but failed to connect: $e");
@@ -1291,7 +1557,12 @@ Base64-encoded PNG image that can be displayed to user.
       try {
         final result = await completer.future
             .timeout(const Duration(seconds: 180)); // 3 minutes for slow builds
-        return result; // Success message string
+        return {
+          "success": true,
+          "message": result,
+          "session_id": sessionId,
+          "uri": _sessions[sessionId]?.vmServiceUri,
+        };
       } on TimeoutException {
         // Check if we found DTD URI but no VM Service URI
         if (dtdUri != null) {
@@ -1353,6 +1624,7 @@ Base64-encoded PNG image that can be displayed to user.
     if (name == 'scan_and_connect') {
       final portStart = args['port_start'] ?? 50000;
       final portEnd = args['port_end'] ?? 50100;
+      final sessionId = args['session_id'] as String? ?? _generateSessionId();
 
       final vmServices = await _scanVmServices(portStart, portEnd);
       if (vmServices.isEmpty) {
@@ -1361,10 +1633,37 @@ Base64-encoded PNG image that can be displayed to user.
 
       // Connect to the first one
       final uri = vmServices.first;
-      if (_client != null) await _client!.disconnect();
-      _client = FlutterSkillClient(uri);
-      await _client!.connect();
-      return {"success": true, "connected": uri, "available": vmServices};
+
+      // Disconnect old client for this session if exists
+      if (_clients.containsKey(sessionId)) {
+        await _clients[sessionId]!.disconnect();
+      }
+
+      final client = FlutterSkillClient(uri);
+      await client.connect();
+
+      // Store client and session info
+      _clients[sessionId] = client;
+      _sessions[sessionId] = SessionInfo(
+        id: sessionId,
+        name: args['name'] as String? ?? 'Scanned connection ${_sessions.length + 1}',
+        projectPath: args['project_path'] as String? ?? 'unknown',
+        deviceId: args['device_id'] as String? ?? 'unknown',
+        port: int.tryParse(uri.split(':').last.split('/').first) ?? 0,
+        vmServiceUri: uri,
+      );
+
+      // Set as active session if it's the first one
+      if (_activeSessionId == null) {
+        _activeSessionId = sessionId;
+      }
+
+      return {
+        "success": true,
+        "connected": uri,
+        "session_id": sessionId,
+        "available": vmServices
+      };
     }
 
     if (name == 'list_running_apps') {
@@ -1376,46 +1675,85 @@ Base64-encoded PNG image that can be displayed to user.
     }
 
     if (name == 'stop_app') {
+      final sessionId = args['session_id'] as String? ?? _activeSessionId;
+
+      if (sessionId != null && _clients.containsKey(sessionId)) {
+        await _clients[sessionId]!.disconnect();
+        _clients.remove(sessionId);
+        _sessions.remove(sessionId);
+
+        // Update active session
+        if (_activeSessionId == sessionId) {
+          _activeSessionId = _sessions.keys.isNotEmpty ? _sessions.keys.first : null;
+        }
+      }
+
       if (_flutterProcess != null) {
         _flutterProcess!.kill();
         _flutterProcess = null;
       }
-      if (_client != null) {
-        await _client!.disconnect();
-        _client = null;
-      }
-      return {"success": true, "message": "App stopped"};
+
+      return {
+        "success": true,
+        "message": "App stopped",
+        "session_id": sessionId,
+        "active_session_id": _activeSessionId,
+      };
     }
 
     if (name == 'disconnect') {
-      if (_client != null) {
-        await _client!.disconnect();
-        _client = null;
-      }
-      return {"success": true, "message": "Disconnected"};
-    }
+      final sessionId = args['session_id'] as String? ?? _activeSessionId;
 
-    if (name == 'get_connection_status') {
-      final isConnected = _client != null && _client!.isConnected;
-      final hasLaunchedApp = _flutterProcess != null;
+      if (sessionId != null && _clients.containsKey(sessionId)) {
+        await _clients[sessionId]!.disconnect();
+        _clients.remove(sessionId);
+        _sessions.remove(sessionId);
 
-      if (!isConnected) {
-        // Try to find running apps to provide helpful suggestions
-        final vmServices = await _scanVmServices(50000, 50100);
+        // Update active session
+        if (_activeSessionId == sessionId) {
+          _activeSessionId = _sessions.keys.isNotEmpty ? _sessions.keys.first : null;
+        }
+
         return {
-          "connected": false,
-          "launched_app": hasLaunchedApp,
-          "available_apps": vmServices,
-          "suggestion": vmServices.isNotEmpty
-              ? "Found ${vmServices.length} running app(s). Use scan_and_connect() to auto-connect."
-              : "No running apps found. Use launch_app() to start one.",
+          "success": true,
+          "message": "Disconnected from session $sessionId",
+          "active_session_id": _activeSessionId,
         };
       }
 
       return {
-        "connected": true,
-        "uri": _client!.vmServiceUri,
-        "launched_app": hasLaunchedApp,
+        "success": false,
+        "error": {"message": "No active session or session not found"},
+      };
+    }
+
+    if (name == 'get_connection_status') {
+      final sessionId = args['session_id'] as String? ?? _activeSessionId;
+
+      if (sessionId != null && _clients.containsKey(sessionId)) {
+        final client = _clients[sessionId]!;
+        final session = _sessions[sessionId];
+
+        return {
+          "connected": client.isConnected,
+          "session_id": sessionId,
+          "uri": client.vmServiceUri,
+          "session_info": session?.toJson(),
+          "launched_app": _flutterProcess != null,
+        };
+      }
+
+      // No active session - try to find running apps
+      final vmServices = await _scanVmServices(50000, 50100);
+      return {
+        "connected": false,
+        "session_id": null,
+        "available_sessions": _sessions.length,
+        "launched_app": _flutterProcess != null,
+        "available_apps": vmServices,
+        "suggestion": vmServices.isNotEmpty
+            ? "Found ${vmServices.length} running app(s). Use scan_and_connect() to auto-connect."
+            : "No running apps found. Use launch_app() to start one.",
       };
     }
 
@@ -1429,33 +1767,36 @@ Base64-encoded PNG image that can be displayed to user.
     }
 
     if (name == 'hot_reload') {
-      _requireConnection();
-      await _client!.hotReload();
+      final client = _getClient(args);
+      _requireConnection(client);
+      await client!.hotReload();
       return "Hot reload triggered";
     }
 
     if (name == 'hot_restart') {
-      _requireConnection();
-      await _client!.hotRestart();
+      final client = _getClient(args);
+      _requireConnection(client);
+      await client!.hotRestart();
       return "Hot restart triggered";
     }
 
     // Require connection for all other tools
-    _requireConnection();
+    final client = _getClient(args);
+    _requireConnection(client);
 
     switch (name) {
       // Inspection
       case 'inspect':
-        return await _client!.getInteractiveElements();
+        return await client!.getInteractiveElements();
       case 'get_widget_tree':
         final maxDepth = args['max_depth'] ?? 10;
-        return await _client!.getWidgetTree(maxDepth: maxDepth);
+        return await client!.getWidgetTree(maxDepth: maxDepth);
       case 'get_widget_properties':
-        return await _client!.getWidgetProperties(args['key']);
+        return await client!.getWidgetProperties(args['key']);
       case 'get_text_content':
-        return await _client!.getTextContent();
+        return await client!.getTextContent();
       case 'find_by_type':
-        return await _client!.findByType(args['type']);
+        return await client!.findByType(args['type']);
 
       // Basic Actions
       case 'tap':
@@ -1465,7 +1806,7 @@ Base64-encoded PNG image that can be displayed to user.
 
         // Method 3: Tap by coordinates
         if (x != null && y != null) {
-          await _client!.tapAt(x.toDouble(), y.toDouble());
+          await client!.tapAt(x.toDouble(), y.toDouble());
           return {
             "success": true,
             "method": "coordinates",
@@ -1475,7 +1816,7 @@ Base64-encoded PNG image that can be displayed to user.
         }
 
         // Method 1 & 2: Tap by key or text
-        final result = await _client!.tap(key: args['key'], text: args['text']);
+        final result = await client!.tap(key: args['key'], text: args['text']);
         if (result['success'] != true) {
           // Return full error details including suggestions
           return {
@@ -1495,7 +1836,7 @@ Base64-encoded PNG image that can be displayed to user.
         };
 
       case 'enter_text':
-        final result = await _client!.enterText(args['key'], args['text']);
+        final result = await client!.enterText(args['key'], args['text']);
         if (result['success'] != true) {
           return {
             "success": false,
@@ -1509,7 +1850,7 @@ Base64-encoded PNG image that can be displayed to user.
 
       case 'scroll_to':
         final result =
-            await _client!.scrollTo(key: args['key'], text: args['text']);
+            await client!.scrollTo(key: args['key'], text: args['text']);
         if (result['success'] != true) {
           return {
             "success": false,
@@ -1521,38 +1862,38 @@ Base64-encoded PNG image that can be displayed to user.
       // Advanced Actions
       case 'long_press':
         final duration = args['duration'] ?? 500;
-        final success = await _client!.longPress(
+        final success = await client!.longPress(
             key: args['key'], text: args['text'], duration: duration);
         return success ? "Long pressed" : "Long press failed";
       case 'double_tap':
         final success =
-            await _client!.doubleTap(key: args['key'], text: args['text']);
+            await client!.doubleTap(key: args['key'], text: args['text']);
         return success ? "Double tapped" : "Double tap failed";
       case 'swipe':
         final distance = (args['distance'] ?? 300).toDouble();
-        final success = await _client!.swipe(
+        final success = await client!.swipe(
             direction: args['direction'], distance: distance, key: args['key']);
         return success ? "Swiped ${args['direction']}" : "Swipe failed";
       case 'drag':
-        final success = await _client!
+        final success = await client!
             .drag(fromKey: args['from_key'], toKey: args['to_key']);
         return success ? "Dragged" : "Drag failed";
 
       // State & Validation
       case 'get_text_value':
-        return await _client!.getTextValue(args['key']);
+        return await client!.getTextValue(args['key']);
       case 'get_checkbox_state':
-        return await _client!.getCheckboxState(args['key']);
+        return await client!.getCheckboxState(args['key']);
       case 'get_slider_value':
-        return await _client!.getSliderValue(args['key']);
+        return await client!.getSliderValue(args['key']);
       case 'wait_for_element':
         final timeout = args['timeout'] ?? 5000;
-        final found = await _client!.waitForElement(
+        final found = await client!.waitForElement(
             key: args['key'], text: args['text'], timeout: timeout);
         return {"found": found};
       case 'wait_for_gone':
         final timeout = args['timeout'] ?? 5000;
-        final gone = await _client!.waitForGone(
+        final gone = await client!.waitForGone(
             key: args['key'], text: args['text'], timeout: timeout);
         return {"gone": gone};
 
@@ -1562,7 +1903,7 @@ Base64-encoded PNG image that can be displayed to user.
         final quality = (args['quality'] as num?)?.toDouble() ?? 0.5;
         final maxWidth = args['max_width'] as int? ?? 800;
         final image =
-            await _client!.takeScreenshot(quality: quality, maxWidth: maxWidth);
+            await client!.takeScreenshot(quality: quality, maxWidth: maxWidth);
         return {"image": image, "quality": quality, "max_width": maxWidth};
 
       case 'screenshot_region':
@@ -1570,52 +1911,52 @@ Base64-encoded PNG image that can be displayed to user.
         final y = (args['y'] as num).toDouble();
         final width = (args['width'] as num).toDouble();
         final height = (args['height'] as num).toDouble();
-        final image = await _client!.takeRegionScreenshot(x, y, width, height);
+        final image = await client!.takeRegionScreenshot(x, y, width, height);
         return {
           "image": image,
           "region": {"x": x, "y": y, "width": width, "height": height}
         };
 
       case 'screenshot_element':
-        final image = await _client!.takeElementScreenshot(args['key']);
+        final image = await client!.takeElementScreenshot(args['key']);
         return {"image": image};
 
       // Navigation
       case 'get_current_route':
-        return await _client!.getCurrentRoute();
+        return await client!.getCurrentRoute();
       case 'go_back':
-        final success = await _client!.goBack();
+        final success = await client!.goBack();
         return success ? "Navigated back" : "Cannot go back";
       case 'get_navigation_stack':
-        return await _client!.getNavigationStack();
+        return await client!.getNavigationStack();
 
       // Debug & Logs
       case 'get_logs':
-        return await _client!.getLogs();
+        return await client!.getLogs();
       case 'get_errors':
-        return await _client!.getErrors();
+        return await client!.getErrors();
       case 'clear_logs':
-        await _client!.clearLogs();
+        await client!.clearLogs();
         return "Logs cleared";
       case 'get_performance':
-        return await _client!.getPerformance();
+        return await client!.getPerformance();
 
       // === NEW: Batch Operations ===
       case 'execute_batch':
-        return await _executeBatch(args);
+        return await _executeBatch(args, client!);
 
       // === NEW: Coordinate-based Actions ===
       case 'tap_at':
         final x = (args['x'] as num).toDouble();
         final y = (args['y'] as num).toDouble();
-        await _client!.tapAt(x, y);
+        await client!.tapAt(x, y);
         return {"success": true, "action": "tap_at", "x": x, "y": y};
 
       case 'long_press_at':
         final x = (args['x'] as num).toDouble();
         final y = (args['y'] as num).toDouble();
         final duration = args['duration'] ?? 500;
-        await _client!.longPressAt(x, y, duration: duration);
+        await client!.longPressAt(x, y, duration: duration);
         return {"success": true, "action": "long_press_at", "x": x, "y": y};
 
       case 'swipe_coordinates':
@@ -1624,7 +1965,7 @@ Base64-encoded PNG image that can be displayed to user.
         final endX = (args['end_x'] as num).toDouble();
         final endY = (args['end_y'] as num).toDouble();
         final duration = args['duration'] ?? 300;
-        await _client!
+        await client!
             .swipeCoordinates(startX, startY, endX, endY, duration: duration);
         return {"success": true, "action": "swipe_coordinates"};
 
@@ -1632,52 +1973,52 @@ Base64-encoded PNG image that can be displayed to user.
         final edge = args['edge'] as String;
         final direction = args['direction'] as String;
         final distance = (args['distance'] as num?)?.toDouble() ?? 200;
-        final result = await _client!
+        final result = await client!
             .edgeSwipe(edge: edge, direction: direction, distance: distance);
         return result;
 
       case 'gesture':
-        return await _performGesture(args);
+        return await _performGesture(args, client!);
 
       case 'wait_for_idle':
-        return await _waitForIdle(args);
+        return await _waitForIdle(args, client!);
 
       // === NEW: Smart Scroll ===
       case 'scroll_until_visible':
-        return await _scrollUntilVisible(args);
+        return await _scrollUntilVisible(args, client!);
 
       // === NEW: Assertions ===
       case 'assert_visible':
-        return await _assertVisible(args, shouldBeVisible: true);
+        return await _assertVisible(args, client!, shouldBeVisible: true);
 
       case 'assert_not_visible':
-        return await _assertVisible(args, shouldBeVisible: false);
+        return await _assertVisible(args, client!, shouldBeVisible: false);
 
       case 'assert_text':
-        return await _assertText(args);
+        return await _assertText(args, client!);
 
       case 'assert_element_count':
-        return await _assertElementCount(args);
+        return await _assertElementCount(args, client!);
 
       // === NEW: Page State ===
       case 'get_page_state':
-        return await _getPageState();
+        return await _getPageState(client!);
 
       case 'get_interactable_elements':
         final includePositions = args['include_positions'] ?? true;
-        return await _client!
+        return await client!
             .getInteractiveElements(includePositions: includePositions);
 
       // === NEW: Performance & Memory ===
       case 'get_frame_stats':
-        return await _client!.getFrameStats();
+        return await client!.getFrameStats();
 
       case 'get_memory_stats':
-        return await _client!.getMemoryStats();
+        return await client!.getMemoryStats();
 
       // === Smart Diagnosis ===
       case 'diagnose':
-        return await _performDiagnosis(args);
+        return await _performDiagnosis(args, client!);
 
       default:
         throw Exception("Unknown tool: $name");
@@ -1685,7 +2026,8 @@ Base64-encoded PNG image that can be displayed to user.
   }
 
   /// Execute a batch of actions in sequence
-  Future<Map<String, dynamic>> _executeBatch(Map<String, dynamic> args) async {
+  Future<Map<String, dynamic>> _executeBatch(
+      Map<String, dynamic> args, FlutterSkillClient client) async {
     final actions = args['actions'] as List<dynamic>;
     final stopOnFailure = args['stop_on_failure'] ?? true;
 
@@ -1703,7 +2045,7 @@ Base64-encoded PNG image that can be displayed to user.
         switch (actionName) {
           case 'tap':
             final tapResult =
-                await _client!.tap(key: action['key'], text: action['text']);
+                await client!.tap(key: action['key'], text: action['text']);
             if (tapResult['success'] != true) {
               throw Exception(tapResult['message'] ?? "Element not found");
             }
@@ -1711,7 +2053,7 @@ Base64-encoded PNG image that can be displayed to user.
             break;
 
           case 'enter_text':
-            final enterResult = await _client!
+            final enterResult = await client!
                 .enterText(action['key'], action['text'] ?? action['value']);
             if (enterResult['success'] != true) {
               throw Exception(enterResult['message'] ?? "TextField not found");
@@ -1721,7 +2063,7 @@ Base64-encoded PNG image that can be displayed to user.
 
           case 'swipe':
             final distance = (action['distance'] ?? 300).toDouble();
-            await _client!.swipe(
+            await client!.swipe(
               direction: action['direction'] ?? 'down',
               distance: distance,
               key: action['key'],
@@ -1736,13 +2078,13 @@ Base64-encoded PNG image that can be displayed to user.
             break;
 
           case 'screenshot':
-            final image = await _client!.takeScreenshot();
+            final image = await client!.takeScreenshot();
             result = {"image": image};
             break;
 
           case 'assert_visible':
             final timeout = action['timeout'] ?? 5000;
-            final found = await _client!.waitForElement(
+            final found = await client!.waitForElement(
               key: action['key'],
               text: action['text'],
               timeout: timeout,
@@ -1752,7 +2094,7 @@ Base64-encoded PNG image that can be displayed to user.
             break;
 
           case 'assert_text':
-            final actual = await _client!.getTextValue(action['key']);
+            final actual = await client!.getTextValue(action['key']);
             final expected = action['expected'];
             if (actual != expected) {
               throw Exception(
@@ -1763,18 +2105,18 @@ Base64-encoded PNG image that can be displayed to user.
 
           case 'long_press':
             final duration = action['duration'] ?? 500;
-            await _client!.longPress(
+            await client!.longPress(
                 key: action['key'], text: action['text'], duration: duration);
             result = "Long pressed";
             break;
 
           case 'double_tap':
-            await _client!.doubleTap(key: action['key'], text: action['text']);
+            await client!.doubleTap(key: action['key'], text: action['text']);
             result = "Double tapped";
             break;
 
           case 'scroll_to':
-            await _client!.scrollTo(key: action['key'], text: action['text']);
+            await client!.scrollTo(key: action['key'], text: action['text']);
             result = "Scrolled";
             break;
 
@@ -1885,7 +2227,7 @@ Base64-encoded PNG image that can be displayed to user.
 
   /// Perform gesture with preset or custom coordinates
   Future<Map<String, dynamic>> _performGesture(
-      Map<String, dynamic> args) async {
+      Map<String, dynamic> args, FlutterSkillClient client) async {
     final preset = args['preset'] as String?;
     final duration = args['duration'] as int? ?? 300;
 
@@ -1918,7 +2260,7 @@ Base64-encoded PNG image that can be displayed to user.
     }
 
     // Get screen size to convert ratios to pixels
-    final layoutTree = await _client!.getLayoutTree();
+    final layoutTree = await client!.getLayoutTree();
     final screenWidth =
         (layoutTree['size']?['width'] as num?)?.toDouble() ?? 400.0;
     final screenHeight =
@@ -1930,7 +2272,7 @@ Base64-encoded PNG image that can be displayed to user.
     final endX = toX <= 1.0 ? toX * screenWidth : toX;
     final endY = toY <= 1.0 ? toY * screenHeight : toY;
 
-    await _client!.swipeCoordinates(startX, startY, endX, endY,
+    await client!.swipeCoordinates(startX, startY, endX, endY,
         duration: gestureDuration);
 
     return {
@@ -1943,7 +2285,8 @@ Base64-encoded PNG image that can be displayed to user.
   }
 
   /// Wait for the app to become idle
-  Future<Map<String, dynamic>> _waitForIdle(Map<String, dynamic> args) async {
+  Future<Map<String, dynamic>> _waitForIdle(
+      Map<String, dynamic> args, FlutterSkillClient client) async {
     final timeout = args['timeout'] as int? ?? 5000;
     final minIdleTime = args['min_idle_time'] as int? ?? 500;
 
@@ -1953,7 +2296,7 @@ Base64-encoded PNG image that can be displayed to user.
 
     while (stopwatch.elapsedMilliseconds < timeout) {
       // Get current widget tree snapshot
-      final tree = await _client!.getWidgetTree(maxDepth: 3);
+      final tree = await client!.getWidgetTree(maxDepth: 3);
       final currentTree = tree.toString();
 
       if (currentTree == previousTree) {
@@ -1988,7 +2331,7 @@ Base64-encoded PNG image that can be displayed to user.
 
   /// Scroll until element becomes visible
   Future<Map<String, dynamic>> _scrollUntilVisible(
-      Map<String, dynamic> args) async {
+      Map<String, dynamic> args, FlutterSkillClient client) async {
     final key = args['key'] as String?;
     final text = args['text'] as String?;
     final direction = args['direction'] ?? 'down';
@@ -1997,7 +2340,7 @@ Base64-encoded PNG image that can be displayed to user.
 
     for (var i = 0; i < maxScrolls; i++) {
       // Check if element is visible
-      final found = await _client!.waitForElement(
+      final found = await client!.waitForElement(
         key: key,
         text: text,
         timeout: 500,
@@ -2012,7 +2355,7 @@ Base64-encoded PNG image that can be displayed to user.
       }
 
       // Scroll
-      await _client!.swipe(
+      await client!.swipe(
         direction: direction,
         distance: 300,
         key: scrollableKey,
@@ -2032,14 +2375,14 @@ Base64-encoded PNG image that can be displayed to user.
 
   /// Assert element visibility
   Future<Map<String, dynamic>> _assertVisible(Map<String, dynamic> args,
-      {required bool shouldBeVisible}) async {
+      FlutterSkillClient client, {required bool shouldBeVisible}) async {
     final key = args['key'] as String?;
     final text = args['text'] as String?;
     final timeout = args['timeout'] ?? 5000;
 
     if (shouldBeVisible) {
       final found =
-          await _client!.waitForElement(key: key, text: text, timeout: timeout);
+          await client!.waitForElement(key: key, text: text, timeout: timeout);
       return {
         "success": found,
         "assertion": "visible",
@@ -2050,7 +2393,7 @@ Base64-encoded PNG image that can be displayed to user.
       };
     } else {
       final gone =
-          await _client!.waitForGone(key: key, text: text, timeout: timeout);
+          await client!.waitForGone(key: key, text: text, timeout: timeout);
       return {
         "success": gone,
         "assertion": "not_visible",
@@ -2063,12 +2406,13 @@ Base64-encoded PNG image that can be displayed to user.
   }
 
   /// Assert text content
-  Future<Map<String, dynamic>> _assertText(Map<String, dynamic> args) async {
+  Future<Map<String, dynamic>> _assertText(
+      Map<String, dynamic> args, FlutterSkillClient client) async {
     final key = args['key'] as String;
     final expected = args['expected'] as String;
     final useContains = args['contains'] ?? false;
 
-    final actual = await _client!.getTextValue(key);
+    final actual = await client!.getTextValue(key);
 
     bool matches;
     if (useContains) {
@@ -2091,7 +2435,7 @@ Base64-encoded PNG image that can be displayed to user.
 
   /// Assert element count
   Future<Map<String, dynamic>> _assertElementCount(
-      Map<String, dynamic> args) async {
+      Map<String, dynamic> args, FlutterSkillClient client) async {
     final type = args['type'] as String?;
     final text = args['text'] as String?;
     final expectedCount = args['expected_count'] as int?;
@@ -2101,10 +2445,10 @@ Base64-encoded PNG image that can be displayed to user.
     int count = 0;
 
     if (type != null) {
-      final elements = await _client!.findByType(type);
+      final elements = await client!.findByType(type);
       count = elements.length;
     } else if (text != null) {
-      final allText = await _client!.getTextContent();
+      final allText = await client!.getTextContent();
       count = RegExp(RegExp.escape(text)).allMatches(allText.toString()).length;
     }
 
@@ -2139,10 +2483,10 @@ Base64-encoded PNG image that can be displayed to user.
   }
 
   /// Get complete page state snapshot
-  Future<Map<String, dynamic>> _getPageState() async {
-    final route = await _client!.getCurrentRoute();
-    final interactables = await _client!.getInteractiveElements();
-    final textContent = await _client!.getTextContent();
+  Future<Map<String, dynamic>> _getPageState(FlutterSkillClient client) async {
+    final route = await client!.getCurrentRoute();
+    final interactables = await client!.getInteractiveElements();
+    final textContent = await client!.getTextContent();
 
     return {
       "route": route,
@@ -2154,8 +2498,9 @@ Base64-encoded PNG image that can be displayed to user.
     };
   }
 
-  void _requireConnection() {
-    if (_client == null) {
+  void _requireConnection([FlutterSkillClient? client]) {
+    client ??= _client;
+    if (client == null) {
       throw Exception('''Not connected to Flutter app.
 
 Solutions:
@@ -2163,12 +2508,11 @@ Solutions:
 2. To start a new app: call launch_app(project_path: "/path/to/project")
 3. If you have the VM Service URI: call connect_app(uri: "ws://...")
 
-Tip: Use get_connection_status() to see available running apps.''');
+Tip: Use get_connection_status() to see available running apps or list_sessions() to see all sessions.''');
     }
 
-    if (!_client!.isConnected) {
-      // Connection lost, clean up
-      _client = null;
+    if (!client.isConnected) {
+      // Connection lost - note: with multi-session, we don't clean up here
       throw Exception('''Connection to Flutter app was lost.
 
 Please reconnect using one of these methods:
@@ -2407,7 +2751,7 @@ if (mounted) {
 
   /// Perform comprehensive diagnosis
   Future<Map<String, dynamic>> _performDiagnosis(
-      Map<String, dynamic> args) async {
+      Map<String, dynamic> args, FlutterSkillClient client) async {
     final scope = args['scope'] ?? 'all';
     // ignore: unused_local_variable
     final logLines = args['log_lines'] ?? 100; // Reserved for future use
@@ -2421,7 +2765,7 @@ if (mounted) {
     // Analyze logs if scope includes logs
     if (scope == 'all' || scope == 'logs') {
       try {
-        final logs = await _client!.getLogs();
+        final logs = await client!.getLogs();
         final logsStr = logs.toString();
 
         // Check each pattern
@@ -2462,7 +2806,7 @@ if (mounted) {
     // Analyze UI state if scope includes UI
     if (scope == 'all' || scope == 'ui') {
       try {
-        final elements = await _client!.getInteractiveElements();
+        final elements = await client!.getInteractiveElements();
 
         // Check for empty state
         if (elements.isEmpty) {
@@ -2502,7 +2846,7 @@ if (mounted) {
     // Analyze performance if scope includes performance
     if (scope == 'all' || scope == 'performance') {
       try {
-        final memoryStats = await _client!.getMemoryStats();
+        final memoryStats = await client!.getMemoryStats();
         final heapUsed = memoryStats['heapUsed'] as int? ?? 0;
         final heapMB = heapUsed / (1024 * 1024);
 
@@ -2568,7 +2912,7 @@ if (mounted) {
     // Include screenshot if requested
     if (includeScreenshot) {
       try {
-        final screenshot = await _client!.takeScreenshot();
+        final screenshot = await client!.takeScreenshot();
         result['screenshot'] = screenshot;
       } catch (e) {
         // Screenshot failed
