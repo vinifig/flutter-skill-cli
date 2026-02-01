@@ -139,7 +139,7 @@ class SessionManager(private val project: Project) {
      * Switch to a different session
      */
     fun switchToSession(sessionId: String): Boolean {
-        if (sessionId !in sessions) {
+        if (!sessions.containsKey(sessionId)) {
             return false
         }
 
