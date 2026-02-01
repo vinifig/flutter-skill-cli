@@ -3,10 +3,10 @@
 if [ "$1" == "run" ]; then
     # We ignore other args like -d or working dir for the mock
     # We find where the mock_app.dart is relative to this script
-    # This script is in tests/bin/flutter
-    # mock_app is in tests/mock_app.dart
+    # This script is in test/bin/flutter
+    # mock_app is in test_integration/mock_app.dart
     DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-    MOCK_APP="$DIR/../mock_app.dart"
+    MOCK_APP="$DIR/../../test_integration/mock_app.dart"
     exec dart run "$MOCK_APP"
 else
     echo "Fake Flutter: Unknown command $1"

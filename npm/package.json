@@ -1,0 +1,41 @@
+{
+  "name": "flutter-skill-mcp",
+  "version": "0.4.0",
+  "description": "MCP Server for Flutter app automation - Give your AI Agent eyes and hands inside your Flutter app",
+  "main": "index.js",
+  "bin": {
+    "flutter-skill-mcp": "./bin/cli.js"
+  },
+  "scripts": {
+    "postinstall": "node scripts/postinstall.js"
+  },
+  "keywords": [
+    "flutter",
+    "mcp",
+    "ai",
+    "automation",
+    "testing",
+    "claude",
+    "cursor",
+    "windsurf"
+  ],
+  "author": "ai-dashboad",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ai-dashboad/flutter-skill.git"
+  },
+  "homepage": "https://github.com/ai-dashboad/flutter-skill",
+  "bugs": {
+    "url": "https://github.com/ai-dashboad/flutter-skill/issues"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "files": [
+    "bin/",
+    "scripts/",
+    "dart/",
+    "README.md"
+  ]
+}

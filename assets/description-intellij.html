@@ -1,0 +1,61 @@
+<h2>Flutter Skill - AI Agent Bridge for Flutter Apps</h2>
+
+<p><b>Give your AI Agent eyes and hands inside your Flutter app.</b></p>
+
+<p>Flutter Skill creates a bi-directional control channel between AI coding assistants (Claude Code, Cursor, Windsurf, etc.) and running Flutter applications through the Dart VM Service Protocol.</p>
+
+<h3>Key Features</h3>
+
+<h4>UI Inspection</h4>
+<ul>
+  <li><b>Widget Tree Analysis</b> - Explore the complete widget hierarchy with depth control</li>
+  <li><b>Interactive Elements</b> - Find buttons, text fields, and other actionable widgets</li>
+  <li><b>Element Properties</b> - Get size, position, visibility, and state information</li>
+  <li><b>Text Extraction</b> - Extract all visible text content from the screen</li>
+</ul>
+
+<h4>Interactions</h4>
+<ul>
+  <li><b>Tap & Click</b> - Single tap, double tap, and long press gestures</li>
+  <li><b>Text Entry</b> - Enter text into text fields programmatically</li>
+  <li><b>Gestures</b> - Swipe, drag, and scroll operations</li>
+  <li><b>Navigation</b> - Go back, view navigation stack, get current route</li>
+</ul>
+
+<h4>State & Validation</h4>
+<ul>
+  <li><b>State Queries</b> - Get text field values, checkbox states, slider values</li>
+  <li><b>Wait Conditions</b> - Wait for elements to appear or disappear</li>
+  <li><b>Screenshots</b> - Capture full app or specific element screenshots</li>
+</ul>
+
+<h4>Development Tools</h4>
+<ul>
+  <li><b>Hot Reload</b> - Trigger hot reload remotely</li>
+  <li><b>Logs & Errors</b> - View application logs and error messages</li>
+  <li><b>Performance</b> - Monitor performance metrics</li>
+</ul>
+
+<h3>Zero Configuration Setup</h3>
+<p>Just run <code>flutter_skill launch /path/to/project</code> and the tool automatically:</p>
+<ol>
+  <li>Adds the flutter_skill dependency if missing</li>
+  <li>Patches main.dart with initialization code</li>
+  <li>Launches the app and captures the VM Service URI</li>
+</ol>
+
+<h3>MCP Server Support</h3>
+<p>Works seamlessly with MCP-compatible AI agents. Add to your MCP configuration:</p>
+<pre><code>{
+  "flutter-skill": {
+    "command": "flutter-skill",
+    "args": ["server"]
+  }
+}</code></pre>
+
+<h3>Links</h3>
+<ul>
+  <li><a href="https://github.com/ai-dashboad/flutter-skill">GitHub Repository</a></li>
+  <li><a href="https://pub.dev/packages/flutter_skill">pub.dev Package</a></li>
+  <li><a href="https://www.npmjs.com/package/flutter-skill-mcp">npm Package</a></li>
+</ul>

@@ -1,0 +1,159 @@
+{
+  "name": "flutter-skill",
+  "displayName": "Flutter Skill - AI App Automation",
+  "description": "Give your AI Agent eyes and hands inside your Flutter app. Bridge between AI coding assistants (Claude Code, Cursor, Windsurf) and running Flutter applications with 25+ MCP tools for UI inspection, gestures, screenshots, and more.",
+  "version": "0.4.0",
+  "publisher": "ai-dashboad",
+  "icon": "images/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ai-dashboad/flutter-skill.git"
+  },
+  "homepage": "https://github.com/ai-dashboad/flutter-skill",
+  "bugs": {
+    "url": "https://github.com/ai-dashboad/flutter-skill/issues"
+  },
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Testing",
+    "Debuggers",
+    "Other"
+  ],
+  "keywords": [
+    "flutter",
+    "dart",
+    "mcp",
+    "ai",
+    "automation",
+    "testing",
+    "claude",
+    "cursor",
+    "windsurf",
+    "widget",
+    "inspector"
+  ],
+  "activationEvents": [
+    "onLanguage:dart",
+    "workspaceContains:**/pubspec.yaml"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "flutter-skill.launch",
+        "title": "Flutter Skill: Launch App"
+      },
+      {
+        "command": "flutter-skill.inspect",
+        "title": "Flutter Skill: Inspect UI"
+      },
+      {
+        "command": "flutter-skill.screenshot",
+        "title": "Flutter Skill: Take Screenshot"
+      },
+      {
+        "command": "flutter-skill.startMcpServer",
+        "title": "Flutter Skill: Start MCP Server"
+      },
+      {
+        "command": "flutter-skill.stopMcpServer",
+        "title": "Flutter Skill: Stop MCP Server"
+      },
+      {
+        "command": "flutter-skill.configureAgents",
+        "title": "Flutter Skill: Configure AI Agents"
+      },
+      {
+        "command": "flutter-skill.rescan",
+        "title": "Flutter Skill: Scan for Running Apps"
+      },
+      {
+        "command": "flutter-skill.showStatus",
+        "title": "Flutter Skill: Show Status"
+      },
+      {
+        "command": "flutter-skill.setupDependency",
+        "title": "Flutter Skill: Add flutter_skill to Project"
+      }
+    ],
+    "configuration": {
+      "title": "Flutter Skill",
+      "properties": {
+        "flutter-skill.dartPath": {
+          "type": "string",
+          "default": "dart",
+          "description": "Path to Dart executable"
+        },
+        "flutter-skill.flutterPath": {
+          "type": "string",
+          "default": "flutter",
+          "description": "Path to Flutter executable"
+        },
+        "flutter-skill.autoConnect": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically connect when Flutter app starts"
+        },
+        "flutter-skill.autoStartMcpServer": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically start MCP server when Flutter project is opened"
+        },
+        "flutter-skill.autoConfigureAgents": {
+          "type": "boolean",
+          "default": true,
+          "description": "Prompt to configure AI agents (Claude Code, Cursor, Windsurf) when Flutter project is opened"
+        },
+        "flutter-skill.scanVmServicePorts": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically scan for running Flutter apps on VM Service ports"
+        },
+        "flutter-skill.vmServicePortRangeStart": {
+          "type": "number",
+          "default": 50000,
+          "description": "Start of port range to scan for VM Service"
+        },
+        "flutter-skill.vmServicePortRangeEnd": {
+          "type": "number",
+          "default": 50100,
+          "description": "End of port range to scan for VM Service"
+        },
+        "flutter-skill.autoSetupDependency": {
+          "type": "boolean",
+          "default": true,
+          "description": "Prompt to add flutter_skill dependency when Flutter project is opened"
+        }
+      }
+    },
+    "views": {
+      "explorer": [
+        {
+          "id": "flutterSkillView",
+          "name": "Flutter Skill",
+          "when": "dart:anyFlutterProjectLoaded"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package",
+    "publish": "vsce publish"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^2.22.0",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "@types/ws": "^8.18.1",
+    "ws": "^8.19.0"
+  }
+}

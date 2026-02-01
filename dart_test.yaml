@@ -1,0 +1,5 @@
+# Dart test configuration
+# Integration tests are in test_integration/ directory
+# Run them separately with: dart test test_integration/integration_test.dart
+paths:
+  - test/

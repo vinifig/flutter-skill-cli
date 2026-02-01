@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Flutter Skill</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--vscode-font-family);
+      font-size: var(--vscode-font-size);
+      color: var(--vscode-foreground);
+      background: var(--vscode-sideBar-background);
+      padding: 12px;
+    }
+
+    /* Header */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .header h2 {
+      font-size: 14px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 4px;
+    }
+
+    /* Status Card */
+    .status-card {
+      background: var(--vscode-sideBarSectionHeader-background);
+      border: 1px solid var(--vscode-panel-border);
+      border-radius: 6px;
+      padding: 12px;
+      margin-bottom: 16px;
+    }
+
+    .status-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .status-connected {
+      background: rgba(0, 255, 0, 0.15);
+      color: var(--vscode-testing-iconPassed);
+    }
+
+    .status-disconnected {
+      background: rgba(128, 128, 128, 0.15);
+      color: var(--vscode-descriptionForeground);
+    }
+
+    .status-connecting {
+      background: rgba(255, 165, 0, 0.15);
+      color: var(--vscode-testing-iconQueued);
+    }
+
+    .status-error {
+      background: rgba(255, 0, 0, 0.15);
+      color: var(--vscode-testing-iconFailed);
+    }
+
+    .status-info {
+      font-size: 12px;
+      color: var(--vscode-descriptionForeground);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .status-info-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .status-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    /* Section */
+    .section {
+      margin-bottom: 16px;
+    }
+
+    .section-title {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      color: var(--vscode-descriptionForeground);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Button Grid */
+    .button-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .action-button {
+      background: var(--vscode-button-background);
+      color: var(--vscode-button-foreground);
+      border: none;
+      border-radius: 4px;
+      padding: 10px 12px;
+      cursor: pointer;
+      font-size: 12px;
+      font-family: inherit;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.2s;
+    }
+
+    .action-button:hover:not(:disabled) {
+      background: var(--vscode-button-hoverBackground);
+    }
+
+    .action-button-secondary {
+      background: var(--vscode-button-secondaryBackground);
+      color: var(--vscode-button-secondaryForeground);
+    }
+
+    .action-button-secondary:hover:not(:disabled) {
+      background: var(--vscode-button-secondaryHoverBackground);
+    }
+
+    .action-button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* Elements List */
+    .elements-list {
+      max-height: 300px;
+      overflow-y: auto;
+      border: 1px solid var(--vscode-panel-border);
+      border-radius: 4px;
+    }
+
+    .element-item {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--vscode-panel-border);
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .element-item:hover {
+      background: var(--vscode-list-hoverBackground);
+    }
+
+    .element-item:last-child {
+      border-bottom: none;
+    }
+
+    .element-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 4px;
+    }
+
+    .element-name {
+      font-weight: 600;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .element-type {
+      font-size: 10px;
+      color: var(--vscode-descriptionForeground);
+      background: var(--vscode-badge-background);
+      color: var(--vscode-badge-foreground);
+      padding: 2px 6px;
+      border-radius: 3px;
+    }
+
+    .element-details {
+      font-size: 11px;
+      color: var(--vscode-descriptionForeground);
+      margin-bottom: 6px;
+    }
+
+    .element-actions {
+      display: flex;
+      gap: 4px;
+    }
+
+    .element-action {
+      background: var(--vscode-button-secondaryBackground);
+      color: var(--vscode-button-secondaryForeground);
+      border: none;
+      border-radius: 3px;
+      padding: 4px 8px;
+      font-size: 11px;
+      cursor: pointer;
+      font-family: inherit;
+    }
+
+    .element-action:hover {
+      background: var(--vscode-button-secondaryHoverBackground);
+    }
+
+    /* History */
+    .history-item {
+      padding: 8px 10px;
+      background: var(--vscode-input-background);
+      border-radius: 4px;
+      margin-bottom: 6px;
+      font-size: 12px;
+    }
+
+    .history-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 4px;
+    }
+
+    .history-time {
+      font-size: 10px;
+      color: var(--vscode-descriptionForeground);
+    }
+
+    .history-success {
+      color: var(--vscode-testing-iconPassed);
+    }
+
+    .history-failed {
+      color: var(--vscode-testing-iconFailed);
+    }
+
+    /* Empty State */
+    .empty-state {
+      text-align: center;
+      padding: 32px 16px;
+      color: var(--vscode-descriptionForeground);
+    }
+
+    .empty-state-icon {
+      font-size: 48px;
+      margin-bottom: 12px;
+      opacity: 0.3;
+    }
+
+    .empty-state-text {
+      font-size: 12px;
+      margin-bottom: 16px;
+    }
+
+    /* AI Editors */
+    .ai-editor-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 10px;
+      background: var(--vscode-input-background);
+      border-radius: 4px;
+      margin-bottom: 6px;
+      font-size: 12px;
+    }
+
+    .ai-editor-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .configure-button {
+      background: transparent;
+      color: var(--vscode-textLink-foreground);
+      border: 1px solid var(--vscode-textLink-foreground);
+      border-radius: 3px;
+      padding: 3px 10px;
+      font-size: 11px;
+      cursor: pointer;
+      font-family: inherit;
+    }
+
+    .configure-button:hover {
+      background: var(--vscode-textLink-activeForeground);
+      color: var(--vscode-editor-background);
+    }
+
+    /* Icon Button */
+    .icon-button {
+      background: transparent;
+      border: none;
+      color: var(--vscode-foreground);
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 3px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .icon-button:hover {
+      background: var(--vscode-toolbar-hoverBackground);
+    }
+
+    /* Loading State */
+    .loading {
+      text-align: center;
+      padding: 16px;
+      color: var(--vscode-descriptionForeground);
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+      width: 10px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: var(--vscode-scrollbarSlider-background);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--vscode-scrollbarSlider-hoverBackground);
+      border-radius: 5px;
+    }
+
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <div class="header">
+    <h2>
+      <span>🎯</span>
+      Flutter Skill
+    </h2>
+    <div class="header-actions">
+      <button class="icon-button" title="Settings" onclick="openSettings()">
+        ⚙️
+      </button>
+      <button class="icon-button" title="Help" onclick="openHelp()">
+        ❓
+      </button>
+    </div>
+  </div>
+
+  <!-- Connection Status -->
+  <div id="statusCard" class="status-card">
+    <!-- Dynamically populated -->
+  </div>
+
+  <!-- Quick Actions -->
+  <div class="section">
+    <div class="section-title">
+      <span>⚡</span>
+      Quick Actions
+    </div>
+    <div class="button-grid">
+      <button class="action-button" onclick="launchApp()">
+        <span>▶️</span>
+        Launch App
+      </button>
+      <button id="inspectBtn" class="action-button" onclick="inspect()">
+        <span>🔍</span>
+        Inspect UI
+      </button>
+      <button id="screenshotBtn" class="action-button" onclick="screenshot()">
+        <span>📸</span>
+        Screenshot
+      </button>
+      <button id="hotReloadBtn" class="action-button" onclick="hotReload()">
+        <span>🔄</span>
+        Hot Reload
+      </button>
+    </div>
+  </div>
+
+  <!-- Interactive Elements -->
+  <div class="section">
+    <div class="section-title">
+      <span>📱</span>
+      <span id="elementsTitle">Interactive Elements</span>
+    </div>
+    <div id="elementsSearchContainer" class="hidden" style="margin-bottom: 8px;">
+      <input type="text" id="elementsSearch" placeholder="Search elements..." style="width: 100%; padding: 6px; border: 1px solid var(--vscode-panel-border); background: var(--vscode-input-background); color: var(--vscode-input-foreground); border-radius: 3px; font-family: inherit; font-size: 12px;">
+    </div>
+    <div id="elementsContainer">
+      <!-- Dynamically populated -->
+    </div>
+  </div>
+
+  <!-- Testing History -->
+  <div class="section">
+    <div class="section-title">
+      <span>📜</span>
+      Recent Activity
+    </div>
+    <div id="historyContainer">
+      <!-- Dynamically populated -->
+    </div>
+    <button class="action-button-secondary action-button" style="width: 100%; margin-top: 8px;" onclick="viewHistory()">
+      View All History
+    </button>
+  </div>
+
+  <!-- AI Editors -->
+  <div class="section">
+    <div class="section-title">
+      <span>🤖</span>
+      AI Editors
+    </div>
+    <div id="aiEditorsContainer">
+      <!-- Dynamically populated -->
+    </div>
+  </div>
+
+  <script>
+    const vscode = acquireVsCodeApi();
+
+    // State
+    let currentState = {
+      connection: { status: 'disconnected' },
+      elements: [],
+      activityHistory: [],
+      aiEditors: []
+    };
+
+    // Request full state on load
+    vscode.postMessage({ command: 'requestFullState' });
+
+    // Event handlers
+    function launchApp() {
+      vscode.postMessage({ command: 'launchApp' });
+    }
+
+    function inspect() {
+      vscode.postMessage({ command: 'inspect' });
+    }
+
+    function screenshot() {
+      vscode.postMessage({ command: 'screenshot' });
+    }
+
+    function hotReload() {
+      vscode.postMessage({ command: 'hotReload' });
+    }
+
+    function disconnect() {
+      vscode.postMessage({ command: 'disconnect' });
+    }
+
+    function refresh() {
+      vscode.postMessage({ command: 'refresh' });
+    }
+
+    function tapElement(key) {
+      vscode.postMessage({ command: 'tap', key });
+    }
+
+    function inspectElement(key) {
+      vscode.postMessage({ command: 'inspectElement', key });
+    }
+
+    function inputText(key) {
+      vscode.postMessage({ command: 'showInputDialog', key });
+    }
+
+    function clearField(key) {
+      vscode.postMessage({ command: 'clearField', key });
+    }
+
+    function viewHistory() {
+      vscode.postMessage({ command: 'viewHistory' });
+    }
+
+    function configureEditor(editor) {
+      vscode.postMessage({ command: 'configureEditor', editor });
+    }
+
+    function openSettings() {
+      vscode.postMessage({ command: 'openSettings' });
+    }
+
+    function openHelp() {
+      vscode.postMessage({ command: 'openHelp' });
+    }
+
+    // Listen for messages from extension
+    window.addEventListener('message', event => {
+      const message = event.data;
+      switch (message.command) {
+        case 'fullState':
+          currentState = message.data;
+          updateAllUI();
+          break;
+        case 'updateStatus':
+          currentState.connection = message.data;
+          updateStatusCard();
+          updateButtonStates();
+          break;
+        case 'updateElements':
+          currentState.elements = message.data;
+          updateElementsList();
+          break;
+        case 'updateActivity':
+          currentState.activityHistory = message.data;
+          updateActivityHistory();
+          break;
+        case 'updateAiEditors':
+          currentState.aiEditors = message.data;
+          updateAiEditors();
+          break;
+      }
+    });
+
+    // Update functions
+    function updateAllUI() {
+      updateStatusCard();
+      updateElementsList();
+      updateActivityHistory();
+      updateAiEditors();
+      updateButtonStates();
+    }
+
+    function updateStatusCard() {
+      const { status, service, device } = currentState.connection;
+      const statusCard = document.getElementById('statusCard');
+
+      const statusClasses = {
+        connected: 'status-connected',
+        disconnected: 'status-disconnected',
+        connecting: 'status-connecting',
+        error: 'status-error'
+      };
+
+      const statusText = {
+        connected: 'Connected',
+        disconnected: 'Disconnected',
+        connecting: 'Connecting...',
+        error: 'Error'
+      };
+
+      const isConnected = status === 'connected';
+
+      statusCard.innerHTML = `
+        <div class="status-header">
+          <span class="status-badge ${statusClasses[status]}">
+            <span>●</span>
+            ${statusText[status]}
+          </span>
+        </div>
+        ${isConnected ? `
+          <div class="status-info">
+            <div class="status-info-row">
+              <span>📱</span>
+              <span>${device || 'Unknown Device'}</span>
+            </div>
+            <div class="status-info-row">
+              <span>⚡</span>
+              <span>VM Service: :${service?.port || 'N/A'}</span>
+            </div>
+          </div>
+          <div class="status-actions">
+            <button class="action-button-secondary action-button" onclick="disconnect()">
+              Disconnect
+            </button>
+            <button class="action-button-secondary action-button" onclick="refresh()">
+              🔄 Refresh
+            </button>
+          </div>
+        ` : `
+          <div class="status-info">
+            <div class="status-info-row">
+              <span>No Flutter app connected</span>
+            </div>
+          </div>
+          <div class="status-actions">
+            <button class="action-button-secondary action-button" onclick="refresh()">
+              🔄 Scan for Apps
+            </button>
+          </div>
+        `}
+      `;
+    }
+
+    function updateElementsList() {
+      const elements = currentState.elements;
+      const container = document.getElementById('elementsContainer');
+      const title = document.getElementById('elementsTitle');
+      const searchContainer = document.getElementById('elementsSearchContainer');
+      const searchInput = document.getElementById('elementsSearch');
+
+      title.textContent = `Interactive Elements${elements.length > 0 ? ` (${elements.length})` : ''}`;
+
+      if (elements.length === 0) {
+        searchContainer.classList.add('hidden');
+        container.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">📱</div>
+            <div class="empty-state-text">No elements found</div>
+            <button class="action-button-secondary action-button" onclick="inspect()">
+              Inspect App
+            </button>
+          </div>
+        `;
+        return;
+      }
+
+      // Show search box
+      searchContainer.classList.remove('hidden');
+
+      // Setup search listener (debounced)
+      if (searchInput && !searchInput._listenerAdded) {
+        searchInput._listenerAdded = true;
+        let searchTimeout;
+        searchInput.addEventListener('input', (e) => {
+          clearTimeout(searchTimeout);
+          searchTimeout = setTimeout(() => {
+            filterElements(e.target.value);
+          }, 300);
+        });
+      }
+
+      // Render elements (filtered if search is active)
+      const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
+      renderElementsList(elements, searchTerm);
+    }
+
+    function filterElements(searchTerm) {
+      const elements = currentState.elements;
+      renderElementsList(elements, searchTerm.toLowerCase());
+    }
+
+    function renderElementsList(elements, searchTerm = '') {
+      const container = document.getElementById('elementsContainer');
+
+      // Filter elements by search term
+      const filteredElements = searchTerm
+        ? elements.filter(el =>
+            el.key.toLowerCase().includes(searchTerm) ||
+            el.type.toLowerCase().includes(searchTerm) ||
+            (el.text && el.text.toLowerCase().includes(searchTerm))
+          )
+        : elements;
+
+      if (filteredElements.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">🔍</div>
+            <div class="empty-state-text">No elements match "${searchTerm}"</div>
+          </div>
+        `;
+        return;
+      }
+
+      const listHTML = `
+        <div class="elements-list">
+          ${filteredElements.map(el => `
+            <div class="element-item">
+              <div class="element-header">
+                <div class="element-name">
+                  <span>${getElementIcon(el.type)}</span>
+                  ${el.key}
+                </div>
+                <div class="element-type">${el.type}</div>
+              </div>
+              <div class="element-details">
+                ${formatElementDetails(el)}
+              </div>
+              <div class="element-actions">
+                <button class="element-action" onclick="tapElement('${el.key}')">
+                  👆 Tap
+                </button>
+                ${el.type.includes('TextField') || el.type.includes('Input') ? `
+                  <button class="element-action" onclick="inputText('${el.key}')">
+                    ⌨️ Input
+                  </button>
+                ` : ''}
+                <button class="element-action" onclick="inspectElement('${el.key}')">
+                  🔍 Inspect
+                </button>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+
+      container.innerHTML = listHTML;
+    }
+
+    function updateActivityHistory() {
+      const history = currentState.activityHistory.slice(0, 5); // Show 5 items for consistency with IntelliJ
+      const container = document.getElementById('historyContainer');
+      const hasMore = currentState.activityHistory.length > 5;
+
+      if (currentState.activityHistory.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">📜</div>
+            <div class="empty-state-text">No recent activity</div>
+          </div>
+        `;
+        return;
+      }
+
+      let html = history.map(item => `
+        <div class="history-item">
+          <div class="history-header ${item.success ? 'history-success' : 'history-failed'}">
+            <span>${getActivityIcon(item.type)}</span>
+            <span>${item.description}</span>
+          </div>
+          <div class="history-time">${formatTimestamp(item.timestamp)}</div>
+        </div>
+      `).join('');
+
+      // Add action buttons
+      html += '<div style="display: flex; gap: 8px; margin-top: 8px;">';
+      if (hasMore) {
+        html += '<button class="action-button-secondary action-button" style="flex: 1;" onclick="viewHistory()">View All</button>';
+      }
+      html += '<button class="action-button-secondary action-button" style="flex: 1;" onclick="clearHistory()">Clear</button>';
+      html += '</div>';
+
+      container.innerHTML = html;
+    }
+
+    function clearHistory() {
+      if (confirm('Clear all activity history?')) {
+        currentState.activityHistory = [];
+        updateActivityHistory();
+        vscode.postMessage({ command: 'clearHistory' });
+      }
+    }
+
+    function updateAiEditors() {
+      const editors = currentState.aiEditors;
+      const container = document.getElementById('aiEditorsContainer');
+
+      if (editors.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">🤖</div>
+            <div class="empty-state-text">No AI editors detected</div>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = editors.map(editor => `
+        <div class="ai-editor-item">
+          <div class="ai-editor-info">
+            <span>${editor.configured ? '✅' : (editor.detected ? '⚠️' : '○')}</span>
+            <span>${editor.displayName}</span>
+          </div>
+          ${editor.detected && !editor.configured ? `
+            <button class="configure-button" onclick="configureEditor('${editor.name}')">
+              Configure
+            </button>
+          ` : ''}
+        </div>
+      `).join('');
+    }
+
+    function updateButtonStates() {
+      const isConnected = currentState.connection.status === 'connected';
+
+      document.getElementById('inspectBtn').disabled = !isConnected;
+      document.getElementById('screenshotBtn').disabled = !isConnected;
+      document.getElementById('hotReloadBtn').disabled = !isConnected;
+    }
+
+    // Helper functions
+    function getElementIcon(type) {
+      if (type.includes('Button')) return '🔘';
+      if (type.includes('TextField') || type.includes('Input')) return '📝';
+      if (type.includes('Text')) return '📄';
+      if (type.includes('Icon')) return '🎨';
+      if (type.includes('Image')) return '🖼️';
+      return '📱';
+    }
+
+    function formatElementDetails(el) {
+      const parts = [];
+      if (el.text) parts.push(`Text: "${el.text}"`);
+      if (el.hint) parts.push(`Hint: "${el.hint}"`);
+      if (el.value) parts.push(`Value: "${el.value}"`);
+      if (el.position) parts.push(`Position: (${el.position.x}, ${el.position.y})`);
+      if (el.size) parts.push(`Size: ${el.size.width}×${el.size.height}`);
+      return parts.join(' • ') || 'No details available';
+    }
+
+    function getActivityIcon(type) {
+      const icons = {
+        tap: '👆',
+        input: '⌨️',
+        screenshot: '📸',
+        inspect: '🔍',
+        launch: '▶️',
+        hotReload: '🔄',
+        other: '•'
+      };
+      return icons[type] || '•';
+    }
+
+    function formatTimestamp(timestamp) {
+      const now = Date.now();
+      const diff = now - timestamp;
+      const seconds = Math.floor(diff / 1000);
+      const minutes = Math.floor(seconds / 60);
+      const hours = Math.floor(minutes / 60);
+      const days = Math.floor(hours / 24);
+
+      if (days > 0) return `${days} day${days > 1 ? 's' : ''} ago`;
+      if (hours > 0) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+      if (minutes > 0) return `${minutes} minute${minutes > 1 ? 's' : ''} ago`;
+      return 'just now';
+    }
+  </script>
+</body>
+</html>

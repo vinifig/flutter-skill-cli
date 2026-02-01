@@ -1,0 +1,513 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'  # Triggers on version tags like v0.3.0
+
+env:
+  FLUTTER_VERSION: '3.24.0'
+  JAVA_VERSION: '17'
+
+jobs:
+  # Extract version from tag
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Extract version from tag
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+  # Sync documentation to all distribution channels
+  sync-docs:
+    needs: prepare
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Dart
+        uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+
+      - name: Sync documentation
+        run: dart scripts/sync_docs.dart
+
+      - name: Upload synced docs
+        uses: actions/upload-artifact@v4
+        with:
+          name: synced-docs
+          path: |
+            vscode-extension/README.md
+            npm/README.md
+            intellij-plugin/src/main/resources/META-INF/plugin.xml
+
+  # Publish to pub.dev
+  publish-pub-dev:
+    needs: [prepare, sync-docs]
+    runs-on: ubuntu-latest
+    continue-on-error: true  # Don't block release if rate-limited or already published
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Verify version matches tag
+        run: |
+          PKG_VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //')
+          TAG_VERSION=${{ needs.prepare.outputs.version }}
+          if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
+            echo "Error: pubspec.yaml version ($PKG_VERSION) doesn't match tag ($TAG_VERSION)"
+            exit 1
+          fi
+
+      - name: Setup pub.dev credentials
+        run: |
+          mkdir -p ~/.config/dart
+          echo '${{ secrets.PUB_DEV_CREDENTIALS }}' > ~/.config/dart/pub-credentials.json
+
+      - name: Publish to pub.dev
+        run: dart pub publish --force
+
+  # Publish to npm
+  publish-npm:
+    needs: [prepare, sync-docs]
+    runs-on: ubuntu-latest
+    continue-on-error: true  # Don't block if already published
+    defaults:
+      run:
+        working-directory: npm
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download synced docs
+        uses: actions/download-artifact@v4
+        with:
+          name: synced-docs
+          path: .
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Verify version matches tag
+        run: |
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          TAG_VERSION=${{ needs.prepare.outputs.version }}
+          if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
+            echo "Error: package.json version ($PKG_VERSION) doesn't match tag ($TAG_VERSION)"
+            exit 1
+          fi
+
+      - name: Publish to npm
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  # Publish VSCode extension
+  publish-vscode:
+    needs: [prepare, sync-docs]
+    runs-on: ubuntu-latest
+    continue-on-error: true  # Don't block if already published
+    defaults:
+      run:
+        working-directory: vscode-extension
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download synced docs
+        uses: actions/download-artifact@v4
+        with:
+          name: synced-docs
+          path: .
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Verify version matches tag
+        run: |
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          TAG_VERSION=${{ needs.prepare.outputs.version }}
+          if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
+            echo "Error: package.json version ($PKG_VERSION) doesn't match tag ($TAG_VERSION)"
+            exit 1
+          fi
+
+      - name: Install vsce
+        run: npm install -g @vscode/vsce
+
+      - name: Build and publish
+        run: vsce publish -p ${{ secrets.VSCE_PAT }}
+
+  # Publish IntelliJ plugin
+  publish-intellij:
+    needs: [prepare, sync-docs]
+    runs-on: ubuntu-latest
+    continue-on-error: true  # Don't block if already published
+    defaults:
+      run:
+        working-directory: intellij-plugin
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download synced docs
+        uses: actions/download-artifact@v4
+        with:
+          name: synced-docs
+          path: .
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Verify version matches tag
+        run: |
+          PKG_VERSION=$(grep '^version' build.gradle.kts | head -1 | sed 's/.*"\(.*\)".*/\1/')
+          TAG_VERSION=${{ needs.prepare.outputs.version }}
+          if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
+            echo "Error: build.gradle.kts version ($PKG_VERSION) doesn't match tag ($TAG_VERSION)"
+            exit 1
+          fi
+
+      - name: Build plugin
+        run: ./gradlew buildPlugin
+
+      - name: Publish to JetBrains Marketplace
+        run: ./gradlew publishPlugin
+        env:
+          PUBLISH_TOKEN: ${{ secrets.JETBRAINS_MARKETPLACE_TOKEN }}
+
+      - name: Upload plugin zip as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: intellij-plugin
+          path: build/distributions/*.zip
+
+  # Update Homebrew tap with native binaries
+  update-homebrew:
+    needs: [prepare, build-native-binaries]  # Wait for native binaries to be built
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download native binaries for SHA256
+        uses: actions/download-artifact@v4
+        with:
+          path: ./binaries
+
+      - name: Calculate SHA256 for all binaries
+        id: sha256
+        run: |
+          cd binaries
+          SHA256_ARM64=$(sha256sum flutter-skill-macos-arm64/flutter-skill-macos-arm64 | cut -d' ' -f1)
+          SHA256_X64=$(sha256sum flutter-skill-macos-x64/flutter-skill-macos-x64 | cut -d' ' -f1)
+          SHA256_LINUX=$(sha256sum flutter-skill-linux-x64/flutter-skill-linux-x64 | cut -d' ' -f1)
+          echo "sha256_arm64=$SHA256_ARM64" >> $GITHUB_OUTPUT
+          echo "sha256_x64=$SHA256_X64" >> $GITHUB_OUTPUT
+          echo "sha256_linux=$SHA256_LINUX" >> $GITHUB_OUTPUT
+
+      - name: Checkout Homebrew tap
+        uses: actions/checkout@v4
+        with:
+          repository: ai-dashboad/homebrew-flutter-skill
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: homebrew-tap
+
+      - name: Update Homebrew formula
+        run: |
+          VERSION=${{ needs.prepare.outputs.version }}
+          SHA256_ARM64=${{ steps.sha256.outputs.sha256_arm64 }}
+          SHA256_X64=${{ steps.sha256.outputs.sha256_x64 }}
+          SHA256_LINUX=${{ steps.sha256.outputs.sha256_linux }}
+
+          # Write the new formula
+          cat > homebrew-tap/Formula/flutter-skill.rb << 'FORMULA'
+          class FlutterSkill < Formula
+            desc "MCP Server for Flutter app automation - AI Agent control for Flutter apps"
+            homepage "https://github.com/ai-dashboad/flutter-skill"
+            version "VERSION_PLACEHOLDER"
+            license "MIT"
+
+            on_macos do
+              on_arm do
+                url "https://github.com/ai-dashboad/flutter-skill/releases/download/vVERSION_PLACEHOLDER/flutter-skill-macos-arm64"
+                sha256 "SHA256_ARM64_PLACEHOLDER"
+              end
+              on_intel do
+                url "https://github.com/ai-dashboad/flutter-skill/releases/download/vVERSION_PLACEHOLDER/flutter-skill-macos-x64"
+                sha256 "SHA256_X64_PLACEHOLDER"
+              end
+            end
+
+            on_linux do
+              url "https://github.com/ai-dashboad/flutter-skill/releases/download/vVERSION_PLACEHOLDER/flutter-skill-linux-x64"
+              sha256 "SHA256_LINUX_PLACEHOLDER"
+            end
+
+            def install
+              bin.install Dir["flutter-skill-*"].first => "flutter-skill"
+            end
+
+            def caveats
+              <<~EOS
+                flutter-skill is now installed as a native binary for instant startup!
+
+                MCP Configuration (add to ~/.claude/settings.json):
+                  {
+                    "mcpServers": {
+                      "flutter-skill": {
+                        "command": "flutter-skill",
+                        "args": ["server"]
+                      }
+                    }
+                  }
+
+                CLI Usage:
+                  flutter-skill launch /path/to/flutter/project
+                  flutter-skill inspect
+                  flutter-skill act tap "button_key"
+              EOS
+            end
+
+            test do
+              system "#{bin}/flutter-skill", "server", "--help"
+            end
+          end
+          FORMULA
+
+          # Replace placeholders
+          sed -i "s/VERSION_PLACEHOLDER/${VERSION}/g" homebrew-tap/Formula/flutter-skill.rb
+          sed -i "s/SHA256_ARM64_PLACEHOLDER/${SHA256_ARM64}/g" homebrew-tap/Formula/flutter-skill.rb
+          sed -i "s/SHA256_X64_PLACEHOLDER/${SHA256_X64}/g" homebrew-tap/Formula/flutter-skill.rb
+          sed -i "s/SHA256_LINUX_PLACEHOLDER/${SHA256_LINUX}/g" homebrew-tap/Formula/flutter-skill.rb
+
+      - name: Commit and push
+        run: |
+          cd homebrew-tap
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Formula/flutter-skill.rb
+          git commit -m "Update flutter-skill to v${{ needs.prepare.outputs.version }} with native binaries" || echo "No changes to commit"
+          git push
+
+  # Build native binaries for all platforms
+  build-native-binaries:
+    needs: prepare
+    strategy:
+      matrix:
+        include:
+          - os: macos-latest
+            arch: arm64
+            artifact: flutter-skill-macos-arm64
+          - os: macos-15
+            arch: x64
+            artifact: flutter-skill-macos-x64
+          - os: ubuntu-latest
+            arch: x64
+            artifact: flutter-skill-linux-x64
+          - os: windows-latest
+            arch: x64
+            artifact: flutter-skill-windows-x64.exe
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Compile native binary
+        run: dart compile exe bin/flutter_skill.dart -o ${{ matrix.artifact }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.artifact }}
+
+  # Update Winget manifest
+  update-winget:
+    needs: [prepare, build-native-binaries]
+    runs-on: windows-latest
+    continue-on-error: true  # Don't block if winget update fails
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Windows binary
+        uses: actions/download-artifact@v4
+        with:
+          name: flutter-skill-windows-x64.exe
+          path: ./
+
+      - name: Calculate SHA256
+        id: sha256
+        shell: pwsh
+        run: |
+          $hash = (Get-FileHash -Algorithm SHA256 "flutter-skill-windows-x64.exe").Hash.ToLower()
+          echo "sha256=$hash" >> $env:GITHUB_OUTPUT
+
+      - name: Update Winget manifest
+        shell: pwsh
+        run: |
+          $version = "${{ needs.prepare.outputs.version }}"
+          $sha256 = "${{ steps.sha256.outputs.sha256 }}"
+
+          $manifest = @"
+          PackageIdentifier: AIDashboard.FlutterSkill
+          PackageVersion: $version
+          Publisher: AI Dashboard
+          PublisherUrl: https://github.com/ai-dashboad
+          PackageName: Flutter Skill
+          PackageUrl: https://github.com/ai-dashboad/flutter-skill
+          License: MIT
+          LicenseUrl: https://github.com/ai-dashboad/flutter-skill/blob/main/LICENSE
+          ShortDescription: AI Agent Bridge for Flutter Apps
+          Description: |
+            Flutter Skill is a bridge that connects AI agents (Claude, Cursor, Windsurf)
+            to running Flutter applications via the Dart VM Service Protocol.
+          Tags:
+            - flutter
+            - dart
+            - ai
+            - mcp
+            - developer-tools
+          Installers:
+            - Architecture: x64
+              InstallerType: exe
+              InstallerUrl: https://github.com/ai-dashboad/flutter-skill/releases/download/v$version/flutter-skill-windows-x64.exe
+              InstallerSha256: $sha256
+              UpgradeBehavior: install
+          ManifestType: singleton
+          ManifestVersion: 1.6.0
+          "@
+
+          # Save manifest for artifact upload
+          $manifest | Out-File -FilePath "AIDashboard.FlutterSkill.yaml" -Encoding utf8
+
+      - name: Upload Winget manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: winget-manifest
+          path: AIDashboard.FlutterSkill.yaml
+
+  # Update Scoop bucket
+  update-scoop:
+    needs: [prepare, build-native-binaries]
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Download Windows binary
+        uses: actions/download-artifact@v4
+        with:
+          name: flutter-skill-windows-x64.exe
+          path: ./
+
+      - name: Calculate SHA256
+        id: sha256
+        run: |
+          hash=$(sha256sum flutter-skill-windows-x64.exe | cut -d' ' -f1)
+          echo "sha256=$hash" >> $GITHUB_OUTPUT
+
+      - name: Checkout Scoop bucket
+        uses: actions/checkout@v4
+        with:
+          repository: ai-dashboad/scoop-flutter-skill
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: scoop-bucket
+
+      - name: Update Scoop manifest
+        run: |
+          VERSION=${{ needs.prepare.outputs.version }}
+          SHA256=${{ steps.sha256.outputs.sha256 }}
+
+          cat > scoop-bucket/bucket/flutter-skill.json << EOF
+          {
+              "version": "$VERSION",
+              "description": "AI Agent Bridge for Flutter Apps - Connect Claude, Cursor, and other AI agents to running Flutter applications",
+              "homepage": "https://github.com/ai-dashboad/flutter-skill",
+              "license": "MIT",
+              "architecture": {
+                  "64bit": {
+                      "url": "https://github.com/ai-dashboad/flutter-skill/releases/download/v$VERSION/flutter-skill-windows-x64.exe",
+                      "hash": "$SHA256"
+                  }
+              },
+              "bin": [["flutter-skill-windows-x64.exe", "flutter-skill"]],
+              "checkver": {
+                  "github": "https://github.com/ai-dashboad/flutter-skill"
+              },
+              "autoupdate": {
+                  "architecture": {
+                      "64bit": {
+                          "url": "https://github.com/ai-dashboad/flutter-skill/releases/download/v\$version/flutter-skill-windows-x64.exe"
+                      }
+                  }
+              }
+          }
+          EOF
+
+      - name: Commit and push
+        run: |
+          cd scoop-bucket
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add bucket/flutter-skill.json
+          git commit -m "Update flutter-skill to v${{ needs.prepare.outputs.version }}" || echo "No changes"
+          git push
+
+  # Create GitHub Release
+  create-release:
+    needs: [prepare, publish-pub-dev, publish-npm, publish-vscode, publish-intellij, update-homebrew, build-native-binaries]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all native binaries
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+
+      - name: Prepare release assets
+        run: |
+          mkdir -p release-assets
+          # Move all binaries to release-assets with proper names
+          find artifacts -type f -name "flutter-skill-*" -exec mv {} release-assets/ \;
+          # Move IntelliJ plugin zip if exists
+          find artifacts -type f -name "*.zip" -exec mv {} release-assets/ \; 2>/dev/null || true
+          ls -la release-assets/
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: v${{ needs.prepare.outputs.version }}
+          generate_release_notes: true
+          files: |
+            release-assets/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

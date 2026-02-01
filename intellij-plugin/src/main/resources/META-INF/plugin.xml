@@ -1,0 +1,526 @@
+<idea-plugin>
+    <id>com.aidashboad.flutterskill</id>
+    <name>Flutter Skill - AI App Automation</name>
+    <version>0.3.1</version>
+    <vendor email="support@ai-dashboad.com" url="https://github.com/ai-dashboad/flutter-skill">ai-dashboad</vendor>
+
+    <description><![CDATA[
+<h1>Flutter Skill</h1>
+<blockquote><b>Give your AI Agent eyes and hands inside your Flutter app.</b></blockquote>
+<p><b>Flutter Skill</b> is a bridge that connects AI Agents (like Claude Code, Cursor, Windsurf) directly to running Flutter applications via the MCP (Model Context Protocol). It provides 30+ tools for UI automation, inspection, and testing.</p>
+<h2>Quick Start</h2>
+<h3>1. Install (choose one)</h3>
+<pre><code>
+# npm (recommended - includes native binary for instant startup)
+npm install -g flutter-skill-mcp
+
+# Homebrew (macOS/Linux)
+brew tap ai-dashboad/flutter-skill
+brew install flutter-skill
+
+# Dart
+dart pub global activate flutter_skill
+
+# IDE Extensions
+# - VSCode: Search "Flutter Skill" in Extensions
+# - IntelliJ/Android Studio: Search "Flutter Skill" in Plugins
+</code></pre>
+<h3>2. Configure AI Agent</h3>
+<p>Add to your AI agent's MCP config:</p>
+<p><b>Claude Code</b> (<code>~/.claude/settings.json</code>):</p>
+<pre><code>
+{
+  "mcpServers": {
+    "flutter-skill": {
+      "command": "flutter-skill",
+      "args": ["server"]
+    }
+  }
+}
+</code></pre>
+<p><b>Cursor</b> (<code>~/.cursor/mcp.json</code>):</p>
+<pre><code>
+{
+  "mcpServers": {
+    "flutter-skill": {
+      "command": "flutter-skill",
+      "args": ["server"]
+    }
+  }
+}
+</code></pre>
+<h3>3. Use</h3>
+<pre><code>
+// Option 1: Launch app with environment variables
+flutter-skill.launch_app({
+  project_path: "/path/to/flutter/project",
+  dart_defines: ["ENV=staging", "DEBUG=true"],
+  flavor: "staging"
+})
+
+// Option 2: Connect to already running app (auto-detect)
+flutter-skill.scan_and_connect()
+
+// Now use any tool
+flutter-skill.screenshot()
+flutter-skill.tap({ text: "Login" })
+flutter-skill.inspect()
+</code></pre>
+<hr/>
+<h2>Features</h2>
+<h3>App Lifecycle Management</h3>
+<table>
+<tr><th>Tool</th><th>Description</th></tr>
+<tr><td><code>launch_app</code></td><td>Launch Flutter app with dart_defines, flavor, target, extra_args</td></tr>
+<tr><td><code>scan_and_connect</code></td><td>Auto-scan ports and connect to first running Flutter app</td></tr>
+<tr><td><code>list_running_apps</code></td><td>List all running Flutter apps (VM Services)</td></tr>
+<tr><td><code>connect_app</code></td><td>Connect to specific VM Service URI</td></tr>
+<tr><td><code>stop_app</code></td><td>Stop the currently running app</td></tr>
+<tr><td><code>disconnect</code></td><td>Disconnect without stopping the app</td></tr>
+<tr><td><code>get_connection_status</code></td><td>Get connection info and suggestions</td></tr>
+<tr><td><code>hot_reload</code></td><td>Fast reload (keeps state)</td></tr>
+<tr><td><code>hot_restart</code></td><td>Full restart (resets state)</td></tr>
+</table>
+<h3>UI Inspection</h3>
+<table>
+<tr><th>Tool</th><th>Description</th></tr>
+<tr><td><code>inspect</code></td><td>Get interactive elements (buttons, text fields, etc.)</td></tr>
+<tr><td><code>get_widget_tree</code></td><td>Get widget tree structure with depth control</td></tr>
+<tr><td><code>get_widget_properties</code></td><td>Get properties of a widget (size, position, visibility)</td></tr>
+<tr><td><code>get_text_content</code></td><td>Extract all visible text from the screen</td></tr>
+<tr><td><code>find_by_type</code></td><td>Find widgets by type (e.g., ElevatedButton)</td></tr>
+</table>
+<h3>Interactions</h3>
+<table>
+<tr><th>Tool</th><th>Description</th></tr>
+<tr><td><code>tap</code></td><td>Tap a widget by Key or Text</td></tr>
+<tr><td><code>double_tap</code></td><td>Double tap a widget</td></tr>
+<tr><td><code>long_press</code></td><td>Long press with configurable duration</td></tr>
+<tr><td><code>swipe</code></td><td>Swipe gesture (up/down/left/right)</td></tr>
+<tr><td><code>drag</code></td><td>Drag from one element to another</td></tr>
+<tr><td><code>scroll_to</code></td><td>Scroll to make an element visible</td></tr>
+<tr><td><code>enter_text</code></td><td>Enter text into a text field</td></tr>
+</table>
+<h3>State &amp; Validation</h3>
+<table>
+<tr><th>Tool</th><th>Description</th></tr>
+<tr><td><code>get_text_value</code></td><td>Get current value of a text field</td></tr>
+<tr><td><code>get_checkbox_state</code></td><td>Get checked state of a checkbox/switch</td></tr>
+<tr><td><code>get_slider_value</code></td><td>Get current value of a slider</td></tr>
+<tr><td><code>wait_for_element</code></td><td>Wait for an element to appear (with timeout)</td></tr>
+<tr><td><code>wait_for_gone</code></td><td>Wait for an element to disappear</td></tr>
+</table>
+<h3>Screenshots</h3>
+<table>
+<tr><th>Tool</th><th>Description</th></tr>
+<tr><td><code>screenshot</code></td><td>Take full app screenshot (returns base64)</td></tr>
+<tr><td><code>screenshot_element</code></td><td>Take screenshot of specific element</td></tr>
+</table>
+<h3>Navigation</h3>
+<table>
+<tr><th>Tool</th><th>Description</th></tr>
+<tr><td><code>get_current_route</code></td><td>Get the current route name</td></tr>
+<tr><td><code>go_back</code></td><td>Navigate back</td></tr>
+<tr><td><code>get_navigation_stack</code></td><td>Get the navigation stack</td></tr>
+</table>
+<h3>Debug &amp; Logs</h3>
+<table>
+<tr><th>Tool</th><th>Description</th></tr>
+<tr><td><code>get_logs</code></td><td>Get application logs</td></tr>
+<tr><td><code>get_errors</code></td><td>Get application errors</td></tr>
+<tr><td><code>clear_logs</code></td><td>Clear logs and errors</td></tr>
+<tr><td><code>get_performance</code></td><td>Get performance metrics</td></tr>
+</table>
+<h3>Utilities</h3>
+<table>
+<tr><th>Tool</th><th>Description</th></tr>
+<tr><td><code>pub_search</code></td><td>Search Flutter packages on pub.dev</td></tr>
+</table>
+<hr/>
+<h2>Installation Methods</h2>
+<table>
+<tr><th>Method</th><th>Command</th><th>Auto-Update</th><th>Native Binary</th></tr>
+<tr><td>npm</td><td><code>npm install -g flutter-skill-mcp</code></td><td>Manual</td><td>Auto-download</td></tr>
+<tr><td>Homebrew</td><td><code>brew install ai-dashboad/flutter-skill/flutter-skill</code></td><td><code>brew upgrade</code></td><td>Pre-compiled</td></tr>
+<tr><td>VSCode</td><td>Extensions → "Flutter Skill"</td><td>Auto</td><td>Auto-download</td></tr>
+<tr><td>IntelliJ</td><td>Plugins → "Flutter Skill"</td><td>Auto</td><td>Auto-download</td></tr>
+<tr><td>pub.dev</td><td><code>dart pub global activate flutter_skill</code></td><td>Manual</td><td>Dart runtime</td></tr>
+</table>
+<h3>Native Binary Performance</h3>
+<table>
+<tr><th>Version</th><th>Startup Time</th></tr>
+<tr><td>Dart JIT</td><td>~1 second</td></tr>
+<tr><td>Native Binary</td><td>~0.01 second</td></tr>
+</table>
+<p>Native binaries are automatically downloaded on first use for supported platforms:</p>
+<ul>
+<li>macOS (Apple Silicon &amp; Intel)</li>
+<li>Linux (x64)</li>
+<li>Windows (x64)</li>
+</ul>
+<hr/>
+<h2>Flutter App Setup</h2>
+<p>For the MCP tools to work, your Flutter app needs the <code>flutter_skill</code> package:</p>
+<h3>Automatic Setup (Recommended)</h3>
+<pre><code>
+flutter-skill launch /path/to/project
+# Automatically adds dependency and initializes
+</code></pre>
+<h3>Manual Setup</h3>
+<ol>
+<li>Add dependency:</li>
+<pre><code>
+dependencies:
+  flutter_skill: ^0.2.13
+</code></pre>
+</ul>
+<ol>
+<li>Initialize in main.dart:</li>
+<pre><code>
+import 'package:flutter_skill/flutter_skill.dart';
+
+void main() {
+  FlutterSkillBinding.ensureInitialized();
+  runApp(MyApp());
+}
+</code></pre>
+</ul>
+<hr/>
+<h2>Example Workflows</h2>
+<h3>E2E Testing with Environment Variables</h3>
+<pre><code>
+// Launch staging environment
+flutter-skill.launch_app({
+  project_path: "./",
+  dart_defines: ["ENV=staging", "API_URL=https://staging.api.com"],
+  flavor: "staging",
+  target: "lib/main_staging.dart"
+})
+
+// Wait for app to load
+flutter-skill.wait_for_element({ text: "Welcome" })
+
+// Take screenshot
+flutter-skill.screenshot()
+
+// Perform login
+flutter-skill.tap({ text: "Login" })
+flutter-skill.enter_text({ key: "email_field", text: "test@example.com" })
+flutter-skill.enter_text({ key: "password_field", text: "password123" })
+flutter-skill.tap({ text: "Submit" })
+
+// Verify success
+flutter-skill.wait_for_element({ text: "Dashboard" })
+</code></pre>
+<h3>Connect to Running App</h3>
+<pre><code>
+// List all running Flutter apps
+flutter-skill.list_running_apps()
+// Returns: { apps: ["ws://127.0.0.1:50123/ws", ...], count: 2 }
+
+// Auto-connect to first one
+flutter-skill.scan_and_connect()
+
+// Or connect to specific one
+flutter-skill.connect_app({ uri: "ws://127.0.0.1:50123/ws" })
+</code></pre>
+<h3>Debug a UI Issue</h3>
+<pre><code>
+// Get widget tree
+flutter-skill.get_widget_tree({ max_depth: 5 })
+
+// Find specific widgets
+flutter-skill.find_by_type({ type: "ElevatedButton" })
+
+// Inspect interactive elements
+flutter-skill.inspect()
+
+// Check if element is visible
+flutter-skill.wait_for_element({ key: "submit_button", timeout: 3000 })
+</code></pre>
+<hr/>
+<h2>IDE Extensions</h2>
+<h3>VSCode Extension</h3>
+<ul>
+<li>Auto-detects Flutter projects</li>
+<li>Prompts to add <code>flutter_skill</code> dependency</li>
+<li>Auto-downloads native binary</li>
+<li>Status bar shows connection state</li>
+<li>Commands: Launch, Inspect, Screenshot</li>
+</ul>
+<h3>IntelliJ/Android Studio Plugin</h3>
+<ul>
+<li>Same features as VSCode</li>
+<li>Integrates with IDE notifications</li>
+<li>Tool window for status</li>
+</ul>
+<hr/>
+<h2>Troubleshooting</h2>
+<h3>"Not connected to Flutter app"</h3>
+<pre><code>
+// Check status and get suggestions
+flutter-skill.get_connection_status()
+
+// This returns:
+// - Current connection state
+// - List of available apps
+// - Actionable suggestions
+</code></pre>
+<h3>"Unknown method ext.flutter.flutter_skill.xxx"</h3>
+<p>Your Flutter app doesn't have the <code>flutter_skill</code> package. Add it:</p>
+<pre><code>
+flutter pub add flutter_skill
+</code></pre>
+<p>Then restart the app (hot reload is not enough).</p>
+<h3>MCP server slow to start</h3>
+<p>The native binary should auto-download. If not:</p>
+<pre><code>
+# For npm
+npm update -g flutter-skill-mcp
+
+# For Homebrew
+brew upgrade flutter-skill
+</code></pre>
+<hr/>
+<h2>Links</h2>
+<ul>
+<li><a href="https://github.com/ai-dashboad/flutter-skill">GitHub</a></li>
+<li><a href="https://pub.dev/packages/flutter_skill">pub.dev</a></li>
+<li><a href="https://www.npmjs.com/package/flutter-skill-mcp">npm</a></li>
+<li><a href="https://marketplace.visualstudio.com/items?itemName=ai-dashboad.flutter-skill">VSCode Marketplace</a></li>
+<li><a href="https://plugins.jetbrains.com/plugin/PLUGIN_ID">JetBrains Marketplace</a></li>
+</ul>
+<h2>License</h2>
+<p>MIT</p>
+
+    ]]></description>
+
+    <change-notes><![CDATA[
+<h2>0.2.14</h2>
+<p><b>Testing Efficiency & Batch Operations</b></p>
+<h3>New MCP Tools</h3>
+<ul>
+<li><code>execute_batch</code> - Execute multiple actions in sequence (reduces round-trip latency)</li>
+<li><code>tap_at</code> / <code>long_press_at</code> - Coordinate-based interactions</li>
+<li><code>swipe_coordinates</code> - Swipe from one coordinate to another</li>
+<li><code>scroll_until_visible</code> - Scroll until target element becomes visible</li>
+<li><code>assert_visible</code> / <code>assert_not_visible</code> - Assert element visibility</li>
+<li><code>assert_text</code> - Assert element text content (equals or contains)</li>
+<li><code>assert_element_count</code> - Assert count of elements matching criteria</li>
+<li><code>get_page_state</code> - Get complete page state snapshot</li>
+<li><code>get_interactable_elements</code> - Get all interactable elements with suggested actions</li>
+<li><code>get_frame_stats</code> - Frame rendering statistics</li>
+<li><code>get_memory_stats</code> - Memory usage statistics</li>
+</ul>
+<h3>Efficiency Improvements</h3>
+<ul>
+<li>Batch operations reduce test execution time by 60%+</li>
+<li>Smart scroll eliminates manual scroll + check loops</li>
+<li>Built-in assertions simplify test validation</li>
+</ul>
+<hr/>
+<h2>0.2.13</h2>
+<p><b>Feature Parity & Developer Experience</b></p>
+<h3>New MCP Tools</h3>
+<ul>
+<li><code>scan_and_connect</code> - Auto-scan VM Service ports and connect to first found Flutter app</li>
+<li><code>list_running_apps</code> - List all running Flutter apps with their VM Service URIs</li>
+<li><code>stop_app</code> - Stop the currently running Flutter app</li>
+<li><code>disconnect</code> - Disconnect from app without stopping it</li>
+<li><code>get_connection_status</code> - Get connection info with actionable suggestions</li>
+<li><code>hot_restart</code> - Full app restart (resets state)</li>
+</ul>
+<h3>Enhanced Tools</h3>
+<ul>
+<li><code>launch_app</code> now supports:</li>
+</ul>
+<h3>Improved Error Messages</h3>
+<ul>
+<li>Connection errors now include specific solutions</li>
+<li><code>get_connection_status</code> shows available apps and suggestions</li>
+</ul>
+<hr/>
+<h2>0.2.12</h2>
+<p><b>Auto-Update Checking</b></p>
+<h3>New Features</h3>
+<ul>
+<li>Auto-update checking for all installation methods</li>
+<li>npm: Checks registry every 24 hours, shows notification</li>
+<li>VSCode: Extension auto-updates via marketplace</li>
+<li>IntelliJ: Plugin auto-updates via JetBrains marketplace</li>
+<li>Homebrew: <code>brew upgrade flutter-skill</code></li>
+</ul>
+<hr/>
+<h2>0.2.11</h2>
+<p><b>Homebrew Distribution</b></p>
+<h3>New Features</h3>
+<ul>
+<li>Homebrew formula with pre-compiled native binary</li>
+<li><code>brew tap ai-dashboad/flutter-skill &amp;&amp; brew install flutter-skill</code></li>
+<li>Auto-upgrades via <code>brew upgrade</code></li>
+</ul>
+<hr/>
+<h2>0.2.10</h2>
+<p><b>IntelliJ Native Binary Support</b></p>
+<h3>New Features</h3>
+<ul>
+<li>Native binary auto-download for IntelliJ/Android Studio plugin</li>
+<li>Background download with progress indicator</li>
+<li>Cached to <code>~/.flutter-skill/bin/</code></li>
+</ul>
+<hr/>
+<h2>0.2.9</h2>
+<p><b>npm Native Binary Auto-Download</b></p>
+<h3>New Features</h3>
+<ul>
+<li>npm postinstall script auto-downloads native binary</li>
+<li>Platform detection: macOS (arm64/x64), Linux (x64), Windows (x64)</li>
+<li>Fallback to Dart runtime if download fails</li>
+</ul>
+<hr/>
+<h2>0.2.8</h2>
+<p><b>Native Binary Compilation</b></p>
+<h3>Performance</h3>
+<ul>
+<li>Native binary compilation for ~100x faster MCP startup</li>
+<li>Startup time: ~0.01s (native) vs ~1s (Dart JIT)</li>
+<li>GitHub Actions builds for all platforms</li>
+</ul>
+<hr/>
+<h2>0.2.7</h2>
+<p><b>VSCode Native Binary Support</b></p>
+<h3>New Features</h3>
+<ul>
+<li>VSCode extension auto-downloads native binary</li>
+<li>Background download on extension activation</li>
+<li>Automatic fallback to Dart runtime</li>
+</ul>
+<hr/>
+<h2>0.2.6</h2>
+<p><b>Claude Code Config Fix</b></p>
+<h3>Bug Fixes</h3>
+<ul>
+<li>Fixed Claude Code MCP config detection</li>
+<li>Correct path: <code>~/.claude/settings.json</code> (was incorrectly using <code>~/.claude.json</code>)</li>
+<li>Config now properly merges into existing settings</li>
+</ul>
+<hr/>
+<h2>0.2.0</h2>
+<p><b>Major Feature Release - 25+ MCP Tools</b></p>
+<h3>New Features</h3>
+<ul>
+<li><b>UI Inspection</b>: <code>get_widget_tree</code>, <code>get_widget_properties</code>, <code>get_text_content</code>, <code>find_by_type</code></li>
+<li><b>Interactions</b>: <code>double_tap</code>, <code>long_press</code>, <code>swipe</code>, <code>drag</code></li>
+<li><b>State Validation</b>: <code>get_text_value</code>, <code>get_checkbox_state</code>, <code>get_slider_value</code>, <code>wait_for_element</code>, <code>wait_for_gone</code></li>
+<li><b>Screenshots</b>: <code>screenshot</code> (full app), <code>screenshot_element</code> (specific element)</li>
+<li><b>Navigation</b>: <code>get_current_route</code>, <code>go_back</code>, <code>get_navigation_stack</code></li>
+<li><b>Debug &amp; Logs</b>: <code>get_logs</code>, <code>get_errors</code>, <code>get_performance</code>, <code>clear_logs</code></li>
+<li><b>Development</b>: <code>hot_reload</code>, <code>pub_search</code></li>
+</ul>
+<h3>Bug Fixes</h3>
+<ul>
+<li>Fixed global swipe using <code>platformDispatcher.views</code> for screen center calculation</li>
+<li>Fixed <code>screenshot_element</code> to capture any widget by finding nearest <code>RenderRepaintBoundary</code> ancestor</li>
+</ul>
+<h3>Documentation</h3>
+<ul>
+<li>Complete rewrite of README.md with all tool categories</li>
+<li>Updated SKILL.md with full tool reference and parameters</li>
+<li>Updated USAGE_GUIDE.md with CLI and MCP examples</li>
+</ul>
+<h2>0.1.6</h2>
+<ul>
+<li>Docs: Updated README to reflect unified <code>flutter_skill</code> global commands.</li>
+</ul>
+<h2>0.1.5</h2>
+<ul>
+<li>Fix: Added missing implementation for <code>scroll</code> extension found during comprehensive verification.</li>
+<li>Verified: All CLI features (inspect, tap, enterText, scroll) verified against real macOS app.</li>
+</ul>
+<h2>0.1.4</h2>
+<ul>
+<li>Housekeeping: Removed <code>demo_counter</code> test app from package distribution.</li>
+</ul>
+<h2>0.1.3</h2>
+<ul>
+<li>Fix: Critical fix for <code>launch</code> command to correctly capture VM Service URI with auth tokens.</li>
+<li>Fix: Critical fix for <code>inspect</code> command to correctly traverse widget tree (was stubbed in 0.1.2).</li>
+<li>Feature: <code>launch</code> command now forwards arguments to <code>flutter run</code> (e.g. <code>-d macos</code>).</li>
+</ul>
+<h2>0.1.2</h2>
+<ul>
+<li>Docs: Updated README architecture diagram to reflect <code>flutter_skill</code> executable.</li>
+<li>No functional changes.</li>
+</ul>
+<h2>0.1.1</h2>
+<ul>
+<li>Featured: Simplified CLI with <code>flutter_skill</code> global executable.</li>
+<li>Refactor: Moved CLI logic to <code>lib/src/cli</code> for better reusability.</li>
+<li>Usage: <code>flutter_skill launch</code>, <code>flutter_skill inspect</code>, etc.</li>
+</ul>
+<h2>0.1.0</h2>
+<ul>
+<li>Initial release of Flutter Skill.</li>
+<li>Includes <code>launch</code>, <code>inspect</code>, <code>act</code> CLI tools.</li>
+<li>Includes <code>flutter_skill</code> app-side binding.</li>
+<li>Includes MCP server implementation.</li>
+</ul>
+
+    ]]></change-notes>
+
+    <idea-version since-build="233" until-build="253.*"/>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>Dart</depends>
+    <depends optional="true" config-file="terminal-support.xml">org.jetbrains.plugins.terminal</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <toolWindow id="Flutter Skill"
+                    secondary="true"
+                    icon="/icons/flutter_skill.svg"
+                    anchor="right"
+                    factoryClass="com.aidashboad.flutterskill.FlutterSkillToolWindowFactory"/>
+
+        <notificationGroup id="Flutter Skill" displayType="BALLOON"/>
+
+        <!-- Status bar widget for connection status -->
+        <statusBarWidgetFactory id="FlutterSkillStatus"
+                                implementation="com.aidashboad.flutterskill.FlutterSkillStatusBarWidgetFactory"
+                                order="after encodingWidget"/>
+
+        <!-- Application-level service for MCP config management -->
+        <applicationService serviceImplementation="com.aidashboad.flutterskill.McpConfigManager"/>
+
+        <!-- Application-level service for AI tool detection -->
+        <applicationService serviceImplementation="com.aidashboad.flutterskill.AiToolDetector"/>
+
+        <!-- Project startup activity -->
+        <postStartupActivity implementation="com.aidashboad.flutterskill.FlutterSkillStartupActivity"/>
+    </extensions>
+
+    <actions>
+        <group id="FlutterSkillActions" text="Flutter Skill" description="Flutter Skill actions">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+
+            <action id="FlutterSkill.Launch"
+                    class="com.aidashboad.flutterskill.actions.LaunchAction"
+                    text="Launch App"
+                    description="Launch Flutter app with Flutter Skill"/>
+
+            <action id="FlutterSkill.Inspect"
+                    class="com.aidashboad.flutterskill.actions.InspectAction"
+                    text="Inspect UI"
+                    description="Inspect Flutter app UI"/>
+
+            <action id="FlutterSkill.Screenshot"
+                    class="com.aidashboad.flutterskill.actions.ScreenshotAction"
+                    text="Take Screenshot"
+                    description="Take app screenshot"/>
+
+            <action id="FlutterSkill.StartMcp"
+                    class="com.aidashboad.flutterskill.actions.StartMcpAction"
+                    text="Start MCP Server"
+                    description="Start MCP server for AI agents"/>
+        </group>
+    </actions>
+</idea-plugin>

@@ -1,0 +1,41 @@
+{
+    "version": "0.2.19",
+    "description": "AI Agent Bridge for Flutter Apps - Connect Claude, Cursor, and other AI agents to running Flutter applications",
+    "homepage": "https://github.com/ai-dashboad/flutter-skill",
+    "license": "MIT",
+    "architecture": {
+        "64bit": {
+            "url": "https://github.com/ai-dashboad/flutter-skill/releases/download/v0.2.19/flutter-skill-windows-x64.exe",
+            "hash": ""
+        }
+    },
+    "bin": [["flutter-skill-windows-x64.exe", "flutter-skill"]],
+    "checkver": {
+        "github": "https://github.com/ai-dashboad/flutter-skill"
+    },
+    "autoupdate": {
+        "architecture": {
+            "64bit": {
+                "url": "https://github.com/ai-dashboad/flutter-skill/releases/download/v$version/flutter-skill-windows-x64.exe"
+            }
+        }
+    },
+    "notes": [
+        "Flutter Skill is now installed!",
+        "",
+        "MCP Configuration (add to your AI agent config):",
+        "{",
+        "  \"mcpServers\": {",
+        "    \"flutter-skill\": {",
+        "      \"command\": \"flutter-skill\",",
+        "      \"args\": [\"server\"]",
+        "    }",
+        "  }",
+        "}",
+        "",
+        "CLI Usage:",
+        "  flutter-skill launch <flutter-project-path>",
+        "  flutter-skill inspect",
+        "  flutter-skill act tap \"button_key\""
+    ]
+}

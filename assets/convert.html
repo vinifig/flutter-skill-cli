@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>SVG to PNG Converter</title>
+  <style>
+    body {
+      font-family: -apple-system, sans-serif;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .container {
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+    .preview {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    canvas {
+      display: block;
+      margin: 10px 0;
+      background: #1a1a2e;
+    }
+    button {
+      background: #0099FF;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin: 5px;
+    }
+    button:hover { background: #0077DD; }
+  </style>
+</head>
+<body>
+  <h1>Flutter Skill Icon</h1>
+  <div class="container">
+    <div class="preview">
+      <h3>128x128 (JetBrains)</h3>
+      <canvas id="canvas128" width="128" height="128"></canvas>
+      <button onclick="download('canvas128', 'icon-128.png')">Download 128px</button>
+    </div>
+    <div class="preview">
+      <h3>256x256 (VSCode)</h3>
+      <canvas id="canvas256" width="256" height="256"></canvas>
+      <button onclick="download('canvas256', 'icon-256.png')">Download 256px</button>
+    </div>
+    <div class="preview">
+      <h3>512x512 (High Res)</h3>
+      <canvas id="canvas512" width="512" height="512"></canvas>
+      <button onclick="download('canvas512', 'icon-512.png')">Download 512px</button>
+    </div>
+  </div>
+
+  <script>
+    const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#00D4FF;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#0099FF;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#6C63FF;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="grad2" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#6C63FF;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#00D4FF;stop-opacity:1" />
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <circle cx="64" cy="64" r="60" fill="#1a1a2e"/>
+  <circle cx="64" cy="64" r="56" fill="none" stroke="url(#grad1)" stroke-width="2" opacity="0.5"/>
+  <g filter="url(#glow)">
+    <path d="M 40 30 L 90 64 L 40 98 L 40 70 L 65 64 L 40 58 Z" fill="url(#grad1)" opacity="0.9"/>
+    <path d="M 50 42 L 82 64 L 50 86 L 50 72 L 68 64 L 50 56 Z" fill="url(#grad2)" opacity="0.7"/>
+    <circle cx="40" cy="30" r="4" fill="#00D4FF"/>
+    <circle cx="40" cy="98" r="4" fill="#6C63FF"/>
+    <circle cx="90" cy="64" r="5" fill="#00D4FF"/>
+    <line x1="40" y1="30" x2="25" y2="30" stroke="#00D4FF" stroke-width="2" opacity="0.6"/>
+    <line x1="25" y1="30" x2="25" y2="98" stroke="#00D4FF" stroke-width="2" opacity="0.6"/>
+    <line x1="25" y1="98" x2="40" y2="98" stroke="#6C63FF" stroke-width="2" opacity="0.6"/>
+    <circle cx="25" cy="50" r="2" fill="#00D4FF" opacity="0.8"/>
+    <circle cx="25" cy="78" r="2" fill="#6C63FF" opacity="0.8"/>
+    <circle cx="95" cy="50" r="2" fill="#00D4FF" opacity="0.5"/>
+    <circle cx="95" cy="78" r="2" fill="#6C63FF" opacity="0.5"/>
+    <path d="M 95 58 Q 102 64 95 70" fill="none" stroke="#00D4FF" stroke-width="1.5" opacity="0.6"/>
+    <path d="M 100 54 Q 110 64 100 74" fill="none" stroke="#00D4FF" stroke-width="1.5" opacity="0.4"/>
+  </g>
+  <circle cx="64" cy="64" r="48" fill="none" stroke="url(#grad1)" stroke-width="1" opacity="0.3"/>
+</svg>`;
+
+    function renderSVG(canvasId, size) {
+      const canvas = document.getElementById(canvasId);
+      const ctx = canvas.getContext('2d');
+      const img = new Image();
+      const blob = new Blob([svgContent], {type: 'image/svg+xml'});
+      const url = URL.createObjectURL(blob);
+
+      img.onload = function() {
+        ctx.clearRect(0, 0, size, size);
+        ctx.drawImage(img, 0, 0, size, size);
+        URL.revokeObjectURL(url);
+      };
+      img.src = url;
+    }
+
+    function download(canvasId, filename) {
+      const canvas = document.getElementById(canvasId);
+      const link = document.createElement('a');
+      link.download = filename;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    }
+
+    // Render all sizes
+    renderSVG('canvas128', 128);
+    renderSVG('canvas256', 256);
+    renderSVG('canvas512', 512);
+  </script>
+</body>
+</html>

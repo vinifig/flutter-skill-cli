@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:async';
 
 // Mock App that simulates VM Service + Flutter Skill Extensions
 // Does NOT depend on vm_service package to avoid version conflicts in this script,
@@ -123,12 +122,21 @@ void _handleExtension(
     });
   } else if (method == 'ext.flutter.flutter_skill.tap') {
     print('MOCK_APP_LOG: Tapped ${extArgs['key'] ?? extArgs['text']}');
-    _sendResult(socket, id, {"type": "Success"});
+    _sendResult(socket, id, {
+      "success": true,
+      "message": "Tap successful",
+      "target": {"key": extArgs['key'], "text": extArgs['text']},
+      "position": {"x": 100, "y": 200},
+    });
   } else if (method == 'ext.flutter.flutter_skill.enterText') {
     print(
       'MOCK_APP_LOG: Entered text "${extArgs['text']}" into ${extArgs['key']}',
     );
-    _sendResult(socket, id, {"type": "Success"});
+    _sendResult(socket, id, {
+      "success": true,
+      "message": "Text entered",
+      "target": {"key": extArgs['key']},
+    });
   } else if (method == 'ext.flutter.inspector.getRootWidgetSummaryTree') {
     _sendResult(socket, id, {
       "description": "MockRoot",

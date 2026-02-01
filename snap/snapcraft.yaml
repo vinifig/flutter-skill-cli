@@ -1,0 +1,61 @@
+name: flutter-skill
+base: core22
+version: '0.2.21'
+summary: AI Agent Bridge for Flutter Apps
+description: |
+  Flutter Skill is a bridge that connects AI agents (Claude, Cursor, Windsurf)
+  to running Flutter applications via the Dart VM Service Protocol.
+
+  It enables agents to:
+  - Inspect UI structure and widget properties
+  - Perform actions (tap, scroll, enter text)
+  - Take screenshots and verify visual changes
+  - Navigate and interact with the app
+
+  **MCP Configuration:**
+  Add to your AI agent's MCP config:
+  {
+    "mcpServers": {
+      "flutter-skill": {
+        "command": "flutter-skill",
+        "args": ["server"]
+      }
+    }
+  }
+
+grade: stable
+confinement: strict
+
+architectures:
+  - build-on: amd64
+  - build-on: arm64
+
+parts:
+  flutter-skill:
+    plugin: nil
+    source: .
+    build-packages:
+      - curl
+      - unzip
+    override-build: |
+      # Install Dart SDK
+      curl -fsSL https://dl-ssl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/dart.gpg
+      echo 'deb [signed-by=/usr/share/keyrings/dart.gpg arch=amd64] https://storage.googleapis.com/download.dartlang.org/linux/debian stable main' | tee /etc/apt/sources.list.d/dart_stable.list
+      apt-get update
+      apt-get install -y dart
+
+      # Get dependencies and compile
+      export PATH="$PATH:/usr/lib/dart/bin"
+      dart pub get
+      dart compile exe bin/flutter_skill.dart -o $CRAFT_PART_INSTALL/bin/flutter-skill
+    stage-packages:
+      - libgcc-s1
+      - libc6
+
+apps:
+  flutter-skill:
+    command: bin/flutter-skill
+    plugs:
+      - network
+      - network-bind
+      - home

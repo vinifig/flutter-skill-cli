@@ -163,15 +163,31 @@ class MyApp extends StatelessWidget {
   stdoutStream.listen((line) {
     print('[MCP Server Output]: $line');
     if (line.contains('"result"')) {
-      if (line.contains('Connected to')) {
-        print('[PASS] MCP Connect success');
-        // B. Tap via MCP
-        final tapReq =
-            '{"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "tap", "arguments": {"key": "login_btn"}}}';
-        stdin.writeln(tapReq);
-      } else if (line.contains('Tapped')) {
-        print('[PASS] MCP Tap success');
-        completerT4.complete(true);
+      try {
+        final json = jsonDecode(line);
+        final result = json['result'];
+        if (result != null) {
+          // Check for connection success
+          if (result['content'] != null) {
+            final content = result['content'][0]['text'];
+            final contentJson = jsonDecode(content);
+
+            if (contentJson['success'] == true &&
+                contentJson['message']?.contains('Connected') == true) {
+              print('[PASS] MCP Connect success');
+              // B. Tap via MCP
+              final tapReq =
+                  '{"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "tap", "arguments": {"key": "login_btn"}}}';
+              stdin.writeln(tapReq);
+            } else if (contentJson['success'] == true &&
+                contentJson['message']?.contains('Tap') == true) {
+              print('[PASS] MCP Tap success');
+              completerT4.complete(true);
+            }
+          }
+        }
+      } catch (e) {
+        // Ignore JSON parse errors, just print the line
       }
     }
   });
