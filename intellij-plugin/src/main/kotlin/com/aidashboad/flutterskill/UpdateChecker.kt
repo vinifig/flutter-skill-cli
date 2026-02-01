@@ -31,7 +31,10 @@ class UpdateChecker {
         private const val LAST_CHECK_KEY = "flutter-skill.lastUpdateCheck"
         private const val SKIPPED_VERSION_KEY = "flutter-skill.skippedVersion"
         private const val AUTO_UPDATE_KEY = "flutter-skill.autoUpdate"
-        private const val CURRENT_VERSION = NativeBinaryManager.VERSION
+
+        // Read current version dynamically from plugin descriptor
+        private val CURRENT_VERSION: String
+            get() = NativeBinaryManager.VERSION
 
         @JvmStatic
         fun getInstance(): UpdateChecker {

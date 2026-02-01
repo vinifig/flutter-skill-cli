@@ -8,22 +8,53 @@ import { StatusBar, showStatusMenu } from './statusBar';
 import { promptSetupFlutterSkill, setupFlutterSkill, hasFlutterSkillDependency } from './flutterSetup';
 import { ensureNativeBinary, getBestBinaryPath } from './nativeBinary';
 import { checkForUpdates } from './updateChecker';
+import { FlutterSkillViewProvider } from './views/FlutterSkillViewProvider';
 
-const EXTENSION_VERSION = '0.2.14';
+// Read version from package.json dynamically
+function getExtensionVersion(): string {
+    try {
+        const packageJsonPath = path.join(__dirname, '..', 'package.json');
+        const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
+        return packageJson.version;
+    } catch (error) {
+        console.error('Failed to read version from package.json:', error);
+        return '0.0.0'; // Fallback version
+    }
+}
+
+const EXTENSION_VERSION = getExtensionVersion();
 
 let mcpServerProcess: child_process.ChildProcess | undefined;
 let outputChannel: vscode.OutputChannel;
 let statusBar: StatusBar;
 let vmScanner: VmServiceScanner;
+let viewProvider: FlutterSkillViewProvider;
 
 export function activate(context: vscode.ExtensionContext) {
     outputChannel = vscode.window.createOutputChannel('Flutter Skill');
     statusBar = new StatusBar();
     vmScanner = new VmServiceScanner(outputChannel);
 
-    // Connect scanner state changes to status bar
+    // Create webview view provider
+    viewProvider = new FlutterSkillViewProvider(
+        context.extensionUri,
+        outputChannel,
+        vmScanner
+    );
+
+    // Register webview view provider
+    context.subscriptions.push(
+        vscode.window.registerWebviewViewProvider(
+            'flutterSkillView',
+            viewProvider,
+            { webviewOptions: { retainContextWhenHidden: true } }
+        )
+    );
+
+    // Connect scanner state changes to status bar and webview
     vmScanner.onStateChange((state, service) => {
         statusBar.update(state, service);
+        viewProvider.updateConnectionStatus(state, service);
     });
 
     // Register commands

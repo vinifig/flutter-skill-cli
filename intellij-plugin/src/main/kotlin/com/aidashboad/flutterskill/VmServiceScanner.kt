@@ -1,5 +1,6 @@
 package com.aidashboad.flutterskill
 
+import com.aidashboad.flutterskill.model.UIElement
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.diagnostic.Logger
@@ -41,6 +42,7 @@ class VmServiceScanner(private val project: Project) : Disposable {
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     private var currentService: VmServiceInfo? = null
+    private var vmClient: VmServiceClient? = null
     private val stateChangeListeners = mutableListOf<(ConnectionState, VmServiceInfo?) -> Unit>()
     private var currentState: ConnectionState = ConnectionState.DISCONNECTED
 
@@ -143,9 +145,18 @@ class VmServiceScanner(private val project: Project) : Disposable {
 
                 val isValid = validateVmService(port)
                 if (isValid) {
-                    currentService = VmServiceInfo(uri, port)
-                    notifyStateChange(ConnectionState.CONNECTED, currentService)
-                    logger.info("Connected to VM service at $uri")
+                    // Create and connect VM Service client
+                    try {
+                        vmClient = VmServiceClient(uri)
+                        vmClient?.connect()
+
+                        currentService = VmServiceInfo(uri, port)
+                        notifyStateChange(ConnectionState.CONNECTED, currentService)
+                        logger.info("Connected to VM service at $uri")
+                    } catch (e: Exception) {
+                        logger.error("Failed to connect VM client: ${e.message}", e)
+                        notifyStateChange(ConnectionState.ERROR)
+                    }
                 } else {
                     notifyStateChange(ConnectionState.ERROR)
                     logger.warn("Failed to validate VM service at $uri")
@@ -261,7 +272,197 @@ class VmServiceScanner(private val project: Project) : Disposable {
      * Disconnect from current service
      */
     fun disconnect() {
+        vmClient?.disconnect()
+        vmClient = null
         currentService = null
         notifyStateChange(ConnectionState.DISCONNECTED)
     }
+
+    /**
+     * Get interactive elements from running Flutter app
+     */
+    suspend fun getInteractiveElements(): List<UIElement> {
+        if (vmClient == null) {
+            logger.warn("No VM client available")
+            return emptyList()
+        }
+
+        return try {
+            logger.info("Getting interactive elements...")
+            val elements: List<UIElement> = vmClient?.getInteractiveElements() ?: emptyList()
+            logger.info("Found ${elements.size} interactive elements")
+            elements
+        } catch (e: Exception) {
+            logger.error("Error getting elements: ${e.message}", e)
+            emptyList()
+        }
+    }
+
+    /**
+     * Perform tap action on an element
+     */
+    suspend fun performTap(key: String?, text: String? = null): VmServiceResponse {
+        if (vmClient == null) {
+            return VmServiceResponse(
+                success = false,
+                error = VmServiceResponse.ErrorInfo(code = "NO_CONNECTION", message = "No Flutter app connected")
+            )
+        }
+
+        return try {
+            logger.info("Performing tap on ${key ?: text}...")
+            val result = vmClient!!.tap(key, text)
+
+            if (!result.success) {
+                logger.warn("Tap failed: ${result.error?.message}")
+            } else {
+                logger.info("Tap successful on ${key ?: text}")
+            }
+
+            result
+        } catch (e: Exception) {
+            logger.error("Error performing tap: ${e.message}", e)
+            VmServiceResponse(
+                success = false,
+                error = VmServiceResponse.ErrorInfo(code = "TAP_FAILED", message = e.message ?: "Failed to tap element")
+            )
+        }
+    }
+
+    /**
+     * Perform text input on an element
+     */
+    suspend fun performEnterText(key: String, text: String): VmServiceResponse {
+        if (vmClient == null) {
+            return VmServiceResponse(
+                success = false,
+                error = VmServiceResponse.ErrorInfo(code = "NO_CONNECTION", message = "No Flutter app connected")
+            )
+        }
+
+        return try {
+            logger.info("Entering text in $key: $text")
+            val result = vmClient!!.enterText(key, text)
+
+            if (!result.success) {
+                logger.warn("Enter text failed: ${result.error?.message}")
+            } else {
+                logger.info("Text entered successfully in $key")
+            }
+
+            result
+        } catch (e: Exception) {
+            logger.error("Error entering text: ${e.message}", e)
+            VmServiceResponse(
+                success = false,
+                error = VmServiceResponse.ErrorInfo(code = "INPUT_FAILED", message = e.message ?: "Failed to enter text")
+            )
+        }
+    }
+
+    /**
+     * Take screenshot of running Flutter app
+     */
+    suspend fun takeScreenshot(quality: Double = 1.0, maxWidth: Int? = null): String? {
+        if (vmClient == null) {
+            logger.warn("No VM client available")
+            return null
+        }
+
+        return try {
+            logger.info("Taking screenshot...")
+            val base64Image = vmClient?.screenshot(quality, maxWidth)
+
+            if (base64Image != null) {
+                logger.info("Screenshot captured successfully")
+            } else {
+                logger.warn("Screenshot returned null")
+            }
+
+            base64Image
+        } catch (e: Exception) {
+            logger.error("Error taking screenshot: ${e.message}", e)
+            null
+        }
+    }
+
+    /**
+     * Take screenshot of a specific element
+     */
+    suspend fun takeElementScreenshot(key: String): String? {
+        if (vmClient == null) {
+            logger.warn("No VM client available")
+            return null
+        }
+
+        return try {
+            logger.info("Taking element screenshot for $key...")
+            val base64Image = vmClient?.screenshotElement(key)
+
+            if (base64Image != null) {
+                logger.info("Element screenshot captured successfully")
+            } else {
+                logger.warn("Element screenshot returned null")
+            }
+
+            base64Image
+        } catch (e: Exception) {
+            logger.error("Error taking element screenshot: ${e.message}", e)
+            null
+        }
+    }
+
+    /**
+     * Trigger hot reload
+     */
+    suspend fun performHotReload(): VmServiceResponse {
+        if (vmClient == null) {
+            return VmServiceResponse(
+                success = false,
+                error = VmServiceResponse.ErrorInfo(code = "NO_CONNECTION", message = "No Flutter app connected")
+            )
+        }
+
+        return try {
+            logger.info("Triggering hot reload...")
+            val result = vmClient!!.hotReload()
+
+            if (!result.success) {
+                logger.warn("Hot reload failed: ${result.error?.message}")
+            } else {
+                logger.info("Hot reload completed successfully")
+            }
+
+            result
+        } catch (e: Exception) {
+            logger.error("Error performing hot reload: ${e.message}", e)
+            VmServiceResponse(
+                success = false,
+                error = VmServiceResponse.ErrorInfo(code = "HOT_RELOAD_FAILED", message = e.message ?: "Failed to hot reload")
+            )
+        }
+    }
+
+    /**
+     * Get widget tree
+     */
+    suspend fun getWidgetTree(maxDepth: Int = 10): com.google.gson.JsonObject? {
+        if (vmClient == null) {
+            logger.warn("No VM client available")
+            return null
+        }
+
+        return try {
+            logger.info("Getting widget tree...")
+            vmClient?.getWidgetTree(maxDepth)
+        } catch (e: Exception) {
+            logger.error("Error getting widget tree: ${e.message}", e)
+            null
+        }
+    }
+
+    /**
+     * Get VM Service client (for advanced usage)
+     */
+    fun getClient(): VmServiceClient? = vmClient
 }

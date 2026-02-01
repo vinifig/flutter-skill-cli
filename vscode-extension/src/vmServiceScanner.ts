@@ -2,6 +2,8 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as net from 'net';
+import { UIElement } from './state/ExtensionState';
+import { VmServiceClient } from './VmServiceClient';
 
 export interface VmServiceInfo {
     uri: string;
@@ -31,6 +33,7 @@ export class VmServiceScanner {
     private fileWatcher: fs.FSWatcher | undefined;
     private scanInterval: NodeJS.Timeout | undefined;
     private currentService: VmServiceInfo | undefined;
+    private vmClient: VmServiceClient | undefined;
     private onStateChangeCallbacks: ((state: ConnectionState, service?: VmServiceInfo) => void)[] = [];
 
     constructor(outputChannel: vscode.OutputChannel, options: Partial<VmServiceScannerOptions> = {}) {
@@ -127,9 +130,18 @@ export class VmServiceScanner {
 
             const isValid = await this.validateVmService(uri);
             if (isValid) {
-                this.currentService = { uri, port };
-                this.notifyStateChange('connected', this.currentService);
-                this.outputChannel.appendLine(`[Scanner] Connected to VM service at ${uri}`);
+                // Create and connect VM Service client
+                try {
+                    this.vmClient = new VmServiceClient(uri);
+                    await this.vmClient.connect();
+
+                    this.currentService = { uri, port };
+                    this.notifyStateChange('connected', this.currentService);
+                    this.outputChannel.appendLine(`[Scanner] Connected to VM service at ${uri}`);
+                } catch (error) {
+                    this.outputChannel.appendLine(`[Scanner] Failed to connect VM client: ${error}`);
+                    this.notifyStateChange('error');
+                }
             } else {
                 this.notifyStateChange('error');
                 this.outputChannel.appendLine(`[Scanner] Failed to validate VM service at ${uri}`);
@@ -292,7 +304,131 @@ export class VmServiceScanner {
      * Disconnect from current service
      */
     disconnect(): void {
+        if (this.vmClient) {
+            this.vmClient.disconnect();
+            this.vmClient = undefined;
+        }
         this.currentService = undefined;
         this.notifyStateChange('disconnected');
+    }
+
+    /**
+     * Get interactive elements from running Flutter app
+     */
+    async getInteractiveElements(): Promise<UIElement[]> {
+        if (!this.vmClient) {
+            this.outputChannel.appendLine('[Scanner] No VM client available');
+            return [];
+        }
+
+        try {
+            this.outputChannel.appendLine('[Scanner] Getting interactive elements...');
+            const elements = await this.vmClient.getInteractiveElements();
+            this.outputChannel.appendLine(`[Scanner] Found ${elements.length} interactive elements`);
+            return elements;
+        } catch (error) {
+            this.outputChannel.appendLine(`[Scanner] Error getting elements: ${error}`);
+            return [];
+        }
+    }
+
+    /**
+     * Perform tap action on an element
+     */
+    async performTap(key: string): Promise<void> {
+        if (!this.vmClient) {
+            throw new Error('No Flutter app connected');
+        }
+
+        try {
+            this.outputChannel.appendLine(`[Scanner] Performing tap on ${key}...`);
+            const result = await this.vmClient.tap(key);
+
+            if (!result.success) {
+                throw new Error(result.error?.message || 'Tap failed');
+            }
+
+            this.outputChannel.appendLine(`[Scanner] Tap successful on ${key}`);
+        } catch (error) {
+            this.outputChannel.appendLine(`[Scanner] Error performing tap: ${error}`);
+            throw error;
+        }
+    }
+
+    /**
+     * Perform text input on an element
+     */
+    async performEnterText(key: string, text: string): Promise<void> {
+        if (!this.vmClient) {
+            throw new Error('No Flutter app connected');
+        }
+
+        try {
+            this.outputChannel.appendLine(`[Scanner] Entering text in ${key}: ${text}`);
+            const result = await this.vmClient.enterText(key, text);
+
+            if (!result.success) {
+                throw new Error(result.error?.message || 'Enter text failed');
+            }
+
+            this.outputChannel.appendLine(`[Scanner] Text entered successfully in ${key}`);
+        } catch (error) {
+            this.outputChannel.appendLine(`[Scanner] Error entering text: ${error}`);
+            throw error;
+        }
+    }
+
+    /**
+     * Take screenshot of running Flutter app
+     */
+    async takeScreenshot(): Promise<Buffer> {
+        if (!this.vmClient) {
+            throw new Error('No Flutter app connected');
+        }
+
+        try {
+            this.outputChannel.appendLine('[Scanner] Taking screenshot...');
+            const base64Image = await this.vmClient.screenshot();
+
+            if (!base64Image) {
+                throw new Error('Screenshot returned null');
+            }
+
+            this.outputChannel.appendLine('[Scanner] Screenshot captured successfully');
+            return Buffer.from(base64Image, 'base64');
+        } catch (error) {
+            this.outputChannel.appendLine(`[Scanner] Error taking screenshot: ${error}`);
+            throw error;
+        }
+    }
+
+    /**
+     * Trigger hot reload
+     */
+    async performHotReload(): Promise<void> {
+        if (!this.vmClient) {
+            throw new Error('No Flutter app connected');
+        }
+
+        try {
+            this.outputChannel.appendLine('[Scanner] Triggering hot reload...');
+            const result = await this.vmClient.hotReload();
+
+            if (!result.success) {
+                throw new Error(result.error?.message || 'Hot reload failed');
+            }
+
+            this.outputChannel.appendLine('[Scanner] Hot reload completed successfully');
+        } catch (error) {
+            this.outputChannel.appendLine(`[Scanner] Error performing hot reload: ${error}`);
+            throw error;
+        }
+    }
+
+    /**
+     * Get VM Service client (for advanced usage)
+     */
+    getClient(): VmServiceClient | undefined {
+        return this.vmClient;
     }
 }

@@ -1,5 +1,7 @@
 package com.aidashboad.flutterskill
 
+import com.aidashboad.flutterskill.model.ActivityEntry
+import com.aidashboad.flutterskill.model.UIElement
 import com.intellij.execution.configurations.GeneralCommandLine
 import com.intellij.execution.process.OSProcessHandler
 import com.intellij.execution.process.ProcessAdapter
@@ -11,6 +13,10 @@ import com.intellij.openapi.components.Service
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Key
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 
 @Service(Service.Level.PROJECT)
@@ -19,11 +25,28 @@ class FlutterSkillService(private val project: Project) {
     private var mcpProcess: OSProcessHandler? = null
     private val logger = Logger.getInstance(FlutterSkillService::class.java)
     private var initialized = false
+    private val scanner = VmServiceScanner.getInstance(project)
+    private var onElementsUpdate: ((List<UIElement>) -> Unit)? = null
+    private var onActivityAdd: ((ActivityEntry) -> Unit)? = null
 
     companion object {
         fun getInstance(project: Project): FlutterSkillService {
             return project.getService(FlutterSkillService::class.java)
         }
+    }
+
+    /**
+     * Register callback for elements update
+     */
+    fun onElementsUpdate(callback: (List<UIElement>) -> Unit) {
+        onElementsUpdate = callback
+    }
+
+    /**
+     * Register callback for activity add
+     */
+    fun onActivityAdd(callback: (ActivityEntry) -> Unit) {
+        onActivityAdd = callback
     }
 
     /**
@@ -145,15 +168,108 @@ class FlutterSkillService(private val project: Project) {
     }
 
     fun inspect() {
-        val basePath = project.basePath ?: return
-        runCommand("dart", listOf("pub", "global", "run", "flutter_skill", "inspect"), basePath)
+        logger.info("Inspecting UI elements...")
+        addActivity(ActivityEntry.ActivityType.INSPECT, "Inspecting UI elements...", true)
+
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val elements = scanner.getInteractiveElements()
+
+                withContext(Dispatchers.Main) {
+                    if (elements.isNotEmpty()) {
+                        onElementsUpdate?.invoke(elements)
+                        addActivity(
+                            ActivityEntry.ActivityType.INSPECT,
+                            "Found ${elements.size} interactive elements",
+                            true
+                        )
+                        notify("Found ${elements.size} interactive elements")
+                    } else {
+                        addActivity(ActivityEntry.ActivityType.INSPECT, "No interactive elements found", true)
+                        notify("No interactive elements found. Make sure your Flutter app is running.")
+                    }
+                }
+            } catch (e: Exception) {
+                logger.error("Error inspecting elements: ${e.message}", e)
+                withContext(Dispatchers.Main) {
+                    addActivity(ActivityEntry.ActivityType.INSPECT, "Failed to inspect UI", false, e.message)
+                    notify("Failed to inspect: ${e.message}", NotificationType.ERROR)
+                }
+            }
+        }
     }
 
     fun screenshot() {
-        val basePath = project.basePath ?: return
-        val outputPath = "$basePath/screenshot.png"
-        runCommand("dart", listOf("pub", "global", "run", "flutter_skill", "screenshot", outputPath), basePath)
-        notify("Screenshot saved to $outputPath")
+        logger.info("Taking screenshot...")
+        addActivity(ActivityEntry.ActivityType.SCREENSHOT, "Taking screenshot...", true)
+
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val base64Image = scanner.takeScreenshot()
+
+                withContext(Dispatchers.Main) {
+                    if (base64Image != null) {
+                        // Save screenshot to file
+                        saveScreenshot(base64Image)
+                        addActivity(ActivityEntry.ActivityType.SCREENSHOT, "Screenshot saved", true)
+                    } else {
+                        addActivity(ActivityEntry.ActivityType.SCREENSHOT, "Screenshot failed", false)
+                        notify("Failed to capture screenshot", NotificationType.ERROR)
+                    }
+                }
+            } catch (e: Exception) {
+                logger.error("Error taking screenshot: ${e.message}", e)
+                withContext(Dispatchers.Main) {
+                    addActivity(ActivityEntry.ActivityType.SCREENSHOT, "Screenshot failed", false, e.message)
+                    notify("Error: ${e.message}", NotificationType.ERROR)
+                }
+            }
+        }
+    }
+
+    /**
+     * Save screenshot to file
+     */
+    private fun saveScreenshot(base64Image: String) {
+        try {
+            val projectPath = project.basePath ?: return
+            val screenshotsDir = File(projectPath, "screenshots")
+            if (!screenshotsDir.exists()) {
+                screenshotsDir.mkdirs()
+            }
+
+            val timestamp = System.currentTimeMillis()
+            val filename = "flutter_screenshot_$timestamp.png"
+            val file = File(screenshotsDir, filename)
+
+            // Decode base64 and save
+            val imageBytes = java.util.Base64.getDecoder().decode(base64Image)
+            file.writeBytes(imageBytes)
+
+            notify("Screenshot saved to: ${file.absolutePath}")
+            logger.info("Screenshot saved to: ${file.absolutePath}")
+        } catch (e: Exception) {
+            logger.error("Error saving screenshot: ${e.message}", e)
+            notify("Failed to save screenshot: ${e.message}", NotificationType.ERROR)
+        }
+    }
+
+    /**
+     * Add activity entry
+     */
+    private fun addActivity(
+        type: ActivityEntry.ActivityType,
+        description: String,
+        success: Boolean,
+        details: String? = null
+    ) {
+        val entry = ActivityEntry(
+            type = type,
+            description = description,
+            success = success,
+            details = details
+        )
+        onActivityAdd?.invoke(entry)
     }
 
     fun startMcpServer() {

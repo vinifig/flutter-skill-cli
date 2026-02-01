@@ -1,17 +1,17 @@
 package com.aidashboad.flutterskill
 
+import com.aidashboad.flutterskill.ui.*
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.ToolWindowFactory
-import com.intellij.openapi.wm.ToolWindowManager
 import com.intellij.ui.content.ContentFactory
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.util.ui.JBUI
-import org.jetbrains.plugins.terminal.TerminalToolWindowFactory
-import org.jetbrains.plugins.terminal.TerminalToolWindowManager
-import javax.swing.*
-import javax.swing.Timer
-import java.awt.*
+import java.awt.BorderLayout
+import java.awt.Dimension
+import javax.swing.Box
+import javax.swing.BoxLayout
+import javax.swing.JPanel
 
 class FlutterSkillToolWindowFactory : ToolWindowFactory {
     override fun createToolWindowContent(project: Project, toolWindow: ToolWindow) {
@@ -19,279 +19,140 @@ class FlutterSkillToolWindowFactory : ToolWindowFactory {
         val content = ContentFactory.getInstance().createContent(panel, "", false)
         toolWindow.contentManager.addContent(content)
 
-        // 设置默认宽度为 350px（约半屏宽度），高度自动占满
+        // Set default width
         toolWindow.component.preferredSize = Dimension(350, -1)
     }
 
     override fun shouldBeAvailable(project: Project): Boolean = true
 }
 
+/**
+ * Main panel for Flutter Skill tool window with card-based UI
+ */
 class FlutterSkillPanel(private val project: Project) : JPanel(BorderLayout()) {
-    private val aiToolsPanel: JPanel
-    private val statusLabel: JLabel
+    private val connectionCard: ConnectionStatusCard
+    private val quickActionsCard: QuickActionsCard
+    private val elementsCard: InteractiveElementsCard
+    private val activityCard: RecentActivityCard
+    private val aiEditorsCard: AiEditorsCard
 
     init {
-        border = JBUI.Borders.empty(8)
+        border = JBUI.Borders.empty(12)
 
-        // ===== Top Toolbar =====
-        val toolbar = JPanel(FlowLayout(FlowLayout.LEFT, 8, 4))
-        toolbar.border = JBUI.Borders.emptyBottom(8)
-
-        val launchBtn = createButton("Launch App", "Start Flutter app with Flutter Skill") {
-            FlutterSkillService.getInstance(project).launchApp()
-        }
-        val inspectBtn = createButton("Inspect", "Inspect UI elements") {
-            FlutterSkillService.getInstance(project).inspect()
-        }
-        val screenshotBtn = createButton("Screenshot", "Take app screenshot") {
-            FlutterSkillService.getInstance(project).screenshot()
-        }
-        val mcpBtn = createButton("Start MCP", "Start MCP server for AI agents") {
-            FlutterSkillService.getInstance(project).startMcpServer()
-        }
-
-        toolbar.add(launchBtn)
-        toolbar.add(inspectBtn)
-        toolbar.add(screenshotBtn)
-        toolbar.add(mcpBtn)
-
-        add(toolbar, BorderLayout.NORTH)
-
-        // ===== Main Content Area =====
+        // Create main panel with vertical layout
         val mainPanel = JPanel()
         mainPanel.layout = BoxLayout(mainPanel, BoxLayout.Y_AXIS)
         mainPanel.border = JBUI.Borders.empty(4)
 
-        // Status Section
-        val statusPanel = createSection("Connection Status")
-        statusLabel = JLabel("Not connected")
-        statusLabel.icon = UIManager.getIcon("OptionPane.informationIcon")
-        statusPanel.add(statusLabel)
-        mainPanel.add(statusPanel)
-        mainPanel.add(Box.createVerticalStrut(12))
+        // Initialize all cards
+        connectionCard = ConnectionStatusCard(project)
+        quickActionsCard = QuickActionsCard(project)
+        elementsCard = InteractiveElementsCard(project)
+        activityCard = RecentActivityCard(project)
+        aiEditorsCard = AiEditorsCard(project)
 
-        // AI Tools Section
-        val aiToolsSection = createSection("Detected AI Tools")
-        aiToolsPanel = JPanel()
-        aiToolsPanel.layout = BoxLayout(aiToolsPanel, BoxLayout.Y_AXIS)
-        aiToolsPanel.alignmentX = Component.LEFT_ALIGNMENT
-        aiToolsSection.add(aiToolsPanel)
+        // Add cards to main panel with spacing (16px for consistency with VSCode)
+        mainPanel.add(connectionCard.component)
+        mainPanel.add(Box.createVerticalStrut(JBUI.scale(16)))
 
-        val refreshBtn = JButton("Refresh")
-        refreshBtn.addActionListener { refreshAiTools() }
-        aiToolsSection.add(Box.createVerticalStrut(8))
-        aiToolsSection.add(refreshBtn)
+        mainPanel.add(quickActionsCard.component)
+        mainPanel.add(Box.createVerticalStrut(JBUI.scale(16)))
 
-        mainPanel.add(aiToolsSection)
-        mainPanel.add(Box.createVerticalStrut(12))
+        mainPanel.add(elementsCard.component)
+        mainPanel.add(Box.createVerticalStrut(JBUI.scale(16)))
 
-        // MCP Config Section
-        val mcpSection = createSection("MCP Configuration")
-        val mcpConfigText = """
-            Add to your AI agent's MCP config:
+        mainPanel.add(activityCard.component)
+        mainPanel.add(Box.createVerticalStrut(JBUI.scale(16)))
 
-            {
-              "mcpServers": {
-                "flutter-skill": {
-                  "command": "flutter-skill",
-                  "args": ["server"]
-                }
-              }
-            }
-        """.trimIndent()
-
-        val mcpTextArea = JTextArea(mcpConfigText)
-        mcpTextArea.isEditable = false
-        mcpTextArea.font = Font(Font.MONOSPACED, Font.PLAIN, 11)
-        mcpTextArea.background = UIManager.getColor("TextField.background")
-        mcpTextArea.border = JBUI.Borders.empty(8)
-        mcpSection.add(mcpTextArea)
-
-        val copyBtn = JButton("Copy Config")
-        copyBtn.addActionListener {
-            val clipboard = Toolkit.getDefaultToolkit().systemClipboard
-            val selection = java.awt.datatransfer.StringSelection("""
-{
-  "mcpServers": {
-    "flutter-skill": {
-      "command": "flutter-skill",
-      "args": ["server"]
-    }
-  }
-}
-            """.trimIndent())
-            clipboard.setContents(selection, selection)
-        }
-        mcpSection.add(Box.createVerticalStrut(8))
-        mcpSection.add(copyBtn)
-
-        mainPanel.add(mcpSection)
+        mainPanel.add(aiEditorsCard.component)
         mainPanel.add(Box.createVerticalGlue())
 
+        // Wrap in scroll pane
         val scrollPane = JBScrollPane(mainPanel)
         scrollPane.border = null
         add(scrollPane, BorderLayout.CENTER)
 
-        // Initial load
-        refreshAiTools()
-    }
-
-    private fun createButton(text: String, tooltip: String, action: () -> Unit): JButton {
-        return JButton(text).apply {
-            toolTipText = tooltip
-            addActionListener { action() }
-        }
-    }
-
-    private fun createSection(title: String): JPanel {
-        val panel = JPanel()
-        panel.layout = BoxLayout(panel, BoxLayout.Y_AXIS)
-        panel.alignmentX = Component.LEFT_ALIGNMENT
-        panel.border = BorderFactory.createCompoundBorder(
-            BorderFactory.createTitledBorder(title),
-            JBUI.Borders.empty(8)
-        )
-        return panel
-    }
-
-    private fun refreshAiTools() {
-        aiToolsPanel.removeAll()
-
-        SwingUtilities.invokeLater {
-            Thread {
-                val tools = AiToolDetector.getInstance().detectTools(forceRefresh = true)
-                val installedTools = tools.filter { it.installed }
-                val notInstalledTools = tools.filter { !it.installed }
-
-                SwingUtilities.invokeLater {
-                    if (installedTools.isEmpty()) {
-                        aiToolsPanel.add(JLabel("No AI tools detected"))
-                    } else {
-                        // Installed tools
-                        for (tool in installedTools) {
-                            val toolPanel = createToolRow(tool, true)
-                            aiToolsPanel.add(toolPanel)
-                            aiToolsPanel.add(Box.createVerticalStrut(4))
-                        }
-
-                        // Separator
-                        if (notInstalledTools.isNotEmpty()) {
-                            aiToolsPanel.add(Box.createVerticalStrut(8))
-                            aiToolsPanel.add(JSeparator())
-                            aiToolsPanel.add(Box.createVerticalStrut(4))
-                            aiToolsPanel.add(JLabel("Not installed:").apply {
-                                foreground = Color.GRAY
-                            })
-                            aiToolsPanel.add(Box.createVerticalStrut(4))
-
-                            for (tool in notInstalledTools.take(5)) {
-                                val toolPanel = createToolRow(tool, false)
-                                aiToolsPanel.add(toolPanel)
-                                aiToolsPanel.add(Box.createVerticalStrut(2))
-                            }
-                        }
-                    }
-
-                    aiToolsPanel.revalidate()
-                    aiToolsPanel.repaint()
-                }
-            }.start()
-        }
-    }
-
-    private fun createToolRow(tool: AiToolDetector.AiTool, installed: Boolean): JPanel {
-        val row = JPanel(BorderLayout())
-        row.alignmentX = Component.LEFT_ALIGNMENT
-        row.maximumSize = Dimension(Integer.MAX_VALUE, 28)
-
-        val icon = if (installed) "✓" else "○"
-        val color = if (installed) Color(0, 150, 0) else Color.GRAY
-
-        val nameLabel = JLabel("$icon ${tool.name}")
-        nameLabel.foreground = color
-        nameLabel.toolTipText = "${tool.description}\nCommand: ${tool.command}"
-
-        row.add(nameLabel, BorderLayout.WEST)
-
-        if (installed && tool.configPath != null) {
-            val configBtn = JButton("Configure")
-            configBtn.font = configBtn.font.deriveFont(10f)
-            configBtn.preferredSize = Dimension(70, 20)
-            configBtn.addActionListener {
-                configureMcp(tool)
-            }
-            row.add(configBtn, BorderLayout.EAST)
-        }
-
-        if (installed && tool.version != null) {
-            val versionLabel = JLabel(tool.version)
-            versionLabel.foreground = Color.GRAY
-            versionLabel.font = versionLabel.font.deriveFont(10f)
-            row.add(versionLabel, BorderLayout.CENTER)
-        }
-
-        return row
-    }
-
-    private fun configureMcp(tool: AiToolDetector.AiTool) {
-        val configPath = tool.configPath ?: return
-        McpConfigManager.getInstance().configureForTool(tool.name, configPath)
-
-        // 配置完成后，在内置 Terminal 中打开对应的 CLI
-        openCliInTerminal(tool)
+        // Setup state listeners
+        setupStateListeners()
+        setupServiceCallbacks()
     }
 
     /**
-     * 在 IntelliJ 内置 Terminal 中打开 AI CLI 工具
+     * Setup listeners for VM service scanner state changes
      */
-    private fun openCliInTerminal(tool: AiToolDetector.AiTool) {
-        val command = tool.command
-        val tabName = tool.name
+    private fun setupStateListeners() {
+        VmServiceScanner.getInstance(project).onStateChange { state, service ->
+            // Update connection status card
+            connectionCard.updateConnectionState(state, service)
 
-        SwingUtilities.invokeLater {
-            try {
-                val terminalManager = TerminalToolWindowManager.getInstance(project)
-                val terminalToolWindow = ToolWindowManager.getInstance(project)
-                    .getToolWindow(TerminalToolWindowFactory.TOOL_WINDOW_ID)
+            // Update quick actions button states
+            quickActionsCard.updateButtonStates(state)
 
-                if (terminalToolWindow != null) {
-                    terminalToolWindow.show {
-                        // 创建新的 Terminal tab 并执行命令
-                        val widget = terminalManager.createLocalShellWidget(
-                            project.basePath,
-                            tabName
+            // Log activity
+            when (state) {
+                ConnectionState.CONNECTED -> {
+                    activityCard.addActivity(
+                        com.aidashboad.flutterskill.model.ActivityEntry(
+                            type = com.aidashboad.flutterskill.model.ActivityEntry.ActivityType.OTHER,
+                            description = "Connected to ${service?.appName ?: "Flutter app"}",
+                            success = true
                         )
-                        // 使用 Timer 延迟执行命令，等待 shell 初始化
-                        Timer(800) {
-                            SwingUtilities.invokeLater {
-                                try {
-                                    widget.executeCommand(command)
-                                } catch (e: Exception) {
-                                    // 忽略执行错误
-                                }
-                            }
-                        }.apply {
-                            isRepeats = false
-                            start()
-                        }
-                    }
+                    )
                 }
-            } catch (e: Exception) {
-                // Terminal 插件可能未安装，静默失败
+                ConnectionState.DISCONNECTED -> {
+                    activityCard.addActivity(
+                        com.aidashboad.flutterskill.model.ActivityEntry(
+                            type = com.aidashboad.flutterskill.model.ActivityEntry.ActivityType.OTHER,
+                            description = "Disconnected from app",
+                            success = true
+                        )
+                    )
+                }
+                ConnectionState.ERROR -> {
+                    activityCard.addActivity(
+                        com.aidashboad.flutterskill.model.ActivityEntry(
+                            type = com.aidashboad.flutterskill.model.ActivityEntry.ActivityType.OTHER,
+                            description = "Connection error",
+                            success = false
+                        )
+                    )
+                }
+                ConnectionState.CONNECTING -> {
+                    // Don't log connecting state
+                }
             }
         }
     }
 
+    /**
+     * Setup callbacks for FlutterSkillService
+     */
+    private fun setupServiceCallbacks() {
+        val service = FlutterSkillService.getInstance(project)
+
+        // Callback for elements update
+        service.onElementsUpdate { elements ->
+            elementsCard.updateElements(elements)
+        }
+
+        // Callback for activity updates
+        service.onActivityAdd { entry ->
+            activityCard.addActivity(entry)
+        }
+    }
+
+    /**
+     * Update connection status (called from service)
+     */
     fun updateStatus(connected: Boolean, appInfo: String?) {
-        statusLabel.text = if (connected) {
-            "Connected: ${appInfo ?: "Flutter App"}"
+        // This method is kept for backwards compatibility
+        // The new implementation uses state listeners
+        val state = if (connected) ConnectionState.CONNECTED else ConnectionState.DISCONNECTED
+        val service = if (connected) {
+            VmServiceInfo("", 0, appInfo)
         } else {
-            "Not connected"
+            null
         }
-        statusLabel.icon = if (connected) {
-            UIManager.getIcon("OptionPane.informationIcon")
-        } else {
-            UIManager.getIcon("OptionPane.warningIcon")
-        }
+        connectionCard.updateConnectionState(state, service)
     }
 }

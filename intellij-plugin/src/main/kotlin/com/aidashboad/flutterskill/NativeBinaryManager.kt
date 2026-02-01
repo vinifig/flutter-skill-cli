@@ -1,8 +1,10 @@
 package com.aidashboad.flutterskill
 
+import com.intellij.ide.plugins.PluginManagerCore
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.diagnostic.Logger
+import com.intellij.openapi.extensions.PluginId
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.Task
@@ -16,7 +18,22 @@ class NativeBinaryManager {
     private val logger = Logger.getInstance(NativeBinaryManager::class.java)
 
     companion object {
-        const val VERSION = "0.2.14"
+        // Read version from plugin descriptor dynamically
+        @JvmStatic
+        fun getVersion(): String {
+            return try {
+                val pluginId = PluginId.getId("com.aidashboad.flutter-skill")
+                val plugin = PluginManagerCore.getPlugin(pluginId)
+                plugin?.version ?: "0.4.0" // Fallback version
+            } catch (e: Exception) {
+                "0.4.0" // Fallback version
+            }
+        }
+
+        // For backward compatibility, use the function
+        @JvmStatic
+        val VERSION: String
+            get() = getVersion()
 
         @JvmStatic
         fun getInstance(): NativeBinaryManager {
