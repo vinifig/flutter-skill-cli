@@ -61,7 +61,28 @@ Add to your AI agent's MCP config:
 }
 ```
 
-### 3. Use
+### 3. Setup Tool Priority (Recommended for Claude Code)
+
+**One command to ensure Claude always uses flutter-skill for Flutter testing:**
+
+```bash
+flutter_skill setup
+```
+
+This installs priority rules that ensure Claude Code ALWAYS uses flutter-skill instead of Dart MCP for Flutter testing, giving you 100% UI automation capability.
+
+**What it does:**
+- ✅ Installs rules to `~/.claude/prompts/`
+- ✅ Claude Code automatically prioritizes flutter-skill for ALL Flutter testing
+- ✅ Adds `--vm-service-port=50000` flag automatically (Flutter 3.x compatibility)
+- ✅ No manual tool selection needed
+
+**First-time run auto-reminder:**
+When you run any `flutter_skill` command for the first time, you'll see a reminder if the rules aren't installed yet.
+
+**See also:** [Tool Priority Setup Guide](docs/TOOL_PRIORITY_SETUP.md)
+
+### 4. Use
 
 ```javascript
 // Option 1: Launch app with environment variables

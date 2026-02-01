@@ -15,7 +15,30 @@
 
 ## 快速安装
 
-### 方法 1: 自动安装（推荐）
+### 方法 1: 一键安装（推荐） ⭐
+
+如果你已经全局安装了 flutter_skill：
+
+```bash
+flutter_skill setup
+```
+
+**效果**：
+- ✅ 自动检测并安装规则到 `~/.claude/prompts/`
+- ✅ Claude Code 立即应用
+- ✅ 无需重启
+- ✅ 支持 `--force` 重新安装
+
+**首次运行自动提示**：
+当你第一次运行 `flutter_skill` 命令时，如果规则未安装，会自动提示：
+```
+💡 Tip: Install tool priority rules for better Claude Code integration
+   Run: flutter_skill setup
+```
+
+### 方法 2: 脚本安装
+
+从项目源码目录：
 
 ```bash
 cd /path/to/flutter-skill
@@ -27,7 +50,7 @@ cd /path/to/flutter-skill
 - ✅ Claude Code 立即应用
 - ✅ 无需重启
 
-### 方法 2: 手动安装
+### 方法 3: 手动安装
 
 ```bash
 # 1. 创建 prompts 目录

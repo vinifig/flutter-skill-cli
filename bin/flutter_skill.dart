@@ -4,6 +4,7 @@ import 'package:flutter_skill/src/cli/inspect.dart';
 import 'package:flutter_skill/src/cli/act.dart';
 import 'package:flutter_skill/src/cli/server.dart';
 import 'package:flutter_skill/src/cli/report_error.dart';
+import 'package:flutter_skill/src/cli/setup_priority.dart';
 
 void main(List<String> args) async {
   if (args.isEmpty) {
@@ -13,7 +14,11 @@ void main(List<String> args) async {
     print('  inspect      - Inspect interactive elements');
     print('  act          - Perform actions (tap, enter_text, etc)');
     print('  server       - Run MCP server');
+    print('  setup        - Install tool priority rules for Claude Code');
     print('  report-error - Report a bug to GitHub Issues');
+
+    // Show setup reminder if not installed
+    showSetupReminder();
     exit(1);
   }
 
@@ -23,6 +28,8 @@ void main(List<String> args) async {
   switch (command) {
     case 'launch':
       await runLaunch(commandArgs);
+      // Show setup reminder after launch (only if not installed)
+      showSetupReminder();
       break;
     case 'inspect':
       await runInspect(commandArgs);
@@ -32,6 +39,9 @@ void main(List<String> args) async {
       break;
     case 'server':
       await runServer(commandArgs);
+      break;
+    case 'setup':
+      await runSetupPriority(commandArgs);
       break;
     case 'report-error':
       await runReportError(commandArgs);
