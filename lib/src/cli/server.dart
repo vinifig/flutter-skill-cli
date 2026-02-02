@@ -1449,9 +1449,10 @@ Base64-encoded PNG image that can be displayed to user.
           .transform(const LineSplitter())
           .listen((line) {
         // Priority 1: Look for VM Service URI (http://.../)
-        // Example: "The Dart VM service is listening on http://127.0.0.1:50753/xxxx=/"
+        // Example: "The Dart VM service is listening on http://127.0.0.1:50753/xxxx=/" (Flutter 3.x)
+        // Example: "The Dart VM service is listening on http://127.0.0.1:50753/xxxx#" (Flutter 3.41+)
         if (line.contains('VM service') || line.contains('Observatory')) {
-          final vmRegex = RegExp(r'http://[a-zA-Z0-9.:\-_/=]+/');
+          final vmRegex = RegExp(r'http://[a-zA-Z0-9.:\-_/=#]+[/#]?');
           final match = vmRegex.firstMatch(line);
           if (match != null && !completer.isCompleted) {
             final uri = match.group(0)!;
@@ -2165,8 +2166,9 @@ Base64-encoded PNG image that can be displayed to user.
 
     // Ensure /ws suffix for VM Service
     if (!uri.endsWith('/ws') && !uri.contains('/ws?')) {
-      // Check if it's a base URL like ws://127.0.0.1:50000/xxx=
-      if (uri.contains('=') && !uri.endsWith('/ws')) {
+      // Check if it's a base URL like ws://127.0.0.1:50000/xxx= or ws://127.0.0.1:50000/xxx#
+      // Flutter 3.41+ uses # instead of =
+      if ((uri.contains('=') || uri.contains('#')) && !uri.endsWith('/ws')) {
         uri = '$uri/ws';
       }
     }
