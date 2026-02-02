@@ -1,3 +1,20 @@
+## 0.4.7
+
+**Auto-update flutter_skill dependency in target projects**
+
+### Improvements
+- 🔄 `setup` now automatically updates existing `flutter_skill` dependency to latest version from pub.dev
+- ✅ Enhanced `flutter pub upgrade flutter_skill` checks when dependency already exists
+- 📊 Clear status feedback: "✅ updated", "✅ up to date", or "⚠️ failed"
+- 🔧 Ensures target projects always use the latest compatible version
+- ♻️ Maintains backward compatibility with first-time installations
+
+### Behavior Changes
+- Previously: Skipped setup if dependency already existed (even if outdated)
+- Now: Actively upgrades to latest version when dependency is found
+
+---
+
 ## 0.4.6
 
 **Fix release script to auto-update server.dart version**
