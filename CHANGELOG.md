@@ -1,3 +1,59 @@
+## 0.5.0
+
+**Add visual test indicators for UI automation**
+
+### ✨ New Features
+- 🎨 **Visual Test Indicators**: Real-time visual feedback for all test actions
+  - Tap indicator: Expanding circle with fade-out animation
+  - Swipe indicator: Arrow with dashed trail showing direction
+  - Long press indicator: Filling progress circle
+  - Text input indicator: Glowing border with blink effect
+- 📢 **Action Hints**: Top banner displaying current operation ("Tapping 'Submit'", etc.)
+- 🎛️ **Configurable Styles**: Three modes to choose from
+  - `minimal`: Small, fast (200ms), no hints
+  - `standard`: Medium, normal speed (500ms), 1s hints (default)
+  - `detailed`: Large, slow (800ms), 2s hints + debug info
+- 🔧 **Easy Control**: Enable/disable indicators on the fly
+  - MCP tool: `enable_test_indicators(enabled: true, style: "standard")`
+  - MCP tool: `get_indicator_status()`
+  - VM Service extensions: `enableIndicators`, `disableIndicators`, `getIndicatorStatus`
+
+### 🏗️ Architecture
+- `TestIndicatorOverlay`: Manages overlay entry and indicator lifecycle
+- `TestIndicatorWidget`: Renders all visual effects with smooth animations
+- Indicator components: `TapIndicator`, `SwipeIndicator`, `LongPressIndicator`, `TextInputIndicator`, `ActionHint`
+- Uses Flutter Overlay for cross-platform compatibility
+- IgnorePointer prevents interaction interference
+- Automatic cleanup after animations complete
+
+### 📖 Benefits
+- 🎥 **Better Test Videos**: All indicators visible in screen recordings
+- 🐛 **Easier Debugging**: See exactly what's being clicked/swiped
+- 📱 **Works Everywhere**: iOS, Android, Web, Desktop
+- ⚡ **Zero Impact**: No performance cost when disabled
+- 🔄 **Auto-Integration**: Automatically shows for all test actions
+
+### 📝 Usage Example
+```dart
+// Enable indicators
+await enable_test_indicators(enabled: true, style: "standard");
+
+// All actions now show visual feedback automatically
+await tap(text: "Submit");           // Shows tap ripple + "Tapping 'Submit'"
+await swipe(direction: "left");       // Shows swipe arrow + "Swiping left"
+await long_press(text: "Menu");       // Shows progress circle + "Long pressing 'Menu'"
+await enter_text(key: "email", text: "test@example.com");  // Shows glow + "Entering text"
+
+// Disable when done
+await enable_test_indicators(enabled: false);
+```
+
+### 📚 Documentation
+- Design document: `docs/TEST_INDICATORS_DESIGN.md`
+- Includes architecture, configuration options, and future enhancements
+
+---
+
 ## 0.4.9
 
 **Fix screenshot_element null handling and add text parameter**
