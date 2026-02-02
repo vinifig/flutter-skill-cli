@@ -2282,12 +2282,32 @@ Detailed diagnostic report with:
 
       // Debug & Logs
       case 'get_logs':
-        return await client!.getLogs();
+        final logs = await client!.getLogs();
+        return {
+          "logs": logs,
+          "summary": {
+            "total_count": logs.length,
+            "message": "${logs.length} log entries"
+          }
+        };
       case 'get_errors':
-        return await client!.getErrors();
+        final errors = await client!.getErrors();
+        return {
+          "errors": errors,
+          "summary": {
+            "total_count": errors.length,
+            "has_errors": errors.isNotEmpty,
+            "message": errors.isEmpty
+                ? "No errors found ✅"
+                : "${errors.length} error(s) found ⚠️"
+          }
+        };
       case 'clear_logs':
         await client!.clearLogs();
-        return "Logs cleared";
+        return {
+          "success": true,
+          "message": "Logs cleared successfully"
+        };
       case 'get_performance':
         return await client!.getPerformance();
 
