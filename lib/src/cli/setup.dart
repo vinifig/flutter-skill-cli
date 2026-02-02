@@ -28,9 +28,29 @@ Future<void> runSetup(String projectPath) async {
       print('Failed to add dependency: ${result.stderr}');
       exit(1);
     }
-    print('Dependency added.');
+    print('✅ flutter_skill dependency added.');
   } else {
-    print('Dependency flutter_skill already exists.');
+    // Dependency exists, check if it needs update
+    print('flutter_skill dependency found. Checking for updates...');
+
+    // Use flutter pub upgrade to get the latest version
+    final upgradeResult = await Process.run(
+      'flutter',
+      ['pub', 'upgrade', 'flutter_skill'],
+      workingDirectory: projectPath,
+    );
+
+    if (upgradeResult.exitCode == 0) {
+      final output = upgradeResult.stdout.toString();
+      if (output.contains('Changed') || output.contains('flutter_skill')) {
+        print('✅ flutter_skill updated to latest version.');
+      } else {
+        print('✅ flutter_skill is already up to date.');
+      }
+    } else {
+      print('⚠️  Failed to check for updates: ${upgradeResult.stderr}');
+      print('Continuing with existing version...');
+    }
   }
 
   print('Checking instrumentation in ${mainFile.path}...');
