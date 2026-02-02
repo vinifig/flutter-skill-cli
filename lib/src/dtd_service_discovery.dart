@@ -120,10 +120,8 @@ class DtdServiceDiscovery {
   /// 验证是否为 DTD 端点
   static Future<bool> _isDtdEndpoint(String uri) async {
     try {
-      final ws = await WebSocket.connect(
-        uri,
-        timeout: const Duration(milliseconds: 200),
-      );
+      final ws = await WebSocket.connect(uri)
+          .timeout(const Duration(milliseconds: 200));
 
       // 发送 DTD 协议的探测请求
       ws.add(jsonEncode({
@@ -153,10 +151,8 @@ class DtdServiceDiscovery {
   /// 从 DTD 查询 VM Service URI
   static Future<String?> _queryVmServiceFromDtd(String dtdUri) async {
     try {
-      final ws = await WebSocket.connect(
-        dtdUri,
-        timeout: const Duration(milliseconds: 500),
-      );
+      final ws = await WebSocket.connect(dtdUri)
+          .timeout(const Duration(milliseconds: 500));
 
       // DTD 可能提供 VM Service 信息的方法:
       // 1. getVM (如果支持)

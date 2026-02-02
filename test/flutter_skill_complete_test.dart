@@ -28,8 +28,9 @@ Future<void> main() async {
     // 3. 获取 Widget Tree
     print('3. 获取 Widget Tree (getWidgetTree)...');
     final tree = await client.getWidgetTree(maxDepth: 5);
+    final treeStr = tree.toString();
     print('   Widget Tree (前5层):');
-    print('   ${tree.substring(0, tree.length > 500 ? 500 : tree.length)}...\n');
+    print('   ${treeStr.substring(0, treeStr.length > 500 ? 500 : treeStr.length)}...\n');
 
     // 4. 获取文本内容
     print('4. 获取所有文本内容 (getTextContent)...');
@@ -42,15 +43,13 @@ Future<void> main() async {
     print('');
 
     // 5. 截图测试
-    print('5. 测试截图功能 (screenshot)...');
+    print('5. 测试截图功能 (takeScreenshot)...');
     try {
-      final screenshot = await client.screenshot();
+      final screenshot = await client.takeScreenshot();
       if (screenshot != null) {
         print('   ✅ 截图成功，大小: ${screenshot.length} bytes');
-        // 保存截图
-        final file = File('/tmp/flutter_skill_screenshot.png');
-        await file.writeAsBytes(screenshot);
-        print('   💾 截图已保存到: ${file.path}\n');
+        // 保存截图 (screenshot 是 base64 字符串)
+        print('   💾 截图数据已获取\n');
       } else {
         print('   ⚠️  截图返回 null\n');
       }
