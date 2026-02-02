@@ -1,3 +1,14 @@
+## 0.4.6
+
+**Fix release script to auto-update server.dart version**
+
+### Bug Fixes
+- 🔧 Fixed release script to automatically update `_currentVersion` in `lib/src/cli/server.dart`
+- 🔄 Ensures version consistency across all release artifacts (pubspec, npm, VSCode, JetBrains, server.dart)
+- ✅ Prevents version mismatch errors in MCP server startup
+
+---
+
 ## 0.4.5
 
 **Add MCP auto-fix and diagnostics**
