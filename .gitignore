@@ -48,3 +48,4 @@ intellij-plugin/.gradle/
 intellij-plugin/.intellijPlatform/
 intellij-plugin/build/
 # Note: gradle/, gradlew, gradlew.bat are NOT ignored - needed for CI/CD
+.mcp.json
