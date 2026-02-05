@@ -1,10 +1,17 @@
-## Unreleased
+## 0.5.3
+
+**Add automated Winget PR submission to release workflow**
 
 ### 🤖 CI/CD Improvements
 - 🚀 **Automated Winget Submission**: Release workflow now auto-submits PRs to microsoft/winget-pkgs
   - Uses `winget-releaser` GitHub Action for automatic PR creation
   - Every release will be submitted to Microsoft's official Winget repository
   - Eliminates manual PR submission for Windows package manager
+
+### 💡 Benefits
+- ✅ Windows users can install via `winget install AIDashboard.FlutterSkill`
+- ✅ Automatic version updates in Microsoft's official package repository
+- ✅ No more manual PR submissions to winget-pkgs
 
 ## 0.5.2
 
