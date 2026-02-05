@@ -1,18 +1,27 @@
-## Unreleased
+## 0.5.4
+
+**Add automated Twitter/X posting for release announcements**
 
 ### 🤖 CI/CD Improvements
 - 🐦 **Automated Twitter/X Posting**: Release workflow now auto-posts release announcements to Twitter/X
   - Posts tweet with version, installation commands, and release link
-  - Uses Twitter API v2 for reliable posting
+  - Uses Twitter API v2 with Bearer Token authentication
   - Includes relevant hashtags (#Flutter #AI #MCP #DartLang)
-  - Comprehensive setup guide in `docs/TWITTER_SETUP.md`
+  - Auto-triggered on every release
+  - Non-blocking (won't fail release if Twitter posting fails)
 
 ### 📚 Documentation
 - 📖 Added `docs/TWITTER_SETUP.md` with complete Twitter API configuration guide
-  - Step-by-step Bearer Token setup
-  - Troubleshooting guide
+  - Step-by-step Bearer Token setup instructions
+  - Troubleshooting guide for common errors
   - Security best practices
-  - Tweet customization instructions
+  - Tweet content customization instructions
+
+### 💡 Benefits
+- ✅ Automatic social media presence for releases
+- ✅ Instant community notification
+- ✅ Consistent release announcements
+- ✅ Zero manual effort required
 
 ## 0.5.3
 
