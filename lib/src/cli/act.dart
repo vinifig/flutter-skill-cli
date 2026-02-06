@@ -3,35 +3,30 @@ import '../flutter_skill_client.dart';
 
 Future<void> runAct(List<String> args) async {
   String uri;
-
-  // Logic from bin/act.dart to separate URI from args
-  String resolveUriResult;
   int argOffset;
 
+  // Check if first arg is a URI
   if (args.isNotEmpty &&
       (args[0].startsWith('ws://') || args[0].startsWith('http://'))) {
-    resolveUriResult = args[0];
+    uri = args[0];
     argOffset = 1;
   } else {
-    // Try file (we assume we are running from project root where .flutter_skill_uri might exist)
-    // NOTE: If global activated, we might not be in the right dir?
-    // Users should run this in their project root.
-    final file = File('.flutter_skill_uri');
-    if (await file.exists()) {
-      resolveUriResult = (await file.readAsString()).trim();
-    } else {
-      print('Usage: flutter_skill act [vm-uri] <action> <params...>');
+    // Use auto-discovery (no need for .flutter_skill_uri file!)
+    try {
+      uri = await FlutterSkillClient.resolveUri([]);
+      argOffset = 0;
+    } catch (e) {
+      print(e);
       exit(1);
     }
-    argOffset = 0;
   }
 
   if (args.length <= argOffset) {
     print('Missing action argument');
+    print('Usage: flutter_skill act [vm-uri] <action> <params...>');
     exit(1);
   }
 
-  uri = resolveUriResult;
   String action = args[argOffset];
   final client = FlutterSkillClient(uri);
 

@@ -2,9 +2,6 @@ import 'dart:convert';
 import 'dart:io';
 import 'setup.dart'; // Import setup logic
 
-// File to store the last connected URI
-final _uriFile = File('.flutter_skill_uri');
-
 Future<void> runLaunch(List<String> args) async {
   // Extract project path. Everything else is passed to flutter run.
   // We assume: flutter_skill launch [project_path] [flutter_args...]
@@ -31,6 +28,13 @@ Future<void> runLaunch(List<String> args) async {
   } catch (e) {
     print('Setup failed: $e');
     print('Proceeding with launch anyway...');
+  }
+
+  // Auto-add --vm-service-port=50000 if not specified
+  // This ensures faster discovery (recommended but not required)
+  if (!flutterArgs.any((arg) => arg.contains('--vm-service-port'))) {
+    flutterArgs.add('--vm-service-port=50000');
+    print('💡 Auto-adding --vm-service-port=50000 (推荐，可加速发现)');
   }
 
   print('Launching Flutter app in: $projectPath with args: $flutterArgs');
@@ -76,14 +80,10 @@ void _checkForUri(String line) {
     final match = uriRegex.firstMatch(line);
     if (match != null) {
       final uri = match.group(0)!;
-      print('\nCode-Skill: Found VM Service URI: $uri');
-      try {
-        _uriFile.writeAsStringSync(uri);
-        print(
-            'Code-Skill: URI saved to .flutter_skill_uri. You can now run scripts without arguments.');
-      } catch (e) {
-        print('Code-Skill: Failed to save URI: $e');
-      }
+      print('\n✅ Flutter Skill: VM Service 已启动');
+      print('   URI: $uri');
+      print('   🚀 现在可以直接使用: flutter_skill inspect (自动发现)');
+      // Note: No longer saving to .flutter_skill_uri - using auto-discovery instead!
     }
   }
 }

@@ -33,10 +33,26 @@ class ErrorCode {
 
 /// The Binding that enables Flutter Skill automation.
 class FlutterSkillBinding {
-  static void ensureInitialized() {
+  static void ensureInitialized({bool autoEnableIndicators = true}) {
     if (_registered) return;
     _registered = true;
     _registerExtensions();
+
+    // Auto-enable test indicators after a short delay
+    if (autoEnableIndicators) {
+      Future.delayed(const Duration(milliseconds: 500), () {
+        try {
+          _indicatorsEnabled = true;
+          _indicatorOverlay = TestIndicatorOverlay();
+          _indicatorOverlay!.enable();
+          _indicatorOverlay!.setStyle(IndicatorStyle.detailed);
+          print('🎭 Test Indicators Auto-Enabled (detailed mode)');
+        } catch (e) {
+          print('⚠️ Failed to auto-enable indicators: $e');
+        }
+      });
+    }
+
     print('Flutter Skill Binding Initialized 🚀');
   }
 
@@ -48,6 +64,7 @@ class FlutterSkillBinding {
   // Test indicators
   static TestIndicatorOverlay? _indicatorOverlay;
   static bool _indicatorsEnabled = false;
+  static Offset? _lastCharacterPosition;  // Track character position for walking effect
 
   static void _registerExtensions() {
     // ==================== EXISTING EXTENSIONS ====================
@@ -933,11 +950,31 @@ class FlutterSkillBinding {
     final binding = WidgetsBinding.instance;
     final pointer = _pointerCounter++;
 
+    // Show animated character walking to position and tapping
+    if (_indicatorsEnabled && _indicatorOverlay != null) {
+      // Use last position as starting point for walking animation
+      final startPos = _lastCharacterPosition ?? position;
+      _indicatorOverlay!.showCharacter(
+        startPos,
+        CharacterAction.tapping,
+        hint: "Tapping",
+        endPosition: position,  // Character walks from startPos to position
+      );
+      _lastCharacterPosition = position;  // Remember position for next action
+      await Future.delayed(const Duration(milliseconds: 200));
+    }
+
     binding.handlePointerEvent(
         PointerDownEvent(position: position, pointer: pointer));
     await Future.delayed(const Duration(milliseconds: 50));
     binding.handlePointerEvent(
         PointerUpEvent(position: position, pointer: pointer));
+
+    // Show tap ripple after character
+    if (_indicatorsEnabled && _indicatorOverlay != null) {
+      _indicatorOverlay!.showTap(position);
+    }
+
     await Future.delayed(const Duration(milliseconds: 100));
   }
 
@@ -1273,12 +1310,13 @@ class FlutterSkillBinding {
     final binding = WidgetsBinding.instance;
     final pointer = _pointerCounter++;
 
-    // Show indicator if enabled
+    // Show animated character holding
     if (_indicatorsEnabled && _indicatorOverlay != null) {
+      _indicatorOverlay!.showCharacter(position, CharacterAction.holding, hint: "Long pressing");
+      await Future.delayed(const Duration(milliseconds: 200));
       _indicatorOverlay!.showLongPress(
         position,
         Duration(milliseconds: duration),
-        hint: "Long pressing",
       );
     }
 
@@ -1306,10 +1344,13 @@ class FlutterSkillBinding {
     final end = Offset(endX, endY);
     final delta = end - start;
 
-    // Show indicator if enabled
+    // Show animated character swiping
     if (_indicatorsEnabled && _indicatorOverlay != null) {
       final direction = _getSwipeDirection(delta);
-      _indicatorOverlay!.showSwipe(start, end, hint: "Swiping $direction");
+      _indicatorOverlay!.showCharacter(start, CharacterAction.swiping,
+        hint: "Swiping $direction", endPosition: end);
+      await Future.delayed(const Duration(milliseconds: 200));
+      _indicatorOverlay!.showSwipe(start, end);
     }
 
     binding.handlePointerEvent(
@@ -2113,7 +2154,24 @@ class FlutterSkillBinding {
 // ==================== TEST INDICATORS ====================
 
 /// Visual indicator types for test actions
-enum IndicatorType { tap, swipe, longPress, textInput, hint }
+enum IndicatorType { tap, swipe, longPress, textInput, hint, cursor, character }
+
+/// Character action types for animated character
+enum CharacterAction {
+  tapping,   // Character tapping/clicking
+  typing,    // Character typing
+  swiping,   // Character swiping gesture
+  holding,   // Character holding/pressing
+  dragging,  // Character dragging
+  pointing,  // Character pointing
+}
+
+/// Character state for persistent character
+enum CharacterState {
+  idle,     // Standing still, breathing animation
+  walking,  // Moving to target
+  acting,   // Performing action
+}
 
 /// Style configuration for indicators
 enum IndicatorStyle {
@@ -2130,6 +2188,7 @@ class IndicatorData {
   final Duration? duration;
   final Rect? bounds;
   final String? message;
+  final CharacterAction? action;
   final DateTime timestamp;
 
   IndicatorData({
@@ -2139,6 +2198,7 @@ class IndicatorData {
     this.duration,
     this.bounds,
     this.message,
+    this.action,
     DateTime? timestamp,
   }) : timestamp = timestamp ?? DateTime.now();
 }
@@ -2229,6 +2289,26 @@ class TestIndicatorOverlay {
     ));
   }
 
+  /// Show cursor/pointer indicator at position
+  void showCursor(Offset position, {String? hint}) {
+    _widgetKey.currentState?.addIndicator(IndicatorData(
+      type: IndicatorType.cursor,
+      position: position,
+      message: hint,
+    ));
+  }
+
+  /// Show animated character with action
+  void showCharacter(Offset position, CharacterAction action, {String? hint, Offset? endPosition}) {
+    _widgetKey.currentState?.addIndicator(IndicatorData(
+      type: IndicatorType.character,
+      position: position,
+      endPosition: endPosition,
+      action: action,
+      message: hint,
+    ));
+  }
+
   /// Find the app's overlay state
   OverlayState? _findOverlayState() {
     final context = WidgetsBinding.instance.rootElement;
@@ -2266,6 +2346,14 @@ class _TestIndicatorWidgetState extends State<_TestIndicatorWidget>
   final Map<IndicatorData, AnimationController> _controllers = {};
   IndicatorStyle _style = IndicatorStyle.standard;
 
+  // Persistent character state
+  bool _persistentCharacterVisible = false;
+  Offset _persistentCharacterPos = const Offset(50, 100);
+  Offset? _persistentCharacterTarget;
+  CharacterAction _persistentCharacterAction = CharacterAction.pointing;
+  CharacterState _persistentCharacterState = CharacterState.idle;
+  AnimationController? _persistentCharacterController;
+
   @override
   void initState() {
     super.initState();
@@ -2288,6 +2376,20 @@ class _TestIndicatorWidgetState extends State<_TestIndicatorWidget>
 
   void addIndicator(IndicatorData indicator) {
     setState(() {
+      // If adding a character indicator, remove any existing character indicators first
+      // This ensures only one character is visible at a time
+      if (indicator.type == IndicatorType.character) {
+        final existingCharacters = _indicators
+            .where((i) => i.type == IndicatorType.character)
+            .toList();
+
+        for (final existing in existingCharacters) {
+          _indicators.remove(existing);
+          _controllers[existing]?.dispose();
+          _controllers.remove(existing);
+        }
+      }
+
       _indicators.add(indicator);
 
       // Create animation controller
@@ -2326,7 +2428,9 @@ class _TestIndicatorWidgetState extends State<_TestIndicatorWidget>
       case IndicatorStyle.detailed:
         return indicator.type == IndicatorType.longPress && indicator.duration != null
             ? indicator.duration!
-            : const Duration(milliseconds: 800);
+            : indicator.type == IndicatorType.character
+                ? const Duration(milliseconds: 10000)  // 10 seconds - persistent walking character
+                : const Duration(milliseconds: 800);
     }
   }
 
@@ -2377,6 +2481,22 @@ class _TestIndicatorWidgetState extends State<_TestIndicatorWidget>
       case IndicatorType.textInput:
         return _TextInputIndicator(
           bounds: indicator.bounds!,
+          animation: controller,
+          style: _style,
+        );
+
+      case IndicatorType.cursor:
+        return _CursorIndicator(
+          position: indicator.position!,
+          animation: controller,
+          style: _style,
+        );
+
+      case IndicatorType.character:
+        return _AnimatedCharacterIndicator(
+          position: indicator.position!,
+          endPosition: indicator.endPosition,
+          action: indicator.action ?? CharacterAction.pointing,
           animation: controller,
           style: _style,
         );
@@ -2708,6 +2828,867 @@ class _TextInputIndicator extends StatelessWidget {
       },
     );
   }
+}
+
+/// Cursor indicator: mouse pointer/hand icon
+class _CursorIndicator extends StatelessWidget {
+  final Offset position;
+  final Animation<double> animation;
+  final IndicatorStyle style;
+
+  const _CursorIndicator({
+    required this.position,
+    required this.animation,
+    required this.style,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: animation,
+      builder: (context, child) {
+        // Fade in quickly, stay visible, then fade out
+        final opacity = animation.value < 0.1
+            ? animation.value / 0.1
+            : animation.value > 0.9
+                ? (1.0 - animation.value) / 0.1
+                : 1.0;
+
+        // Slight bounce effect
+        final scale = 1.0 + (sin(animation.value * pi * 2) * 0.1);
+
+        return Positioned(
+          left: position.dx,
+          top: position.dy,
+          child: Transform.scale(
+            scale: scale,
+            child: Opacity(
+              opacity: opacity,
+              child: CustomPaint(
+                size: Size(
+                  style == IndicatorStyle.minimal ? 24 : style == IndicatorStyle.standard ? 32 : 40,
+                  style == IndicatorStyle.minimal ? 24 : style == IndicatorStyle.standard ? 32 : 40,
+                ),
+                painter: _CursorPainter(style: style),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Custom painter for cursor/pointer icon
+class _CursorPainter extends CustomPainter {
+  final IndicatorStyle style;
+
+  _CursorPainter({required this.style});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = const Color(0xFF2196F3)
+      ..style = PaintingStyle.fill;
+
+    final strokePaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+
+    // Draw hand/pointer cursor shape
+    final path = Path();
+
+    // Pointer arrow shape
+    path.moveTo(size.width * 0.2, size.height * 0.2);
+    path.lineTo(size.width * 0.2, size.height * 0.7);
+    path.lineTo(size.width * 0.35, size.height * 0.6);
+    path.lineTo(size.width * 0.5, size.height * 0.8);
+    path.lineTo(size.width * 0.6, size.height * 0.75);
+    path.lineTo(size.width * 0.45, size.height * 0.55);
+    path.lineTo(size.width * 0.7, size.height * 0.5);
+    path.close();
+
+    // Draw shadow/outline
+    canvas.drawPath(path, strokePaint);
+    // Draw main cursor
+    canvas.drawPath(path, paint);
+
+    // Add small circle at tip for emphasis
+    final tipPaint = Paint()
+      ..color = const Color(0xFFFFEB3B)
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(
+      Offset(size.width * 0.2, size.height * 0.2),
+      size.width * 0.08,
+      tipPaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_CursorPainter oldDelegate) => false;
+}
+
+/// Animated character indicator: game-like character with particle effects
+class _AnimatedCharacterIndicator extends StatelessWidget {
+  final Offset position;
+  final Offset? endPosition;
+  final CharacterAction action;
+  final Animation<double> animation;
+  final IndicatorStyle style;
+
+  const _AnimatedCharacterIndicator({
+    required this.position,
+    this.endPosition,
+    required this.action,
+    required this.animation,
+    required this.style,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: animation,
+      builder: (context, child) {
+        // Smooth movement using game-like easing curves
+        // Phase 1 (0-0.3): Walking to target with elastic easing
+        // Phase 2 (0.3-0.6): Performing action with anticipation
+        // Phase 3 (0.6-1.0): Idle with gentle breathing
+
+        double walkProgress;
+        if (animation.value < 0.3) {
+          // Walking phase - use elastic easing for bouncy movement
+          walkProgress = Curves.easeOutCubic.transform(animation.value / 0.3);
+        } else {
+          walkProgress = 1.0;
+        }
+
+        final currentPos = endPosition != null
+            ? Offset.lerp(position, endPosition, walkProgress)!
+            : position;
+
+        // Enhanced fade with glow effect
+        final opacity = animation.value < 0.03
+            ? animation.value / 0.03
+            : animation.value > 0.97
+                ? (1.0 - animation.value) / 0.03
+                : 1.0;
+
+        // Determine current state based on animation progress
+        CharacterState currentState;
+        double actionProgress;
+
+        if (animation.value < 0.3) {
+          // Walking phase
+          currentState = CharacterState.walking;
+          actionProgress = animation.value / 0.3;
+        } else if (animation.value < 0.6) {
+          // Action phase - with anticipation and impact
+          currentState = CharacterState.acting;
+          actionProgress = Curves.easeOutBack.transform((animation.value - 0.3) / 0.3);
+        } else {
+          // Idle phase - gentle breathing animation
+          currentState = CharacterState.idle;
+          actionProgress = (animation.value - 0.6) / 0.4;
+        }
+
+        return Positioned(
+          left: currentPos.dx - 40,
+          top: currentPos.dy - 80,
+          child: Opacity(
+            opacity: opacity,
+            child: Stack(
+              children: [
+                // Particle effects layer
+                CustomPaint(
+                  size: const Size(80, 80),
+                  painter: _ParticleEffectPainter(
+                    action: action,
+                    progress: actionProgress,
+                    state: currentState,
+                    globalProgress: animation.value,
+                  ),
+                ),
+                // Character layer with shadow
+                CustomPaint(
+                  size: const Size(80, 80),
+                  painter: _GameCharacterPainter(
+                    action: action,
+                    progress: actionProgress,
+                    state: currentState,
+                    style: style,
+                    globalProgress: animation.value,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Particle effect painter for game-like visual effects
+class _ParticleEffectPainter extends CustomPainter {
+  final CharacterAction action;
+  final double progress;
+  final CharacterState state;
+  final double globalProgress;
+
+  _ParticleEffectPainter({
+    required this.action,
+    required this.progress,
+    required this.state,
+    required this.globalProgress,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final cx = size.width / 2;
+    final cy = size.height / 2;
+
+    // Draw particles based on state and action
+    if (state == CharacterState.walking) {
+      _drawWalkingDust(canvas, cx, cy);
+    } else if (state == CharacterState.acting) {
+      _drawActionParticles(canvas, cx, cy);
+    }
+  }
+
+  void _drawWalkingDust(Canvas canvas, double cx, double cy) {
+    final dustPaint = Paint()
+      ..color = Colors.grey.withValues(alpha: 0.3 * (1 - progress))
+      ..style = PaintingStyle.fill;
+
+    // Dust clouds behind character
+    for (var i = 0; i < 3; i++) {
+      final offset = i * 8.0;
+      final size = 4.0 - i;
+      canvas.drawCircle(
+        Offset(cx - offset, cy + 30 + i * 2),
+        size * (1 - progress),
+        dustPaint,
+      );
+    }
+  }
+
+  void _drawActionParticles(Canvas canvas, double cx, double cy) {
+    final particlePaint = Paint()
+      ..style = PaintingStyle.fill
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2);
+
+    // Sparkle particles during action
+    for (var i = 0; i < 6; i++) {
+      final angle = (i / 6) * 2 * pi + progress * pi;
+      final distance = 20 + progress * 15;
+      final x = cx + cos(angle) * distance;
+      final y = cy + sin(angle) * distance;
+
+      // Color gradient from yellow to orange
+      final color = Color.lerp(
+        const Color(0xFFFFEB3B),
+        const Color(0xFFFF5722),
+        i / 6,
+      )!.withValues(alpha: 0.8 * (1 - progress));
+
+      particlePaint.color = color;
+      canvas.drawCircle(Offset(x, y), 3 * (1 - progress), particlePaint);
+    }
+
+    // Impact effect for tapping
+    if (action == CharacterAction.tapping && progress > 0.5) {
+      final impactProgress = (progress - 0.5) * 2;
+      final impactPaint = Paint()
+        ..color = const Color(0xFFFF5722).withValues(alpha: 0.5 * (1 - impactProgress))
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3;
+
+      canvas.drawCircle(
+        Offset(cx + 20, cy),
+        10 + impactProgress * 15,
+        impactPaint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_ParticleEffectPainter oldDelegate) => true;
+}
+
+/// Game-like character painter with shadows and smooth animations
+class _GameCharacterPainter extends CustomPainter {
+  final CharacterAction action;
+  final double progress;
+  final IndicatorStyle style;
+  final CharacterState state;
+  final double globalProgress;
+
+  _GameCharacterPainter({
+    required this.action,
+    required this.progress,
+    required this.style,
+    required this.state,
+    required this.globalProgress,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final centerX = size.width / 2;
+    final centerY = size.height / 2;
+
+    // Draw shadow first (for depth)
+    final shadowPaint = Paint()
+      ..color = Colors.black.withValues(alpha: 0.3)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
+
+    // Elliptical shadow on ground
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(centerX, centerY + 35),
+        width: 30,
+        height: 8,
+      ),
+      shadowPaint,
+    );
+
+    // Game-like character colors with gradients
+    final bodyPaint = Paint()
+      ..color = const Color(0xFF4CAF50)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = style == IndicatorStyle.minimal ? 4 : 5
+      ..strokeCap = StrokeCap.round;
+
+    final headPaint = Paint()
+      ..color = const Color(0xFFFFEB3B)
+      ..style = PaintingStyle.fill;
+
+    // Head glow effect
+    final glowPaint = Paint()
+      ..color = const Color(0xFFFFEB3B).withValues(alpha: 0.3)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
+
+    final accentPaint = Paint()
+      ..color = const Color(0xFFFF5722)
+      ..style = PaintingStyle.fill;
+
+    // Breathing animation in idle state
+    final breatheOffset = state == CharacterState.idle
+        ? sin(globalProgress * pi * 3) * 1.5
+        : 0.0;
+
+    // Draw glow around head for added depth
+    if (style != IndicatorStyle.minimal) {
+      canvas.drawCircle(
+        Offset(centerX, centerY - 15 + breatheOffset),
+        12,
+        glowPaint,
+      );
+    }
+
+    // Draw based on current state
+    switch (state) {
+      case CharacterState.walking:
+        _drawWalkingCharacter(canvas, size, centerX, centerY, bodyPaint, headPaint, accentPaint);
+        break;
+      case CharacterState.acting:
+        // Draw action-specific animation
+        switch (action) {
+          case CharacterAction.tapping:
+            _drawTappingCharacter(canvas, size, centerX, centerY, bodyPaint, headPaint, accentPaint);
+            break;
+          case CharacterAction.typing:
+            _drawTypingCharacter(canvas, size, centerX, centerY, bodyPaint, headPaint, accentPaint);
+            break;
+          case CharacterAction.swiping:
+            _drawSwipingCharacter(canvas, size, centerX, centerY, bodyPaint, headPaint, accentPaint);
+            break;
+          case CharacterAction.holding:
+            _drawHoldingCharacter(canvas, size, centerX, centerY, bodyPaint, headPaint, accentPaint);
+            break;
+          case CharacterAction.dragging:
+            _drawDraggingCharacter(canvas, size, centerX, centerY, bodyPaint, headPaint, accentPaint);
+            break;
+          case CharacterAction.pointing:
+            _drawPointingCharacter(canvas, size, centerX, centerY, bodyPaint, headPaint, accentPaint);
+            break;
+        }
+        break;
+      case CharacterState.idle:
+        _drawIdleCharacter(canvas, size, centerX, centerY, bodyPaint, headPaint, accentPaint);
+        break;
+    }
+  }
+
+  void _drawTappingCharacter(Canvas canvas, Size size, double cx, double cy, Paint body, Paint head, Paint accent) {
+    // Animated bounce effect
+    final bounce = sin(progress * pi * 4) * 3;
+
+    // Head
+    canvas.drawCircle(Offset(cx, cy - 15 + bounce), 8, head);
+
+    // Eyes
+    final eyePaint = Paint()..color = Colors.black..style = PaintingStyle.fill;
+    canvas.drawCircle(Offset(cx - 3, cy - 16 + bounce), 1.5, eyePaint);
+    canvas.drawCircle(Offset(cx + 3, cy - 16 + bounce), 1.5, eyePaint);
+
+    // Body
+    canvas.drawLine(
+      Offset(cx, cy - 7 + bounce),
+      Offset(cx, cy + 10 + bounce),
+      body,
+    );
+
+    // Arms - tapping motion
+    final armAngle = sin(progress * pi * 8) * 0.3;
+    canvas.drawLine(
+      Offset(cx, cy),
+      Offset(cx - 12, cy + 8 + bounce + armAngle * 5),
+      body,
+    );
+    canvas.drawLine(
+      Offset(cx, cy),
+      Offset(cx + 12, cy + 8 + bounce - armAngle * 5),
+      body,
+    );
+
+    // Tapping indicator (finger point)
+    canvas.drawCircle(Offset(cx + 12, cy + 8 + bounce - armAngle * 5), 3, accent);
+
+    // Legs
+    canvas.drawLine(
+      Offset(cx, cy + 10 + bounce),
+      Offset(cx - 8, cy + 22 + bounce),
+      body,
+    );
+    canvas.drawLine(
+      Offset(cx, cy + 10 + bounce),
+      Offset(cx + 8, cy + 22 + bounce),
+      body,
+    );
+  }
+
+  void _drawTypingCharacter(Canvas canvas, Size size, double cx, double cy, Paint body, Paint head, Paint accent) {
+    // Head
+    canvas.drawCircle(Offset(cx, cy - 12), 8, head);
+
+    // Eyes looking down
+    final eyePaint = Paint()..color = Colors.black..style = PaintingStyle.fill;
+    canvas.drawCircle(Offset(cx - 3, cy - 10), 1.5, eyePaint);
+    canvas.drawCircle(Offset(cx + 3, cy - 10), 1.5, eyePaint);
+
+    // Body
+    canvas.drawLine(
+      Offset(cx, cy - 4),
+      Offset(cx, cy + 12),
+      body,
+    );
+
+    // Arms - typing motion
+    final armWave = sin(progress * pi * 12) * 3;
+    canvas.drawLine(
+      Offset(cx, cy + 2),
+      Offset(cx - 10, cy + 14 + armWave),
+      body,
+    );
+    canvas.drawLine(
+      Offset(cx, cy + 2),
+      Offset(cx + 10, cy + 14 - armWave),
+      body,
+    );
+
+    // Keyboard representation
+    final keyboardPaint = Paint()
+      ..color = const Color(0xFF9E9E9E)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+    canvas.drawRect(
+      Rect.fromCenter(center: Offset(cx, cy + 22), width: 24, height: 4),
+      keyboardPaint,
+    );
+
+    // Typing indicators (small dots)
+    canvas.drawCircle(Offset(cx - 6 + armWave, cy + 14 + armWave), 2, accent);
+    canvas.drawCircle(Offset(cx + 6 - armWave, cy + 14 - armWave), 2, accent);
+
+    // Legs
+    canvas.drawLine(
+      Offset(cx, cy + 12),
+      Offset(cx - 6, cy + 20),
+      body,
+    );
+    canvas.drawLine(
+      Offset(cx, cy + 12),
+      Offset(cx + 6, cy + 20),
+      body,
+    );
+  }
+
+  void _drawSwipingCharacter(Canvas canvas, Size size, double cx, double cy, Paint body, Paint head, Paint accent) {
+    // Leaning forward with swipe motion
+    final swipeAngle = progress * pi * 2;
+    final armX = cos(swipeAngle) * 15;
+    final armY = sin(swipeAngle) * 8;
+
+    // Head
+    canvas.drawCircle(Offset(cx + armX * 0.3, cy - 12), 8, head);
+
+    // Eyes
+    final eyePaint = Paint()..color = Colors.black..style = PaintingStyle.fill;
+    canvas.drawCircle(Offset(cx + armX * 0.3 - 3, cy - 13), 1.5, eyePaint);
+    canvas.drawCircle(Offset(cx + armX * 0.3 + 3, cy - 13), 1.5, eyePaint);
+
+    // Body leaning
+    canvas.drawLine(
+      Offset(cx + armX * 0.3, cy - 4),
+      Offset(cx, cy + 10),
+      body,
+    );
+
+    // Swiping arm
+    canvas.drawLine(
+      Offset(cx, cy),
+      Offset(cx + armX, cy + armY),
+      body,
+    );
+
+    // Swipe trail
+    final trailPaint = Paint()
+      ..color = const Color(0xFF9C27B0).withValues(alpha: 0.5)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3;
+    canvas.drawLine(
+      Offset(cx + armX - 10, cy + armY),
+      Offset(cx + armX + 10, cy + armY),
+      trailPaint,
+    );
+
+    // Hand indicator
+    canvas.drawCircle(Offset(cx + armX, cy + armY), 3, accent);
+
+    // Other arm
+    canvas.drawLine(
+      Offset(cx, cy),
+      Offset(cx - 10, cy + 8),
+      body,
+    );
+
+    // Legs
+    canvas.drawLine(
+      Offset(cx, cy + 10),
+      Offset(cx - 8, cy + 22),
+      body,
+    );
+    canvas.drawLine(
+      Offset(cx, cy + 10),
+      Offset(cx + 8, cy + 22),
+      body,
+    );
+  }
+
+  void _drawHoldingCharacter(Canvas canvas, Size size, double cx, double cy, Paint body, Paint head, Paint accent) {
+    // Concentrated holding pose
+    final pulse = 1.0 + sin(progress * pi * 6) * 0.1;
+
+    // Head
+    canvas.drawCircle(Offset(cx, cy - 12), 8 * pulse, head);
+
+    // Focused eyes
+    final eyePaint = Paint()..color = Colors.black..style = PaintingStyle.fill;
+    canvas.drawCircle(Offset(cx - 3, cy - 13), 2, eyePaint);
+    canvas.drawCircle(Offset(cx + 3, cy - 13), 2, eyePaint);
+
+    // Body
+    canvas.drawLine(
+      Offset(cx, cy - 4),
+      Offset(cx, cy + 10),
+      body,
+    );
+
+    // Arms holding/pressing
+    canvas.drawLine(
+      Offset(cx, cy),
+      Offset(cx - 10, cy + 10),
+      body,
+    );
+    canvas.drawLine(
+      Offset(cx, cy),
+      Offset(cx + 10, cy + 10),
+      body,
+    );
+
+    // Pressure indicator
+    canvas.drawCircle(Offset(cx, cy + 14), 6 * pulse, accent);
+
+    // Legs
+    canvas.drawLine(
+      Offset(cx, cy + 10),
+      Offset(cx - 6, cy + 20),
+      body,
+    );
+    canvas.drawLine(
+      Offset(cx, cy + 10),
+      Offset(cx + 6, cy + 20),
+      body,
+    );
+  }
+
+  void _drawDraggingCharacter(Canvas canvas, Size size, double cx, double cy, Paint body, Paint head, Paint accent) {
+    // Pulling/dragging motion
+    final dragX = sin(progress * pi) * 5;
+
+    // Head
+    canvas.drawCircle(Offset(cx - dragX, cy - 12), 8, head);
+
+    // Determined eyes
+    final eyePaint = Paint()..color = Colors.black..style = PaintingStyle.fill;
+    canvas.drawCircle(Offset(cx - dragX - 3, cy - 13), 1.5, eyePaint);
+    canvas.drawCircle(Offset(cx - dragX + 3, cy - 13), 1.5, eyePaint);
+
+    // Body leaning back
+    canvas.drawLine(
+      Offset(cx - dragX, cy - 4),
+      Offset(cx, cy + 10),
+      body,
+    );
+
+    // Arms pulling
+    canvas.drawLine(
+      Offset(cx, cy),
+      Offset(cx + 12 + dragX, cy + 2),
+      body,
+    );
+    canvas.drawLine(
+      Offset(cx, cy + 4),
+      Offset(cx + 12 + dragX, cy + 6),
+      body,
+    );
+
+    // Object being dragged
+    final objectPaint = Paint()
+      ..color = const Color(0xFF2196F3)
+      ..style = PaintingStyle.fill;
+    canvas.drawRect(
+      Rect.fromCenter(
+        center: Offset(cx + 16 + dragX, cy + 4),
+        width: 8,
+        height: 8,
+      ),
+      objectPaint,
+    );
+
+    // Drag trail
+    final trailPaint = Paint()
+      ..color = const Color(0xFF9C27B0).withValues(alpha: 0.3)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(
+      Offset(cx + 20 + dragX, cy + 4),
+      Offset(cx + 28, cy + 4),
+      trailPaint,
+    );
+
+    // Legs bracing
+    canvas.drawLine(
+      Offset(cx, cy + 10),
+      Offset(cx - 10, cy + 22),
+      body,
+    );
+    canvas.drawLine(
+      Offset(cx, cy + 10),
+      Offset(cx + 6, cy + 22),
+      body,
+    );
+  }
+
+  void _drawPointingCharacter(Canvas canvas, Size size, double cx, double cy, Paint body, Paint head, Paint accent) {
+    // Simple pointing pose
+    // Head
+    canvas.drawCircle(Offset(cx, cy - 12), 8, head);
+
+    // Eyes
+    final eyePaint = Paint()..color = Colors.black..style = PaintingStyle.fill;
+    canvas.drawCircle(Offset(cx - 3, cy - 13), 1.5, eyePaint);
+    canvas.drawCircle(Offset(cx + 3, cy - 13), 1.5, eyePaint);
+
+    // Smile
+    final smilePaint = Paint()
+      ..color = Colors.black
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    final smilePath = Path();
+    smilePath.moveTo(cx - 3, cy - 10);
+    smilePath.quadraticBezierTo(cx, cy - 8, cx + 3, cy - 10);
+    canvas.drawPath(smilePath, smilePaint);
+
+    // Body
+    canvas.drawLine(
+      Offset(cx, cy - 4),
+      Offset(cx, cy + 10),
+      body,
+    );
+
+    // Pointing arm
+    canvas.drawLine(
+      Offset(cx, cy),
+      Offset(cx + 14, cy + 8),
+      body,
+    );
+
+    // Pointing finger
+    canvas.drawCircle(Offset(cx + 14, cy + 8), 3, accent);
+
+    // Other arm
+    canvas.drawLine(
+      Offset(cx, cy),
+      Offset(cx - 10, cy + 6),
+      body,
+    );
+
+    // Legs
+    canvas.drawLine(
+      Offset(cx, cy + 10),
+      Offset(cx - 6, cy + 22),
+      body,
+    );
+    canvas.drawLine(
+      Offset(cx, cy + 10),
+      Offset(cx + 6, cy + 22),
+      body,
+    );
+  }
+
+  void _drawWalkingCharacter(Canvas canvas, Size size, double cx, double cy, Paint body, Paint head, Paint accent) {
+    // Walking animation with alternating legs
+    final walkCycle = progress * pi * 4; // Multiple walking cycles during the walk
+    final bobbing = sin(walkCycle) * 2; // Vertical bobbing motion
+    final leftLegSwing = sin(walkCycle) * 12;
+    final rightLegSwing = sin(walkCycle + pi) * 12;
+    final armSwing = sin(walkCycle) * 8;
+
+    // Head with bobbing
+    canvas.drawCircle(Offset(cx, cy - 12 + bobbing), 8, head);
+
+    // Eyes (determined look)
+    final eyePaint = Paint()..color = Colors.black..style = PaintingStyle.fill;
+    canvas.drawCircle(Offset(cx - 3, cy - 13 + bobbing), 1.5, eyePaint);
+    canvas.drawCircle(Offset(cx + 3, cy - 13 + bobbing), 1.5, eyePaint);
+
+    // Body with bobbing
+    canvas.drawLine(
+      Offset(cx, cy - 4 + bobbing),
+      Offset(cx, cy + 10 + bobbing),
+      body,
+    );
+
+    // Arms swinging
+    canvas.drawLine(
+      Offset(cx, cy + bobbing),
+      Offset(cx - 10 + armSwing, cy + 8 + bobbing),
+      body,
+    );
+    canvas.drawLine(
+      Offset(cx, cy + bobbing),
+      Offset(cx + 10 - armSwing, cy + 8 + bobbing),
+      body,
+    );
+
+    // Legs alternating (walking motion)
+    canvas.drawLine(
+      Offset(cx, cy + 10 + bobbing),
+      Offset(cx - 6 + leftLegSwing * 0.5, cy + 22),
+      body,
+    );
+    canvas.drawLine(
+      Offset(cx, cy + 10 + bobbing),
+      Offset(cx + 6 + rightLegSwing * 0.5, cy + 22),
+      body,
+    );
+
+    // Walking dust/motion lines for extra effect
+    if (style == IndicatorStyle.detailed) {
+      final dustPaint = Paint()
+        ..color = const Color(0xFF9E9E9E).withValues(alpha: 0.4)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2
+        ..strokeCap = StrokeCap.round;
+
+      // Small motion lines behind character
+      canvas.drawLine(
+        Offset(cx - 8, cy + 20),
+        Offset(cx - 12, cy + 22),
+        dustPaint,
+      );
+      canvas.drawLine(
+        Offset(cx - 6, cy + 18),
+        Offset(cx - 10, cy + 20),
+        dustPaint,
+      );
+    }
+  }
+
+  void _drawIdleCharacter(Canvas canvas, Size size, double cx, double cy, Paint body, Paint head, Paint accent) {
+    // Idle animation with subtle breathing
+    final breathing = sin(progress * pi * 2) * 1.5; // Slow breathing motion
+    final blink = (progress * 20) % 1.0 > 0.9 ? 0.5 : 1.5; // Occasional blinking
+
+    // Head with subtle breathing
+    canvas.drawCircle(Offset(cx, cy - 12 + breathing * 0.3), 8, head);
+
+    // Eyes (blinking)
+    final eyePaint = Paint()..color = Colors.black..style = PaintingStyle.fill;
+    canvas.drawCircle(Offset(cx - 3, cy - 13 + breathing * 0.3), blink, eyePaint);
+    canvas.drawCircle(Offset(cx + 3, cy - 13 + breathing * 0.3), blink, eyePaint);
+
+    // Smile
+    final smilePaint = Paint()
+      ..color = Colors.black
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    final smilePath = Path();
+    smilePath.moveTo(cx - 3, cy - 10 + breathing * 0.3);
+    smilePath.quadraticBezierTo(cx, cy - 8 + breathing * 0.3, cx + 3, cy - 10 + breathing * 0.3);
+    canvas.drawPath(smilePath, smilePaint);
+
+    // Body with breathing
+    canvas.drawLine(
+      Offset(cx, cy - 4 + breathing * 0.3),
+      Offset(cx, cy + 10 + breathing),
+      body,
+    );
+
+    // Arms relaxed at sides
+    canvas.drawLine(
+      Offset(cx, cy + breathing * 0.5),
+      Offset(cx - 8, cy + 10 + breathing),
+      body,
+    );
+    canvas.drawLine(
+      Offset(cx, cy + breathing * 0.5),
+      Offset(cx + 8, cy + 10 + breathing),
+      body,
+    );
+
+    // Legs standing still
+    canvas.drawLine(
+      Offset(cx, cy + 10 + breathing),
+      Offset(cx - 6, cy + 22),
+      body,
+    );
+    canvas.drawLine(
+      Offset(cx, cy + 10 + breathing),
+      Offset(cx + 6, cy + 22),
+      body,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_GameCharacterPainter oldDelegate) =>
+      progress != oldDelegate.progress ||
+      action != oldDelegate.action ||
+      state != oldDelegate.state ||
+      globalProgress != oldDelegate.globalProgress;
 }
 
 /// Action hint banner

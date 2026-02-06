@@ -1,6 +1,6 @@
-import 'dart:io';
 import 'package:vm_service/vm_service.dart';
 import 'package:vm_service/vm_service_io.dart';
+import 'unified_discovery.dart';
 
 class FlutterSkillClient {
   final String wsUri;
@@ -408,6 +408,7 @@ URI: $wsUri''');
   bool get isConnected => _service != null && _isolateId != null;
 
   static Future<String> resolveUri(List<String> args) async {
+    // 1. If URI provided as argument, use it directly
     if (args.isNotEmpty) {
       final arg = args[0];
       if (arg.startsWith('ws://') || arg.startsWith('http://')) {
@@ -415,16 +416,36 @@ URI: $wsUri''');
       }
     }
 
-    final file = File('.flutter_skill_uri');
-    if (await file.exists()) {
-      final uri = (await file.readAsString()).trim();
-      if (uri.isNotEmpty) {
+    // 2. Try automatic discovery (fast and smart!)
+    print('🔍 Auto-discovering running Flutter apps...');
+
+    try {
+      final result = await UnifiedDiscovery.discover(verbose: false);
+
+      if (result.success && result.vmServiceUri != null) {
+        // Convert http:// to ws:// if needed
+        var uri = result.vmServiceUri!;
+        if (uri.startsWith('http://')) {
+          uri = uri.replaceFirst('http://', 'ws://');
+          if (!uri.endsWith('/ws')) {
+            uri = '$uri/ws';
+          }
+        }
+        print('✅ Connected: $uri');
         return uri;
       }
+    } catch (e) {
+      print('⚠️  Auto-discovery failed: $e');
     }
 
+    // 3. All methods failed
     throw ArgumentError(
-        'No URI provided and .flutter_skill_uri not found/empty. Run `flutter_skill launch` or provide URI as first argument.');
+      '\n❌ No running Flutter apps found\n\n'
+      'Please try:\n'
+      '  1. Launch app: flutter_skill launch -d <device>\n'
+      '  2. Or manually: flutter run -d <device>\n'
+      '  3. Or provide URI: flutter_skill inspect ws://...\n'
+    );
   }
 
   // ==================== TEST INDICATORS ====================

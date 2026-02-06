@@ -1,0 +1,19 @@
+{
+  "name": "flutter-skill-demo",
+  "version": "1.0.0",
+  "description": "Flutter Skill Test Indicators Demo",
+  "main": "run_demo.js",
+  "scripts": {
+    "demo": "node run_demo.js",
+    "start": "bash quick_demo.sh"
+  },
+  "keywords": [
+    "flutter",
+    "testing",
+    "automation",
+    "visual",
+    "indicators"
+  ],
+  "author": "AI Dashboard",
+  "license": "MIT"
+}
