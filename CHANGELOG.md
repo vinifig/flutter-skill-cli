@@ -1,3 +1,16 @@
+## 0.6.2
+
+**Improve pub.dev score**
+
+### Changes
+- Add `example/example.dart` for pub.dev package scoring
+- Widen `vm_service` dependency to `>=14.0.0 <16.0.0` (supports v15)
+- Remove unused persistent character fields (fixes 6 analyzer warnings)
+- Fix "multiple pubspec.yaml" issue by adding `demo_app/` to `.pubignore`
+- Replace `Color.withValues()` with `withOpacity()` for Flutter 3.24 compatibility
+
+---
+
 ## 0.6.1
 
 **Native platform interaction tools and VM Service reconnection fix**

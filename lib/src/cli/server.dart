@@ -8,7 +8,7 @@ import '../native_driver.dart';
 import '../diagnostics/error_reporter.dart';
 import 'setup.dart';
 
-const String _currentVersion = '0.6.1';
+const String _currentVersion = '0.6.2';
 
 /// Session information for multi-session support
 class SessionInfo {
