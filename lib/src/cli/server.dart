@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:http/http.dart' as http;
 import '../flutter_skill_client.dart';
+import '../native_driver.dart';
 import '../diagnostics/error_reporter.dart';
 import 'setup.dart';
 
@@ -135,6 +136,28 @@ class FlutterMcpServer {
   }
 
   Process? _flutterProcess;
+
+  // Native platform drivers (for interacting with native OS views)
+  final Map<String, NativeDriver> _nativeDrivers = {};
+
+  /// Get or create native driver for the active session
+  Future<NativeDriver?> _getNativeDriver(Map<String, dynamic> args) async {
+    final sessionId = args['session_id'] as String? ?? _activeSessionId;
+    final key = sessionId ?? '_default';
+
+    if (_nativeDrivers.containsKey(key)) return _nativeDrivers[key];
+
+    String? deviceId;
+    if (sessionId != null && _sessions.containsKey(sessionId)) {
+      deviceId = _sessions[sessionId]!.deviceId;
+    }
+
+    final driver = await NativeDriver.create(deviceId);
+    if (driver != null) {
+      _nativeDrivers[key] = driver;
+    }
+    return driver;
+  }
 
   Future<void> run() async {
     stdin
@@ -925,6 +948,140 @@ By default, saves screenshot to a temporary file and returns file path. Optional
         "name": "hot_restart",
         "description": "Trigger hot restart (slower, resets app state)",
         "inputSchema": {"type": "object", "properties": {}},
+      },
+      {
+        // Native platform interaction tools
+        "name": "native_screenshot",
+        "description": """Take a screenshot at the OS level (bypasses Flutter).
+
+[USE WHEN]
+• A native dialog is shown (photo picker, permission dialog, share sheet)
+• Flutter's screenshot returns a blank/stale image
+• You need to see system-level UI (status bar, keyboard, etc.)
+• The app is presenting a platform view not rendered by Flutter
+
+[HOW IT WORKS]
+• iOS Simulator: Uses xcrun simctl screenshot
+• Android Emulator: Uses adb shell screencap
+
+[RETURNS]
+Screenshot saved to a temporary file (default) or base64-encoded PNG.
+This captures the ENTIRE device screen, not just the Flutter app content.""",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "save_to_file": {
+              "type": "boolean",
+              "description":
+                  "Save to file and return path (default: true)"
+            },
+          },
+        },
+      },
+      {
+        "name": "native_tap",
+        "description": """Tap at device coordinates using OS-level input (bypasses Flutter).
+
+[USE WHEN]
+• Interacting with native dialogs (photo picker, permission "Allow", share sheet)
+• Flutter's tap() doesn't work because the target is a native view
+• Tapping system UI elements (status bar, notification)
+
+[HOW IT WORKS]
+• iOS Simulator: Uses macOS Accessibility API to find and press UI elements at device coordinates
+• Android Emulator: Uses adb shell input tap
+
+[IMPORTANT]
+• Coordinates are in device pixels (same as native_screenshot dimensions)
+• Take a native_screenshot first to identify tap targets
+• iOS: No external tools needed (uses built-in osascript + Accessibility API)
+• The Simulator window must be visible and not minimized""",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "x": {
+              "type": "number",
+              "description": "X coordinate in device pixels"
+            },
+            "y": {
+              "type": "number",
+              "description": "Y coordinate in device pixels"
+            },
+          },
+          "required": ["x", "y"],
+        },
+      },
+      {
+        "name": "native_input_text",
+        "description": """Enter text using OS-level input (bypasses Flutter).
+
+[USE WHEN]
+• Typing into native text fields (search bars in native pickers, etc.)
+• Flutter's enter_text() doesn't work because the field is in a native view
+• Entering text in system dialogs
+
+[HOW IT WORKS]
+• iOS Simulator: Copies text to pasteboard via simctl, then pastes with Cmd+V
+• Android Emulator: Uses adb shell input text
+
+[IMPORTANT]
+• The target text field must already be focused (tap it first with native_tap)
+• iOS method uses paste, so it replaces clipboard content
+• iOS paste confirmation dialog ("Allow Paste") is automatically dismissed""",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string",
+              "description": "Text to enter"
+            },
+          },
+          "required": ["text"],
+        },
+      },
+      {
+        "name": "native_swipe",
+        "description": """Swipe using OS-level input (bypasses Flutter).
+
+[USE WHEN]
+• Swiping in native views (photo gallery scroll, native list)
+• Dismissing native dialogs with swipe
+• Flutter's swipe doesn't work because the scrollable is a native view
+
+[HOW IT WORKS]
+• iOS Simulator: Uses macOS Accessibility API scroll actions on elements at device coordinates
+• Android Emulator: Uses adb shell input swipe
+
+[IMPORTANT]
+• Coordinates are in device pixels
+• Take a native_screenshot first to plan your swipe path
+• iOS: Scrolls by page using accessibility actions (AXScrollUpByPage/AXScrollDownByPage)""",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "start_x": {
+              "type": "number",
+              "description": "Start X in device pixels"
+            },
+            "start_y": {
+              "type": "number",
+              "description": "Start Y in device pixels"
+            },
+            "end_x": {
+              "type": "number",
+              "description": "End X in device pixels"
+            },
+            "end_y": {
+              "type": "number",
+              "description": "End Y in device pixels"
+            },
+            "duration": {
+              "type": "integer",
+              "description": "Swipe duration in ms (default: 300)"
+            },
+          },
+          "required": ["start_x", "start_y", "end_x", "end_y"],
+        },
       },
       {
         "name": "diagnose_project",
@@ -2094,6 +2251,103 @@ Detailed diagnostic report with:
       final client = _getClient(args);
       _requireConnection(client);
       return await client!.getIndicatorStatus();
+    }
+
+    // Native platform interaction tools (no VM Service connection required)
+    if (name == 'native_screenshot') {
+      final driver = await _getNativeDriver(args);
+      if (driver == null) {
+        return {
+          "success": false,
+          "error": {
+            "code": "E501",
+            "message": "No supported platform detected",
+          },
+          "suggestions": [
+            "Ensure an iOS Simulator or Android emulator is running",
+            "If using a physical device, native tools are not yet supported",
+          ],
+        };
+      }
+      final saveToFile = args['save_to_file'] ?? true;
+      final result = await driver.screenshot(saveToFile: saveToFile);
+      return result.toJson();
+    }
+
+    if (name == 'native_tap') {
+      final driver = await _getNativeDriver(args);
+      if (driver == null) {
+        return {
+          "success": false,
+          "error": {
+            "code": "E501",
+            "message": "No supported platform detected",
+          },
+        };
+      }
+
+      final toolCheck = await driver.checkToolAvailability();
+      final missingTools = toolCheck.entries
+          .where((e) => !e.value)
+          .map((e) => e.key)
+          .toList();
+      if (missingTools.isNotEmpty) {
+        return {
+          "success": false,
+          "error": {
+            "code": "E502",
+            "message": "Missing required tools: ${missingTools.join(', ')}",
+          },
+          "suggestions":
+              driver.platform == NativePlatform.iosSimulator
+                  ? ["Ensure Xcode command line tools are installed: xcode-select --install"]
+                  : [
+                      "Install Android platform tools: brew install android-platform-tools"
+                    ],
+        };
+      }
+
+      final x = (args['x'] as num).toDouble();
+      final y = (args['y'] as num).toDouble();
+      final result = await driver.tap(x, y);
+      return result.toJson();
+    }
+
+    if (name == 'native_input_text') {
+      final driver = await _getNativeDriver(args);
+      if (driver == null) {
+        return {
+          "success": false,
+          "error": {
+            "code": "E501",
+            "message": "No supported platform detected",
+          },
+        };
+      }
+      final text = args['text'] as String;
+      final result = await driver.inputText(text);
+      return result.toJson();
+    }
+
+    if (name == 'native_swipe') {
+      final driver = await _getNativeDriver(args);
+      if (driver == null) {
+        return {
+          "success": false,
+          "error": {
+            "code": "E501",
+            "message": "No supported platform detected",
+          },
+        };
+      }
+      final startX = (args['start_x'] as num).toDouble();
+      final startY = (args['start_y'] as num).toDouble();
+      final endX = (args['end_x'] as num).toDouble();
+      final endY = (args['end_y'] as num).toDouble();
+      final duration = args['duration'] as int? ?? 300;
+      final result = await driver.swipe(startX, startY, endX, endY,
+          durationMs: duration);
+      return result.toJson();
     }
 
     // Require connection for all other tools

@@ -6,6 +6,7 @@ class FlutterSkillClient {
   final String wsUri;
   VmService? _service;
   String? _isolateId;
+  bool _reconnecting = false;
 
   FlutterSkillClient(this.wsUri);
 
@@ -17,28 +18,12 @@ class FlutterSkillClient {
     try {
       _service = await vmServiceConnectUri(wsUri);
       print('DEBUG: Connected to VM Service');
-    } catch (e) {
-      throw Exception('''❌ Failed to connect to VM Service at $wsUri
 
-Possible causes:
-• Invalid URI format (must start with ws://)
-• App is not running or has crashed
-• Wrong port number
-• Network connectivity issues
-
-Solution:
-1. Verify the URI: $wsUri
-2. Check if app is running: flutter run --vm-service-port=50000
-3. Try scan_and_connect() to auto-detect running apps
-
-Error details: $e''');
-    }
-
-    final vm = await _service!.getVM();
-    print('DEBUG: Got VM info');
-    final isolates = vm.isolates;
-    if (isolates == null || isolates.isEmpty) {
-      throw Exception('''❌ No Dart isolates found in the VM
+      final vm = await _service!.getVM();
+      print('DEBUG: Got VM info');
+      final isolates = vm.isolates;
+      if (isolates == null || isolates.isEmpty) {
+        throw Exception('''❌ No Dart isolates found in the VM
 
 This usually means:
 • App is still starting up (wait a few seconds and retry)
@@ -51,14 +36,86 @@ Solution:
 3. Check app logs for startup errors
 
 URI: $wsUri''');
+      }
+      _isolateId = isolates.first.id!;
+    } catch (e) {
+      // Clean up partially initialized service
+      try {
+        await _service?.dispose();
+      } catch (_) {}
+      _service = null;
+      _isolateId = null;
+
+      throw Exception('''❌ Failed to connect to VM Service at $wsUri
+
+Possible causes:
+• Invalid URI format (must start with ws://)
+• App is not running or has crashed
+• Wrong port number
+• Network connectivity issues
+• VM Service proxy failed to initialize (LateInitializationError)
+
+Solution:
+1. Verify the URI: $wsUri
+2. Check if app is running: flutter run --vm-service-port=50000
+3. Try scan_and_connect() to auto-detect running apps
+
+Error details: $e''');
     }
-    _isolateId = isolates.first.id!;
   }
 
   Future<void> disconnect() async {
-    await _service?.dispose();
+    try {
+      await _service?.dispose();
+    } catch (_) {
+      // Ignore errors during disposal — service may already be broken
+    }
     _service = null;
     _isolateId = null;
+  }
+
+  /// Check if an error indicates a broken VM Service connection that
+  /// may be recoverable via reconnection.
+  bool _isConnectionError(Object e) {
+    final msg = e.toString();
+    return msg.contains('LateInitializationError') ||
+        (e is StateError && msg.contains('Stream'));
+  }
+
+  /// Attempt to re-establish the VM Service connection.
+  /// Returns true if reconnection succeeded.
+  Future<bool> _reconnect() async {
+    if (_reconnecting) return false;
+    _reconnecting = true;
+    try {
+      print('DEBUG: VM Service connection lost, attempting reconnect to $wsUri');
+      // Tear down the old connection
+      try {
+        await _service?.dispose();
+      } catch (_) {}
+      _service = null;
+      _isolateId = null;
+
+      // Re-establish
+      _service = await vmServiceConnectUri(wsUri);
+      final vm = await _service!.getVM();
+      final isolates = vm.isolates;
+      if (isolates != null && isolates.isNotEmpty) {
+        _isolateId = isolates.first.id!;
+        print('DEBUG: Reconnected to VM Service successfully');
+        return true;
+      }
+      // Connected but no isolates — app may have exited
+      _service = null;
+      return false;
+    } catch (e) {
+      print('DEBUG: Reconnection failed: $e');
+      _service = null;
+      _isolateId = null;
+      return false;
+    } finally {
+      _reconnecting = false;
+    }
   }
 
   Future<Map<String, dynamic>> _call(String method,
@@ -69,12 +126,31 @@ URI: $wsUri''');
 Call connect() first before making requests.
 URI: $wsUri''');
     }
-    final response = await _service!.callServiceExtension(
-      method,
-      isolateId: _isolateId!,
-      args: args,
-    );
-    return response.json ?? {};
+    try {
+      final response = await _service!.callServiceExtension(
+        method,
+        isolateId: _isolateId!,
+        args: args,
+      );
+      return response.json ?? {};
+    } catch (e) {
+      if (!_isConnectionError(e)) rethrow;
+
+      // Connection broken — attempt one reconnect and retry
+      if (await _reconnect()) {
+        final response = await _service!.callServiceExtension(
+          method,
+          isolateId: _isolateId!,
+          args: args,
+        );
+        return response.json ?? {};
+      }
+      throw Exception(
+          '❌ VM Service connection lost and reconnection failed.\n'
+          'URI: $wsUri\n'
+          'Original error: $e\n\n'
+          'Try: scan_and_connect() or connect_app(uri: "ws://...")');
+    }
   }
 
   // ==================== EXISTING METHODS ====================
@@ -352,13 +428,30 @@ URI: $wsUri''');
       throw Exception('Not connected to Flutter app');
     }
 
-    final allocationProfile =
-        await _service!.getAllocationProfile(_isolateId!);
-    return {
-      "heapUsed": allocationProfile.memoryUsage?.heapUsage ?? 0,
-      "heapCapacity": allocationProfile.memoryUsage?.heapCapacity ?? 0,
-      "external": allocationProfile.memoryUsage?.externalUsage ?? 0,
-    };
+    try {
+      final allocationProfile =
+          await _service!.getAllocationProfile(_isolateId!);
+      return {
+        "heapUsed": allocationProfile.memoryUsage?.heapUsage ?? 0,
+        "heapCapacity": allocationProfile.memoryUsage?.heapCapacity ?? 0,
+        "external": allocationProfile.memoryUsage?.externalUsage ?? 0,
+      };
+    } catch (e) {
+      if (!_isConnectionError(e)) rethrow;
+      if (await _reconnect()) {
+        final allocationProfile =
+            await _service!.getAllocationProfile(_isolateId!);
+        return {
+          "heapUsed": allocationProfile.memoryUsage?.heapUsage ?? 0,
+          "heapCapacity": allocationProfile.memoryUsage?.heapCapacity ?? 0,
+          "external": allocationProfile.memoryUsage?.externalUsage ?? 0,
+        };
+      }
+      throw Exception(
+          '❌ VM Service connection lost and reconnection failed.\n'
+          'URI: $wsUri\n'
+          'Original error: $e');
+    }
   }
 
   // ==================== ENHANCED INSPECTION ====================
@@ -381,14 +474,38 @@ URI: $wsUri''');
     if (_service == null || _isolateId == null) {
       throw Exception('Not connected');
     }
-    await _service!.reloadSources(_isolateId!);
+    try {
+      await _service!.reloadSources(_isolateId!);
+    } catch (e) {
+      if (!_isConnectionError(e)) rethrow;
+      if (await _reconnect()) {
+        await _service!.reloadSources(_isolateId!);
+        return;
+      }
+      throw Exception(
+          '❌ VM Service connection lost and reconnection failed.\n'
+          'URI: $wsUri\n'
+          'Original error: $e');
+    }
   }
 
   Future<void> hotRestart() async {
     if (_service == null || _isolateId == null) {
       throw Exception('Not connected');
     }
-    await _service!.reloadSources(_isolateId!);
+    try {
+      await _service!.reloadSources(_isolateId!);
+    } catch (e) {
+      if (!_isConnectionError(e)) rethrow;
+      if (await _reconnect()) {
+        await _service!.reloadSources(_isolateId!);
+        return;
+      }
+      throw Exception(
+          '❌ VM Service connection lost and reconnection failed.\n'
+          'URI: $wsUri\n'
+          'Original error: $e');
+    }
   }
 
   Future<Map<String, dynamic>> getLayoutTree() async {
