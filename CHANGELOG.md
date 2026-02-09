@@ -1,3 +1,13 @@
+## 0.7.3
+
+**Release script fix and cleanup**
+
+### Fixes
+- Fixed release script adding duplicate CHANGELOG entries when version entry already exists
+- Cleaned up CHANGELOG formatting
+
+---
+
 ## 0.7.2
 
 **Fix type cast errors in get_errors and get_network_requests**
