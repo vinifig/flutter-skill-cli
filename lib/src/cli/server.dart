@@ -2695,8 +2695,8 @@ Detailed diagnostic report with:
         };
       case 'get_errors':
         final allErrors = await client!.getErrors();
-        final limit = args['limit'] as int? ?? 50;
-        final offset = args['offset'] as int? ?? 0;
+        final limit = int.tryParse('${args['limit'] ?? ''}') ?? 50;
+        final offset = int.tryParse('${args['offset'] ?? ''}') ?? 0;
         final pagedErrors = allErrors.skip(offset).take(limit).toList();
         return {
           "errors": pagedErrors,
@@ -2737,7 +2737,7 @@ Detailed diagnostic report with:
         };
 
       case 'get_network_requests':
-        final limit = args['limit'] as int? ?? 20;
+        final limit = int.tryParse('${args['limit'] ?? ''}') ?? 20;
         // Try VM Service HTTP profile first (captures all dart:io HTTP)
         final profile = await client!.getHttpProfile();
         if (profile.containsKey('requests') && !profile.containsKey('error')) {

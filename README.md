@@ -115,7 +115,7 @@ Any MCP-compatible agent uses the same config format.
 ```yaml
 # pubspec.yaml
 dependencies:
-  flutter_skill: ^0.7.1
+  flutter_skill: ^0.7.2
 ```
 
 ```dart
