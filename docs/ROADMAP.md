@@ -29,71 +29,34 @@
 
 ---
 
-## Phase 1: Core Optimization (v0.8.0)
+## Phase 1: IDE Panel Integration (v0.7.4)
 
-### Smart Screenshot Optimization
-- Auto-compress screenshots for AI vision models (reduce token cost 3-5x)
-- Configurable quality/resolution presets: `screenshot({ quality: "ai" })`
-- Auto-crop status bar and navigation bar
-- Delta screenshots (only send changed regions)
+### VSCode Extension — Test Explorer Panel
+- Sidebar tree view: discover `.test.md` files in project
+- Run/Stop buttons per test file and per test case
+- Real-time status indicators (running, passed, failed, skipped)
+- Inline screenshot previews on test step click
+- Error details with failure screenshots
+- Test history and one-click re-run
 
-### Intelligent Wait System
-- Replace fixed timeouts with smart polling: `wait_for_stable()` waits until UI stops changing
-- Auto-detect animations/transitions and wait for completion
-- Network-aware waiting (wait for HTTP requests to complete)
+### IntelliJ Plugin — Test Tool Window
+- Same features as VSCode, native IntelliJ UI
+- Tool window with test tree, status, and screenshots
+- Run configurations for `.test.md` files
+- Gutter icons to run individual tests
 
-### Enhanced Error Recovery
-- Auto-reconnect on VM Service disconnection
-- Graceful handling of app crashes with diagnostic info
-- Retry logic for flaky operations (tap during animation, etc.)
+### `.test.md` Format Specification
+- Human-readable markdown test files, version-controllable
+- `## Test: <name>` defines a test case
+- Numbered steps map to MCP tool calls (`tap`, `enter_text`, `assert_visible`, etc.)
+- Supports variables and setup/teardown sections
 
-### Semantic Element Discovery
-- Find elements by semantic meaning: `find({ role: "submit_button" })` instead of exact key/text
-- Fuzzy text matching: `tap({ text: "Submit" })` matches "SUBMIT", "Submit Order", etc.
-- AI-friendly element descriptions in inspect output
-
----
-
-## Phase 2: AI-Powered QA Agent (v0.9.0)
-
-> Inspired by the emerging trend of fully automated QA teams — write tests in plain English, AI generates and executes them, with live visual feedback. All integrated directly into your IDE.
-
-### Natural Language Test Plans
-- `run_test_plan({ plan: "Test the login flow with valid and invalid credentials" })`
-- AI agent interprets the plan, breaks it into concrete steps, and executes them
-- Returns structured results: pass/fail per step, screenshots, and error details
-- Support for test plan files (`.test.md`) that describe scenarios in plain English
-
-### AI Test Case Generation
-- `generate_tests({ screen: "login" })` — AI analyzes the current screen and generates test cases
-- Auto-detect form fields, buttons, and navigation paths
-- Generate edge cases: empty fields, long text, special characters, boundary values
-- Output as reusable test plans or structured JSON
-
-### Parallel Test Execution
-- Run multiple test sessions simultaneously on different simulators/emulators
-- `run_parallel({ plans: [...], devices: ["iPhone 16", "Pixel 8"] })`
-- Aggregate results across devices into a single report
-- Detect device-specific failures
-
-### Live Test Recording & Replay
-- `start_recording()` / `stop_recording()` — capture all interactions as a video/GIF
-- Export test steps as replayable scripts (JSON or natural language)
-- Visual diff: compare recorded runs to detect regressions
-- Shareable test reports with screenshots at each step
-
-### Integration: Three Paths, One Engine
-
-All features above are powered by the same MCP tools. The UI layer adapts to where the developer works:
-
-**Path 1: AI Terminal Agents (Claude Code, Gemini CLI, etc.)**
-
-The AI agent IS the test runner and dashboard — no extra UI needed.
-
-*Level 1 — `.test.md` Execution (Core):*
 ```markdown
 <!-- login.test.md -->
 # Login Flow
+
+## Setup
+- Launch app on device
 
 ## Test: Valid credentials
 1. Enter "test@example.com" in email field
@@ -107,7 +70,20 @@ The AI agent IS the test runner and dashboard — no extra UI needed.
 3. Verify "Password required" error appears
 ```
 
-Agent reads the file, calls MCP tools (`tap`, `enter_text`, `assert_visible`, `screenshot`), reports inline:
+---
+
+## Phase 2: `.test.md` Engine + MCP Tools (v0.7.5)
+
+### `run_test_plan` MCP Tool
+- Parse `.test.md` files into executable test steps
+- Map natural language steps to MCP tool calls
+- Return structured results: pass/fail per step, screenshots, error details
+- Also accept inline plan: `run_test_plan({ plan: "Test login with valid credentials" })`
+
+### AI Terminal Agent Experience (Claude Code, Gemini CLI)
+
+The AI agent IS the test runner and dashboard — no extra UI needed.
+
 ```
 Running login.test.md...
 
@@ -127,7 +103,57 @@ Running login.test.md...
 Summary: 1/2 passed
 ```
 
-*Level 2 — Parallel Multi-Device:*
+### CI/CD Headless Runner
+- `flutter-skill run-tests --plan login.test.md --device "iPhone 16" --output results.json`
+- Structured JSON/JUnit XML output for CI integration
+- Exit code 0/1 for pass/fail gating
+- GitHub Actions / GitLab CI ready
+
+---
+
+## Phase 3: Smart Screenshots + Intelligent Waits (v0.7.6)
+
+### Smart Screenshot Optimization
+- Auto-compress screenshots for AI vision models (reduce token cost 3-5x)
+- Configurable quality/resolution presets: `screenshot({ quality: "ai" })`
+- Auto-crop status bar and navigation bar
+- Delta screenshots (only send changed regions)
+
+### Intelligent Wait System
+- Replace fixed timeouts with smart polling: `wait_for_stable()` waits until UI stops changing
+- Auto-detect animations/transitions and wait for completion
+- Network-aware waiting (wait for HTTP requests to complete)
+
+---
+
+## Phase 4: Error Recovery + Semantic Discovery (v0.7.7)
+
+### Enhanced Error Recovery
+- Auto-reconnect on VM Service disconnection
+- Graceful handling of app crashes with diagnostic info
+- Retry logic for flaky operations (tap during animation, etc.)
+
+### Semantic Element Discovery
+- Find elements by semantic meaning: `find({ role: "submit_button" })` instead of exact key/text
+- Fuzzy text matching: `tap({ text: "Submit" })` matches "SUBMIT", "Submit Order", etc.
+- AI-friendly element descriptions in inspect output
+
+---
+
+## Phase 5: AI Test Generation + Parallel Execution (v0.7.8)
+
+### AI Test Case Generation
+- `generate_tests({ screen: "login" })` — AI analyzes the current screen and generates test cases
+- Auto-detect form fields, buttons, and navigation paths
+- Generate edge cases: empty fields, long text, special characters, boundary values
+- Output as reusable `.test.md` files or structured JSON
+
+### Parallel Test Execution
+- Run multiple test sessions simultaneously on different simulators/emulators
+- `run_parallel({ plans: [...], devices: ["iPhone 16", "Pixel 8"] })`
+- Aggregate results across devices into a single report
+- Detect device-specific failures
+
 ```
 You: "Run login.test.md on iPhone 16 and Pixel 8"
 
@@ -142,7 +168,20 @@ You: "Run login.test.md on iPhone 16 and Pixel 8"
 └──────────────────────┴──────────────────────┘
 ```
 
-*Level 3 — Live Streaming Progress (MCP `notifications/progress`):*
+---
+
+## Phase 6: Live Recording + Streaming (v0.7.9)
+
+### Live Test Recording & Replay
+- `start_recording()` / `stop_recording()` — capture all interactions as a video/GIF
+- Export test steps as replayable scripts (JSON or natural language)
+- Visual diff: compare recorded runs to detect regressions
+- Shareable test reports with screenshots at each step
+
+### MCP Streaming Progress
+- Real-time progress via MCP `notifications/progress`
+- AI terminal agents receive live updates during test execution
+
 ```
 ⏳ Running 4 tests across 2 devices...
 
@@ -154,28 +193,9 @@ You: "Run login.test.md on iPhone 16 and Pixel 8"
 Progress: 2/8 complete ████░░░░░░ 25%
 ```
 
-| Level | MCP Tool | Effort | Value |
-|-------|----------|--------|-------|
-| Level 1 | `run_test_plan` + `.test.md` parser | Medium | 80% — core test execution |
-| Level 2 | `run_parallel` + multi-device orchestration | High | 15% — cross-device coverage |
-| Level 3 | MCP `notifications/progress` streaming | High | 5% — real-time visual feedback |
-
-**Path 2: IDE Panels (VSCode + IntelliJ)**
-- **VSCode Sidebar Panel**: Test explorer tree view showing `.test.md` files, run/stop buttons, live status
-- **IntelliJ Tool Window**: Same features, native IntelliJ UI
-- Inline screenshots and error details — click a failed step to see what happened
-- Test history and re-run from panel
-- Real-time execution status (running, passed, failed, skipped)
-
-**Path 3: CI/CD (Headless)**
-- `flutter-skill run-tests --plan login.test.md --device "iPhone 16" --output results.json`
-- CLI command for GitHub Actions, GitLab CI, etc.
-- Structured JSON/JUnit XML output for CI integration
-- Exit code 0/1 for pass/fail gating
-
 ---
 
-## Phase 3: Advanced Testing Features (v0.10.0)
+## Phase 7: Advanced Testing (v0.7.10)
 
 ### Visual Regression Testing
 - `screenshot_compare({ baseline: "login_screen" })` — pixel-diff with threshold
@@ -196,7 +216,7 @@ Progress: 2/8 complete ████░░░░░░ 25%
 
 ---
 
-## Phase 4: Multi-Framework Support (v1.0.0)
+## Phase 8: Multi-Framework Support (v0.7.11)
 
 ### Architecture: Universal App Driver
 
@@ -272,10 +292,14 @@ scan_and_connect()
 | **v0.7.1** | Bug Fixes | Screenshot fix, enter_text fix, assert_text fix, network monitoring |
 | **v0.7.2** | Stability | JSON-RPC type cast fixes |
 | **v0.7.3** | Native Platform | iOS/Android native view support, hybrid detection |
-| **v0.8.0** | Core Optimization | Smart screenshots, intelligent waits, error recovery, semantic discovery |
-| **v0.9.0** | AI-Powered QA | Natural language tests, AI test generation, parallel execution, live recording |
-| **v0.10.0** | Advanced Testing | Visual regression, performance monitoring, accessibility validation |
-| **v1.0.0** | Multi-Framework | React Native, native iOS/Android, Web, Electron support |
+| **v0.7.4** | IDE Panels | VSCode test explorer, IntelliJ tool window, `.test.md` format |
+| **v0.7.5** | Test Engine | `run_test_plan` MCP tool, `.test.md` parser, CI/CD runner |
+| **v0.7.6** | Smart Core | Smart screenshots, intelligent waits |
+| **v0.7.7** | Reliability | Error recovery, semantic element discovery |
+| **v0.7.8** | AI QA | AI test generation, parallel multi-device execution |
+| **v0.7.9** | Recording | Live test recording, MCP streaming progress |
+| **v0.7.10** | Advanced Testing | Visual regression, performance monitoring, accessibility |
+| **v0.7.11** | Multi-Framework | React Native, native iOS/Android, Web, Electron support |
 
 ---
 
@@ -283,18 +307,18 @@ scan_and_connect()
 
 | Feature | Impact | Effort | Priority |
 |---------|--------|--------|----------|
-| Smart screenshots | High (token cost) | Low | P0 |
-| Intelligent waits | High (reliability) | Medium | P0 |
-| Error recovery | High (stability) | Medium | P0 |
+| IDE panel integration | High (DX) | Medium | P0 — next |
+| `.test.md` engine | High (AI QA core) | Medium | P0 |
+| Smart screenshots | High (token cost) | Low | P1 |
+| Intelligent waits | High (reliability) | Medium | P1 |
+| Error recovery | High (stability) | Medium | P1 |
 | Semantic discovery | High (usability) | Medium | P1 |
-| Natural language test plans | High (AI QA vision) | High | P1 |
-| AI test case generation | High (AI QA vision) | High | P1 |
-| Parallel test execution | High (speed) | High | P1 |
-| Live test recording | Medium (DX) | Medium | P1 |
+| AI test case generation | High (AI QA vision) | High | P2 |
+| Parallel test execution | High (speed) | High | P2 |
+| Live test recording | Medium (DX) | Medium | P2 |
 | Visual regression | Medium (testing) | Medium | P2 |
-| React Native support | High (market) | High | P2 |
-| Web support | Medium (market) | Medium | P2 |
-| IDE panel integration | High (DX) | Medium | P1 |
-| Accessibility | Medium (quality) | Low | P2 |
+| React Native support | High (market) | High | P3 |
+| Web support | Medium (market) | Medium | P3 |
+| Accessibility | Medium (quality) | Low | P3 |
 | Performance monitoring | Low (niche) | Medium | P3 |
 | Electron support | Low (niche) | Low | P3 |
