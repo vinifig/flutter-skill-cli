@@ -196,6 +196,7 @@ class DiscoveryResult {
   final bool success;
   final String? vmServiceUri;
   final String? dtdUri;
+  final String? bridgeUri;
   final String? discoveryMethod;
   final String message;
   final List<String> suggestions;
@@ -204,6 +205,7 @@ class DiscoveryResult {
     required this.success,
     this.vmServiceUri,
     this.dtdUri,
+    this.bridgeUri,
     this.discoveryMethod,
     required this.message,
     this.suggestions = const [],
@@ -213,6 +215,7 @@ class DiscoveryResult {
         'success': success,
         'vm_service_uri': vmServiceUri,
         'dtd_uri': dtdUri,
+        if (bridgeUri != null) 'bridge_uri': bridgeUri,
         'discovery_method': discoveryMethod,
         'message': message,
         if (suggestions.isNotEmpty) 'suggestions': suggestions,

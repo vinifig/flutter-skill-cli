@@ -3,6 +3,9 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:http/http.dart' as http;
+import '../discovery/bridge_discovery.dart';
+import '../drivers/app_driver.dart';
+import '../drivers/bridge_driver.dart';
 import '../drivers/flutter_driver.dart';
 import '../drivers/native_driver.dart';
 import '../diagnostics/error_reporter.dart';
@@ -118,18 +121,18 @@ bool _isNewerVersion(String latest, String current) {
 
 class FlutterMcpServer {
   // Multi-session support
-  final Map<String, FlutterSkillClient> _clients = {};
+  final Map<String, AppDriver> _clients = {};
   final Map<String, SessionInfo> _sessions = {};
   String? _activeSessionId;
 
   // Legacy single client support (for backward compatibility)
-  FlutterSkillClient? get _client => _activeSessionId != null
+  AppDriver? get _client => _activeSessionId != null
       ? _clients[_activeSessionId]
       : _clients.values.isNotEmpty
           ? _clients.values.first
           : null;
 
-  set _client(FlutterSkillClient? client) {
+  set _client(AppDriver? client) {
     if (client != null && _activeSessionId != null) {
       _clients[_activeSessionId!] = client;
     }
@@ -1584,7 +1587,7 @@ Detailed diagnostic report with:
   }
 
   /// Get the client for a specific session or the active session
-  FlutterSkillClient? _getClient(Map<String, dynamic> args) {
+  AppDriver? _getClient(Map<String, dynamic> args) {
     final sessionId = args['session_id'] as String?;
 
     if (sessionId != null) {
@@ -2005,9 +2008,44 @@ Detailed diagnostic report with:
         }
       }
 
+      // Try bridge discovery first (cross-framework)
+      final bridgeApps = await BridgeDiscovery.discoverAll();
+      if (bridgeApps.isNotEmpty) {
+        final bridgeApp = bridgeApps.first;
+
+        // Disconnect old client for this session if exists
+        if (_clients.containsKey(sessionId)) {
+          await _clients[sessionId]!.disconnect();
+        }
+
+        final driver = BridgeDriver.fromInfo(bridgeApp);
+        await driver.connect();
+
+        _clients[sessionId] = driver;
+        _sessions[sessionId] = SessionInfo(
+          id: sessionId,
+          name: args['name'] as String? ?? '${bridgeApp.framework} app (bridge)',
+          projectPath: args['project_path'] as String? ?? 'unknown',
+          deviceId: bridgeApp.platform,
+          port: bridgeApp.port,
+          vmServiceUri: bridgeApp.wsUri,
+        );
+        _activeSessionId = sessionId;
+
+        return {
+          "success": true,
+          "connected": bridgeApp.wsUri,
+          "framework": bridgeApp.framework,
+          "session_id": sessionId,
+          "active_session": true,
+          "bridge_apps": bridgeApps.map((a) => a.toJson()).toList(),
+        };
+      }
+
+      // Fall back to VM Service discovery (Flutter)
       final vmServices = await _scanVmServices(portStart, portEnd);
       if (vmServices.isEmpty) {
-        return {"success": false, "message": "No running Flutter apps found"};
+        return {"success": false, "message": "No running apps found (checked bridge ports and VM Service ports)"};
       }
 
       // Connect to the first one
@@ -2038,6 +2076,7 @@ Detailed diagnostic report with:
       return {
         "success": true,
         "connected": uri,
+        "framework": "Flutter",
         "session_id": sessionId,
         "active_session": true,
         "available": vmServices
@@ -2114,8 +2153,9 @@ Detailed diagnostic report with:
 
         return {
           "connected": client.isConnected,
+          "framework": client.frameworkName,
           "session_id": sessionId,
-          "uri": client.vmServiceUri,
+          "uri": client is FlutterSkillClient ? client.vmServiceUri : null,
           "session_info": session?.toJson(),
           "launched_app": _flutterProcess != null,
         };
@@ -2294,18 +2334,20 @@ Detailed diagnostic report with:
     if (name == 'hot_restart') {
       final client = _getClient(args);
       _requireConnection(client);
-      await client!.hotRestart();
+      final fc = _asFlutterClient(client!, 'hot_restart');
+      await fc.hotRestart();
       return "Hot restart triggered";
     }
 
     if (name == 'enable_test_indicators') {
       final client = _getClient(args);
       _requireConnection(client);
+      final fc = _asFlutterClient(client!, 'enable_test_indicators');
       final enabled = args['enabled'] ?? true;
       final style = args['style'] ?? 'standard';
 
       if (enabled) {
-        await client!.enableTestIndicators(style: style);
+        await fc.enableTestIndicators(style: style);
         return {
           "success": true,
           "enabled": true,
@@ -2313,7 +2355,7 @@ Detailed diagnostic report with:
           "message": "Test indicators enabled with $style style"
         };
       } else {
-        await client!.disableTestIndicators();
+        await fc.disableTestIndicators();
         return {
           "success": true,
           "enabled": false,
@@ -2325,7 +2367,8 @@ Detailed diagnostic report with:
     if (name == 'get_indicator_status') {
       final client = _getClient(args);
       _requireConnection(client);
-      return await client!.getIndicatorStatus();
+      final fc = _asFlutterClient(client!, 'get_indicator_status');
+      return await fc.getIndicatorStatus();
     }
 
     // Native platform interaction tools (no VM Service connection required)
@@ -2428,7 +2471,6 @@ Detailed diagnostic report with:
     // Require connection for all other tools
     final client = _getClient(args);
     _requireConnection(client);
-
     switch (name) {
       // Inspection
       case 'inspect':
@@ -2449,14 +2491,18 @@ Detailed diagnostic report with:
         }
         return elements;
       case 'get_widget_tree':
+        final fc = _asFlutterClient(client!, 'get_widget_tree');
         final maxDepth = args['max_depth'] ?? 10;
-        return await client!.getWidgetTree(maxDepth: maxDepth);
+        return await fc.getWidgetTree(maxDepth: maxDepth);
       case 'get_widget_properties':
-        return await client!.getWidgetProperties(args['key']);
+        final fc = _asFlutterClient(client!, 'get_widget_properties');
+        return await fc.getWidgetProperties(args['key']);
       case 'get_text_content':
-        return await client!.getTextContent();
+        final fc = _asFlutterClient(client!, 'get_text_content');
+        return await fc.getTextContent();
       case 'find_by_type':
-        return await client!.findByType(args['type']);
+        final fc = _asFlutterClient(client!, 'find_by_type');
+        return await fc.findByType(args['type']);
 
       // Basic Actions
       case 'tap':
@@ -2464,9 +2510,10 @@ Detailed diagnostic report with:
         final x = args['x'] as num?;
         final y = args['y'] as num?;
 
-        // Method 3: Tap by coordinates
+        // Method 3: Tap by coordinates (Flutter-specific)
         if (x != null && y != null) {
-          await client!.tapAt(x.toDouble(), y.toDouble());
+          final fc = _asFlutterClient(client!, 'tap (coordinates)');
+          await fc.tapAt(x.toDouble(), y.toDouble());
           return {
             "success": true,
             "method": "coordinates",
@@ -2509,8 +2556,9 @@ Detailed diagnostic report with:
         return {"success": true, "message": "Text entered"};
 
       case 'scroll_to':
+        final fc = _asFlutterClient(client!, 'scroll_to');
         final result =
-            await client!.scrollTo(key: args['key'], text: args['text']);
+            await fc.scrollTo(key: args['key'], text: args['text']);
         if (result['success'] != true) {
           return {
             "success": false,
@@ -2521,13 +2569,15 @@ Detailed diagnostic report with:
 
       // Advanced Actions
       case 'long_press':
+        final fc = _asFlutterClient(client!, 'long_press');
         final duration = args['duration'] ?? 500;
-        final success = await client!.longPress(
+        final success = await fc.longPress(
             key: args['key'], text: args['text'], duration: duration);
         return success ? "Long pressed" : "Long press failed";
       case 'double_tap':
+        final fc = _asFlutterClient(client!, 'double_tap');
         final success =
-            await client!.doubleTap(key: args['key'], text: args['text']);
+            await fc.doubleTap(key: args['key'], text: args['text']);
         return success ? "Double tapped" : "Double tap failed";
       case 'swipe':
         final distance = (args['distance'] ?? 300).toDouble();
@@ -2535,25 +2585,31 @@ Detailed diagnostic report with:
             direction: args['direction'], distance: distance, key: args['key']);
         return success ? "Swiped ${args['direction']}" : "Swipe failed";
       case 'drag':
-        final success = await client!
+        final fc = _asFlutterClient(client!, 'drag');
+        final success = await fc
             .drag(fromKey: args['from_key'], toKey: args['to_key']);
         return success ? "Dragged" : "Drag failed";
 
       // State & Validation
       case 'get_text_value':
-        return await client!.getTextValue(args['key']);
+        final fc = _asFlutterClient(client!, 'get_text_value');
+        return await fc.getTextValue(args['key']);
       case 'get_checkbox_state':
-        return await client!.getCheckboxState(args['key']);
+        final fc = _asFlutterClient(client!, 'get_checkbox_state');
+        return await fc.getCheckboxState(args['key']);
       case 'get_slider_value':
-        return await client!.getSliderValue(args['key']);
+        final fc = _asFlutterClient(client!, 'get_slider_value');
+        return await fc.getSliderValue(args['key']);
       case 'wait_for_element':
+        final fc = _asFlutterClient(client!, 'wait_for_element');
         final timeout = args['timeout'] ?? 5000;
-        final found = await client!.waitForElement(
+        final found = await fc.waitForElement(
             key: args['key'], text: args['text'], timeout: timeout);
         return {"found": found};
       case 'wait_for_gone':
+        final fc = _asFlutterClient(client!, 'wait_for_gone');
         final timeout = args['timeout'] ?? 5000;
-        final gone = await client!.waitForGone(
+        final gone = await fc.waitForGone(
             key: args['key'], text: args['text'], timeout: timeout);
         return {"gone": gone};
 
@@ -2607,12 +2663,13 @@ Detailed diagnostic report with:
         }
 
       case 'screenshot_region':
+        final fc = _asFlutterClient(client!, 'screenshot_region');
         final x = (args['x'] as num).toDouble();
         final y = (args['y'] as num).toDouble();
         final width = (args['width'] as num).toDouble();
         final height = (args['height'] as num).toDouble();
         final saveToFile = args['save_to_file'] ?? true;
-        final image = await client!.takeRegionScreenshot(x, y, width, height);
+        final image = await fc.takeRegionScreenshot(x, y, width, height);
 
         if (image == null) {
           return {
@@ -2665,7 +2722,8 @@ Detailed diagnostic report with:
           };
         }
 
-        final image = await client!.takeElementScreenshot(targetKey);
+        final fc = _asFlutterClient(client!, 'screenshot_element');
+        final image = await fc.takeElementScreenshot(targetKey);
         if (image == null) {
           return {
             "error": "Screenshot failed",
@@ -2676,12 +2734,15 @@ Detailed diagnostic report with:
 
       // Navigation
       case 'get_current_route':
-        return await client!.getCurrentRoute();
+        final fc = _asFlutterClient(client!, 'get_current_route');
+        return await fc.getCurrentRoute();
       case 'go_back':
-        final success = await client!.goBack();
+        final fc = _asFlutterClient(client!, 'go_back');
+        final success = await fc.goBack();
         return success ? "Navigated back" : "Cannot go back";
       case 'get_navigation_stack':
-        return await client!.getNavigationStack();
+        final fc = _asFlutterClient(client!, 'get_navigation_stack');
+        return await fc.getNavigationStack();
 
       // Debug & Logs
       case 'get_logs':
@@ -2694,7 +2755,8 @@ Detailed diagnostic report with:
           }
         };
       case 'get_errors':
-        final allErrors = await client!.getErrors();
+        final fc = _asFlutterClient(client!, 'get_errors');
+        final allErrors = await fc.getErrors();
         final limit = int.tryParse('${args['limit'] ?? ''}') ?? 50;
         final offset = int.tryParse('${args['offset'] ?? ''}') ?? 0;
         final pagedErrors = allErrors.skip(offset).take(limit).toList();
@@ -2719,12 +2781,14 @@ Detailed diagnostic report with:
           "message": "Logs cleared successfully"
         };
       case 'get_performance':
-        return await client!.getPerformance();
+        final fc = _asFlutterClient(client!, 'get_performance');
+        return await fc.getPerformance();
 
       // === HTTP / Network Monitoring ===
       case 'enable_network_monitoring':
+        final fc = _asFlutterClient(client!, 'enable_network_monitoring');
         final enable = args['enable'] ?? true;
-        final success = await client!.enableHttpTimelineLogging(enable: enable);
+        final success = await fc.enableHttpTimelineLogging(enable: enable);
         return {
           "success": success,
           "enabled": enable,
@@ -2737,9 +2801,10 @@ Detailed diagnostic report with:
         };
 
       case 'get_network_requests':
+        final fc = _asFlutterClient(client!, 'get_network_requests');
         final limit = int.tryParse('${args['limit'] ?? ''}') ?? 20;
         // Try VM Service HTTP profile first (captures all dart:io HTTP)
-        final profile = await client!.getHttpProfile();
+        final profile = await fc.getHttpProfile();
         if (profile.containsKey('requests') && !profile.containsKey('error')) {
           final allRequests = (profile['requests'] as List?) ?? [];
           // Take latest N requests, format for readability
@@ -2780,7 +2845,7 @@ Detailed diagnostic report with:
         }
 
         // Fallback: try manually logged requests from the binding
-        final manualRequests = await client.getHttpRequests(limit: limit);
+        final manualRequests = await fc.getHttpRequests(limit: limit);
         return {
           "success": true,
           "source": "manual_log",
@@ -2789,7 +2854,8 @@ Detailed diagnostic report with:
         };
 
       case 'clear_network_requests':
-        await client!.clearHttpRequests();
+        final fc = _asFlutterClient(client!, 'clear_network_requests');
+        await fc.clearHttpRequests();
         return {
           "success": true,
           "message": "Network request history cleared"
@@ -2797,66 +2863,79 @@ Detailed diagnostic report with:
 
       // === NEW: Batch Operations ===
       case 'execute_batch':
-        return await _executeBatch(args, client!);
+        final fc = _asFlutterClient(client!, 'execute_batch');
+        return await _executeBatch(args, fc);
 
       // === NEW: Coordinate-based Actions ===
       case 'tap_at':
+        final fc = _asFlutterClient(client!, 'tap_at');
         final x = (args['x'] as num).toDouble();
         final y = (args['y'] as num).toDouble();
-        await client!.tapAt(x, y);
+        await fc.tapAt(x, y);
         return {"success": true, "action": "tap_at", "x": x, "y": y};
 
       case 'long_press_at':
+        final fc = _asFlutterClient(client!, 'long_press_at');
         final x = (args['x'] as num).toDouble();
         final y = (args['y'] as num).toDouble();
         final duration = args['duration'] ?? 500;
-        await client!.longPressAt(x, y, duration: duration);
+        await fc.longPressAt(x, y, duration: duration);
         return {"success": true, "action": "long_press_at", "x": x, "y": y};
 
       case 'swipe_coordinates':
+        final fc = _asFlutterClient(client!, 'swipe_coordinates');
         final startX = (args['start_x'] as num).toDouble();
         final startY = (args['start_y'] as num).toDouble();
         final endX = (args['end_x'] as num).toDouble();
         final endY = (args['end_y'] as num).toDouble();
         final duration = args['duration'] ?? 300;
-        await client!
+        await fc
             .swipeCoordinates(startX, startY, endX, endY, duration: duration);
         return {"success": true, "action": "swipe_coordinates"};
 
       case 'edge_swipe':
+        final fc = _asFlutterClient(client!, 'edge_swipe');
         final edge = args['edge'] as String;
         final direction = args['direction'] as String;
         final distance = (args['distance'] as num?)?.toDouble() ?? 200;
-        final result = await client!
+        final result = await fc
             .edgeSwipe(edge: edge, direction: direction, distance: distance);
         return result;
 
       case 'gesture':
-        return await _performGesture(args, client!);
+        final fc = _asFlutterClient(client!, 'gesture');
+        return await _performGesture(args, fc);
 
       case 'wait_for_idle':
-        return await _waitForIdle(args, client!);
+        final fc = _asFlutterClient(client!, 'wait_for_idle');
+        return await _waitForIdle(args, fc);
 
       // === NEW: Smart Scroll ===
       case 'scroll_until_visible':
-        return await _scrollUntilVisible(args, client!);
+        final fc = _asFlutterClient(client!, 'scroll_until_visible');
+        return await _scrollUntilVisible(args, fc);
 
       // === NEW: Assertions ===
       case 'assert_visible':
-        return await _assertVisible(args, client!, shouldBeVisible: true);
+        final fc = _asFlutterClient(client!, 'assert_visible');
+        return await _assertVisible(args, fc, shouldBeVisible: true);
 
       case 'assert_not_visible':
-        return await _assertVisible(args, client!, shouldBeVisible: false);
+        final fc = _asFlutterClient(client!, 'assert_not_visible');
+        return await _assertVisible(args, fc, shouldBeVisible: false);
 
       case 'assert_text':
-        return await _assertText(args, client!);
+        final fc = _asFlutterClient(client!, 'assert_text');
+        return await _assertText(args, fc);
 
       case 'assert_element_count':
-        return await _assertElementCount(args, client!);
+        final fc = _asFlutterClient(client!, 'assert_element_count');
+        return await _assertElementCount(args, fc);
 
       // === NEW: Page State ===
       case 'get_page_state':
-        return await _getPageState(client!);
+        final fc = _asFlutterClient(client!, 'get_page_state');
+        return await _getPageState(fc);
 
       case 'get_interactable_elements':
         final includePositions = args['include_positions'] ?? true;
@@ -2865,14 +2944,17 @@ Detailed diagnostic report with:
 
       // === NEW: Performance & Memory ===
       case 'get_frame_stats':
-        return await client!.getFrameStats();
+        final fc = _asFlutterClient(client!, 'get_frame_stats');
+        return await fc.getFrameStats();
 
       case 'get_memory_stats':
-        return await client!.getMemoryStats();
+        final fc = _asFlutterClient(client!, 'get_memory_stats');
+        return await fc.getMemoryStats();
 
       // === Smart Diagnosis ===
       case 'diagnose':
-        return await _performDiagnosis(args, client!);
+        final fc = _asFlutterClient(client!, 'diagnose');
+        return await _performDiagnosis(args, fc);
 
       default:
         throw Exception("Unknown tool: $name");
@@ -3353,7 +3435,18 @@ Detailed diagnostic report with:
     };
   }
 
-  void _requireConnection([FlutterSkillClient? client]) {
+  /// Cast an [AppDriver] to [FlutterSkillClient], throwing a clear error
+  /// if the active connection is a bridge driver (non-Flutter).
+  FlutterSkillClient _asFlutterClient(AppDriver driver, String toolName) {
+    if (driver is FlutterSkillClient) return driver;
+    throw Exception(
+      '❌ "$toolName" requires a Flutter (VM Service) connection, '
+      'but the active session uses the ${driver.frameworkName} bridge driver.\n'
+      'This tool is not available for ${driver.frameworkName} apps.',
+    );
+  }
+
+  void _requireConnection([AppDriver? client]) {
     client ??= _client;
     if (client == null) {
       throw Exception('''❌ Not connected to Flutter app.

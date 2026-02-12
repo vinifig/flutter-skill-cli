@@ -1,3 +1,5 @@
+import 'bridge_discovery.dart';
+import '../bridge/bridge_protocol.dart';
 import 'dtd_service_discovery.dart';
 import 'quick_port_check.dart';
 import 'process_based_discovery.dart';
@@ -21,7 +23,39 @@ class UnifiedDiscovery {
     bool verbose = false,
   }) async {
     if (verbose) {
-      print('🔍 Smart discovery of running Flutter apps...\n');
+      print('🔍 Smart discovery of running apps...\n');
+    }
+
+    // ═══════════════════════════════════════
+    // Strategy -1: Bridge discovery (cross-framework!)
+    // ═══════════════════════════════════════
+    if (verbose) {
+      print('📋 Strategy B: Bridge discovery (ports $bridgePortRangeStart-$bridgePortRangeEnd)...');
+    }
+
+    try {
+      final bridgeApps = await BridgeDiscovery.discoverAll(verbose: verbose);
+
+      if (bridgeApps.isNotEmpty) {
+        final app = bridgeApps.first;
+        if (verbose) {
+          print('   ✅ Found ${bridgeApps.length} bridge app(s): $app\n');
+        }
+        return DiscoveryResult(
+          success: true,
+          bridgeUri: app.wsUri,
+          discoveryMethod: 'bridge',
+          message: 'Discovered via bridge protocol (${app.framework} on ${app.platform})',
+        );
+      }
+
+      if (verbose) {
+        print('   ⚠️  No bridge apps found\n');
+      }
+    } catch (e) {
+      if (verbose) {
+        print('   ⚠️  Bridge discovery failed: $e\n');
+      }
     }
 
     // ═══════════════════════════════════════

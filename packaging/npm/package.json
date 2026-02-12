@@ -1,7 +1,7 @@
 {
   "name": "flutter-skill",
   "version": "0.7.3",
-  "description": "MCP Server for Flutter app automation - Give your AI Agent eyes and hands inside your Flutter app",
+  "description": "MCP Server for app automation - Give your AI Agent eyes and hands inside any app (Flutter, React, Web, Native)",
   "main": "index.js",
   "bin": {
     "flutter-skill-mcp": "./bin/cli.js",
@@ -12,6 +12,8 @@
   },
   "keywords": [
     "flutter",
+    "react-native",
+    "web",
     "mcp",
     "ai",
     "automation",
@@ -37,6 +39,7 @@
     "bin/",
     "scripts/",
     "dart/",
+    "web/",
     "README.md"
   ]
 }

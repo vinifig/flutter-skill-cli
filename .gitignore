@@ -8,7 +8,7 @@ android/
 ios/
 linux/
 macos/
-web/
+/web/
 windows/
 
 # IDEs
