@@ -109,6 +109,8 @@ struct ElementDescriptor {
         if view is UITextField { return true }
         if view is UITextView { return (view as! UITextView).isEditable }
         if view is UISearchBar { return true }
+        // SwiftUI buttons expose .button trait on the underlying UIKit view
+        if view.accessibilityTraits.contains(.button) { return true }
         // Check for tap gesture recognizers
         if let gestures = view.gestureRecognizers {
             for gesture in gestures {
@@ -127,17 +129,30 @@ extension UIView {
     /// Collect all interactive elements in the hierarchy.
     func flutterSkill_interactiveElements() -> [ElementDescriptor] {
         var results: [ElementDescriptor] = []
+        var seenIdentifiers = Set<String>()
         flutterSkill_walkHierarchy { view in
             let desc = ElementDescriptor(view: view)
-            if desc.interactive && desc.visible {
+            guard desc.visible else { return }
+
+            // Dedup by accessibility identifier to avoid SwiftUI wrapper duplicates
+            if let id = view.accessibilityIdentifier, !id.isEmpty {
+                if seenIdentifiers.contains(id) { return }
+                seenIdentifiers.insert(id)
+            }
+
+            if desc.interactive {
                 results.append(desc)
             }
-            // Also include views with accessibility identifiers (SwiftUI uses these)
-            else if desc.visible && view.accessibilityIdentifier != nil {
+            // Include views with accessibility identifiers (SwiftUI uses these)
+            else if view.accessibilityIdentifier != nil {
                 results.append(desc)
             }
-            // Include labels and text views that are visible (for inspection)
-            else if desc.visible && desc.text != nil && !desc.text!.isEmpty {
+            // Include SwiftUI accessibility elements (Text, Image, etc.)
+            else if view.isAccessibilityElement && (view.accessibilityLabel != nil || view.accessibilityValue != nil) {
+                results.append(desc)
+            }
+            // Include UIKit labels and text views
+            else if desc.text != nil && !desc.text!.isEmpty {
                 switch view {
                 case is UILabel, is UITextField, is UITextView:
                     results.append(desc)
@@ -157,9 +172,41 @@ extension UIView {
         }
     }
 
+    /// Walk the accessibility element tree (for SwiftUI views that don't use UIKit subviews).
+    /// Returns accessibility elements as (identifier, label, value, traits, view) tuples.
+    func flutterSkill_walkAccessibilityElements(_ visitor: (NSObject) -> Void) {
+        // Check if this view exposes custom accessibility elements
+        if let elements = self.accessibilityElements {
+            for element in elements {
+                if let obj = element as? NSObject {
+                    visitor(obj)
+                    // If it's also a UIView, recurse into it
+                    if let view = obj as? UIView {
+                        view.flutterSkill_walkAccessibilityElements(visitor)
+                    }
+                }
+            }
+        }
+        // Also recurse into subviews
+        for subview in subviews {
+            subview.flutterSkill_walkAccessibilityElements(visitor)
+        }
+    }
+
     /// Find a view by its accessibilityIdentifier (exact match).
+    /// Also searches SwiftUI accessibility elements that are UIViews.
     func flutterSkill_findView(accessibilityIdentifier id: String) -> UIView? {
         if self.accessibilityIdentifier == id { return self }
+        // Check accessibility elements that are UIViews (for SwiftUI)
+        if let elements = self.accessibilityElements {
+            for element in elements {
+                if let view = element as? UIView {
+                    if let found = view.flutterSkill_findView(accessibilityIdentifier: id) {
+                        return found
+                    }
+                }
+            }
+        }
         for subview in subviews {
             if let found = subview.flutterSkill_findView(accessibilityIdentifier: id) {
                 return found

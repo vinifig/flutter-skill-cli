@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Flutter Skill Web SDK E2E Test</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    .result { margin-top: 10px; padding: 10px; background: #f0f0f0; }
+    input, button { margin: 5px; padding: 8px; }
+  </style>
+</head>
+<body>
+  <h1>E2E Test Page</h1>
+
+  <div>
+    <button id="btn-hello" data-testid="hello-btn" onclick="document.getElementById('output').textContent = 'Hello clicked!'">
+      Say Hello
+    </button>
+    <button id="btn-count" data-testid="count-btn" onclick="incrementCount()">
+      Count: 0
+    </button>
+  </div>
+
+  <div>
+    <label for="name-input">Name:</label>
+    <input type="text" id="name-input" data-testid="name-field" placeholder="Enter your name">
+    <button data-testid="greet-btn" onclick="greet()">Greet</button>
+  </div>
+
+  <div id="output" class="result" data-testid="output">Ready</div>
+
+  <script>
+    var count = 0;
+    function incrementCount() {
+      count++;
+      document.getElementById('btn-count').textContent = 'Count: ' + count;
+    }
+    function greet() {
+      var name = document.getElementById('name-input').value || 'World';
+      document.getElementById('output').textContent = 'Hello, ' + name + '!';
+    }
+  </script>
+
+  <!-- Load flutter-skill web SDK -->
+  <script src="../../sdks/web/flutter-skill.js"></script>
+</body>
+</html>

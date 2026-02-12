@@ -1,0 +1,30 @@
+name: FlutterSkillTestApp
+options:
+  bundleIdPrefix: com.flutterskill.test
+  deploymentTarget:
+    iOS: "16.0"
+  xcodeVersion: "26.2"
+packages:
+  FlutterSkill:
+    path: "../../../sdks/ios"
+targets:
+  FlutterSkillTestApp:
+    type: application
+    platform: iOS
+    sources:
+      - Sources
+    dependencies:
+      - package: FlutterSkill
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.flutterskill.test.app
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+        SWIFT_VERSION: "5.9"
+        GENERATE_INFOPLIST_FILE: YES
+        NSLocalNetworkUsageDescription: "Flutter Skill bridge communication"
+        NSBonjourServices:
+          - _flutter-skill._tcp

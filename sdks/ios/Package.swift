@@ -1,4 +1,4 @@
-// swift-tools-version: 5.9
+// swift-tools-version: 6.0
 
 import PackageDescription
 
@@ -18,7 +18,18 @@ let package = Package(
         .target(
             name: "FlutterSkill",
             dependencies: [],
-            path: "Sources/FlutterSkill"
+            path: "Sources/FlutterSkill",
+            swiftSettings: [
+                .swiftLanguageMode(.v5),
+            ]
+        ),
+        .testTarget(
+            name: "FlutterSkillTests",
+            dependencies: ["FlutterSkill"],
+            path: "Tests/FlutterSkillTests",
+            swiftSettings: [
+                .swiftLanguageMode(.v5),
+            ]
         ),
     ]
 )
