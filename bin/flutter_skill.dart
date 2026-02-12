@@ -6,13 +6,17 @@ import 'package:flutter_skill/src/cli/server.dart';
 import 'package:flutter_skill/src/cli/report_error.dart';
 import 'package:flutter_skill/src/cli/setup_priority.dart';
 import 'package:flutter_skill/src/cli/doctor.dart';
+import 'package:flutter_skill/src/cli/init.dart';
+import 'package:flutter_skill/src/cli/demo.dart';
 
 void main(List<String> args) async {
   if (args.isEmpty) {
     print('flutter-skill v$currentVersion - AI Agent Bridge for Flutter Apps');
     print('');
     print('Commands:');
-    print('  launch       Launch and auto-connect to a Flutter app');
+    print('  init         Auto-setup any project (Flutter/iOS/Android/RN/Web)');
+    print('  demo         Launch a built-in demo app — zero setup needed');
+    print('  launch       Launch and auto-connect to an app');
     print('  server       Start MCP server (used by IDEs)');
     print('  inspect      Inspect interactive elements');
     print('  act          Perform actions (tap, enter_text, scroll)');
@@ -23,7 +27,8 @@ void main(List<String> args) async {
     print('  --version    Show version');
     print('');
     print('Quick Start:');
-    print('  flutter-skill doctor              Check your environment is ready');
+    print('  flutter-skill demo                Try it now — no project needed!');
+    print('  flutter-skill init ./my_app       Auto-setup any project');
     print('  flutter-skill launch ./my_app     Launch and connect to your app');
     print('');
     print('What can AI agents do with Flutter Skill?');
@@ -73,6 +78,12 @@ void main(List<String> args) async {
       break;
     case 'doctor':
       await runDoctor(commandArgs);
+      break;
+    case 'init':
+      await runInit(commandArgs);
+      break;
+    case 'demo':
+      await runDemo(commandArgs);
       break;
     case 'report-error':
       await runReportError(commandArgs);
