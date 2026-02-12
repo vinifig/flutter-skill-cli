@@ -1,5 +1,5 @@
 import 'dart:io';
-import '../flutter_skill_client.dart';
+import '../drivers/flutter_driver.dart';
 
 Future<void> runAct(List<String> args) async {
   String uri;

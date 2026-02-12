@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:flutter_skill/src/flutter_skill_client.dart';
+import 'package:flutter_skill/src/drivers/flutter_driver.dart';
 
 void main(List<String> args) async {
   if (args.isEmpty) {

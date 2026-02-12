@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'package:flutter_skill/src/flutter_skill_client.dart';
+import 'package:flutter_skill/src/drivers/flutter_driver.dart';
 
 Future<void> main() async {
   final uri = 'ws://127.0.0.1:63420/I8U6V_Mzdsg=/ws';

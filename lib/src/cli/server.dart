@@ -3,8 +3,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:http/http.dart' as http;
-import '../flutter_skill_client.dart';
-import '../native_driver.dart';
+import '../drivers/flutter_driver.dart';
+import '../drivers/native_driver.dart';
 import '../diagnostics/error_reporter.dart';
 import 'setup.dart';
 

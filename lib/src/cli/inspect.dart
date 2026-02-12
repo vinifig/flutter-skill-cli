@@ -1,5 +1,5 @@
 import 'dart:io';
-import '../flutter_skill_client.dart'; // Relative import to sibling dir
+import '../drivers/flutter_driver.dart';
 
 Future<void> runInspect(List<String> args) async {
   // No initial arg check, let resolveUri handle it
