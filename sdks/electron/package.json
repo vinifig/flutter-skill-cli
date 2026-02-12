@@ -1,0 +1,14 @@
+{
+  "name": "flutter-skill-electron",
+  "version": "1.0.0",
+  "description": "Flutter Skill AI E2E testing bridge for Electron apps",
+  "main": "flutter-skill-electron.js",
+  "keywords": ["flutter-skill", "electron", "e2e", "testing", "ai"],
+  "license": "MIT",
+  "dependencies": {
+    "ws": "^8.16.0"
+  },
+  "peerDependencies": {
+    "electron": ">=20.0.0"
+  }
+}
