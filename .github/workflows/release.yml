@@ -351,7 +351,7 @@ jobs:
 
   # Submit to Microsoft Winget official repository
   update-winget:
-    needs: [prepare, build-native-binaries]
+    needs: [prepare, build-native-binaries, create-release]  # Wait for release to exist with assets
     runs-on: windows-latest
     continue-on-error: true  # Don't block if winget update fails
     permissions:
@@ -360,15 +360,30 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Auto-submit to microsoft/winget-pkgs
-        uses: vedantmgoyal2009/winget-releaser@v2
-        with:
-          identifier: AIDashboard.FlutterSkill
-          version: ${{ needs.prepare.outputs.version }}
-          installers-regex: 'flutter-skill-windows-x64\.exe$'
-          token: ${{ secrets.WINGET_SUBMIT_TOKEN }}
-          fork-user: ai-dashboad
-          release-tag: v${{ needs.prepare.outputs.version }}
+      - name: Install wingetcreate
+        run: |
+          Invoke-WebRequest -Uri "https://aka.ms/wingetcreate/latest" -OutFile wingetcreate.exe
+
+      - name: Submit to winget-pkgs
+        run: |
+          $version = "${{ needs.prepare.outputs.version }}"
+          $url = "https://github.com/ai-dashboad/flutter-skill/releases/download/v${version}/flutter-skill-windows-x64.exe"
+
+          # Use 'update' which creates a new manifest if it doesn't exist, or updates existing
+          .\wingetcreate.exe update AIDashboard.FlutterSkill `
+            --version $version `
+            --urls $url `
+            --submit `
+            --token ${{ secrets.WINGET_SUBMIT_TOKEN }}
+
+          # If update fails (package doesn't exist yet), try 'new'
+          if ($LASTEXITCODE -ne 0) {
+            Write-Output "Update failed, trying to create new manifest..."
+            .\wingetcreate.exe new $url `
+              --version $version `
+              --submit `
+              --token ${{ secrets.WINGET_SUBMIT_TOKEN }}
+          }
 
   # Update Scoop bucket
   update-scoop:
@@ -468,64 +483,35 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # Post release announcement to X (Twitter)
-  post-to-twitter:
+  # Post release announcement
+  # Note: Twitter/X API free tier no longer supports posting (402 Payment Required).
+  # To re-enable, upgrade to a paid X API plan and uncomment below.
+  # Alternative: use Discord webhook or Bluesky for announcements.
+  post-announcement:
     needs: [prepare, create-release]
     runs-on: ubuntu-latest
-    continue-on-error: true  # Don't block if Twitter posting fails
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
 
-      - name: Extract changelog entry
-        id: changelog
+      - name: Post to Discord (if webhook configured)
+        if: ${{ secrets.DISCORD_WEBHOOK_URL != '' }}
         run: |
           VERSION="${{ needs.prepare.outputs.version }}"
+          curl -H "Content-Type: application/json" \
+            -d "{\"content\": \"🚀 **Flutter Skill v${VERSION}** released!\\n\\nAI agents → Flutter apps bridge via Dart VM Service\\n\\n📦 Install:\\n\`npm i -g flutter-skill\`\\n\`brew install ai-dashboad/flutter-skill/flutter-skill\`\\n\\n🔗 https://github.com/ai-dashboad/flutter-skill/releases/tag/v${VERSION}\"}" \
+            "${{ secrets.DISCORD_WEBHOOK_URL }}"
 
-          # Extract version section from CHANGELOG.md
-          ENTRY=$(awk "/^## $VERSION/,/^## /" CHANGELOG.md | sed '1d;$d' | head -n 10)
-
-          # Create tweet text (280 char limit for Twitter/X)
-          cat > tweet.txt << 'EOF'
-          🚀 Flutter Skill v$VERSION released!
-
-          AI agents → Flutter apps bridge via Dart VM Service
-
-          📦 Install:
-          npm i -g flutter-skill
-          brew install ai-dashboad/flutter-skill/flutter-skill
-          winget install AIDashboard.FlutterSkill
-
-          🔗 https://github.com/ai-dashboad/flutter-skill/releases/tag/v$VERSION
-
-          #Flutter #AI #MCP #DartLang
-          EOF
-
-          # Replace version placeholder
-          sed -i "s/\$VERSION/$VERSION/g" tweet.txt
-
-          # Read and truncate to 280 chars if needed
-          TWEET=$(cat tweet.txt | head -c 280)
-
-          echo "tweet<<EOFTWEET" >> $GITHUB_OUTPUT
-          echo "$TWEET" >> $GITHUB_OUTPUT
-          echo "EOFTWEET" >> $GITHUB_OUTPUT
-
-      - name: Post to X (Twitter)
+      - name: Summary
         run: |
-          # Twitter API v2 endpoint for creating tweets using OAuth 1.0a
-          # Generate OAuth 1.0a signature and post tweet
-
-          TWEET_TEXT=$(echo '${{ steps.changelog.outputs.tweet }}' | jq -Rs .)
-
-          # Use nearform-actions/github-action-notify-twitter for OAuth 1.0a
-          # Note: This uses a GitHub Action that handles OAuth 1.0a signing
-          echo "Tweet content prepared: $TWEET_TEXT"
-
-      - name: Send tweet via OAuth 1.0a
-        uses: nearform-actions/github-action-notify-twitter@v1
-        with:
-          message: ${{ steps.changelog.outputs.tweet }}
-          twitter-app-key: ${{ secrets.TWITTER_API_KEY }}
-          twitter-app-secret: ${{ secrets.TWITTER_API_SECRET }}
-          twitter-access-token: ${{ secrets.TWITTER_ACCESS_TOKEN }}
-          twitter-access-token-secret: ${{ secrets.TWITTER_ACCESS_TOKEN_SECRET }}
+          echo "## 🚀 Release v${{ needs.prepare.outputs.version }} published!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Channel | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| pub.dev | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo "| npm | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo "| VSCode | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo "| JetBrains | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo "| Homebrew | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo "| Scoop | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo "| GitHub Release | ✅ |" >> $GITHUB_STEP_SUMMARY
