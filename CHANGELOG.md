@@ -1,3 +1,27 @@
+## 0.7.4
+
+**Multi-framework SDK support — 8 platforms, 181/183 E2E tests passing**
+
+### New Features
+- **8 platform SDKs**: Flutter (iOS/Web), Electron, Android Native, KMP Desktop, Tauri, .NET, React Native
+- **Zero-config onboarding**: `flutter-skill init` auto-detects platform and patches entry points
+- **`flutter-skill demo`**: launches a built-in demo Flutter app for instant testing
+- **CLI actions**: scroll, screenshot, get_text, find_element, wait_for_element, go_back, swipe
+- **Tauri eval-with-result**: solved Tauri v2 fire-and-forget eval via secondary WebSocket result channel
+- **iOS SDK**: SwiftUI view modifiers, FlutterSkillRegistry, WebSocket bridge with full protocol support
+
+### E2E Test Results
+- Flutter iOS: 21/21 ✅ | Flutter Web: 20/20 ✅ | Electron: 24/24 ✅
+- Android Native: 24/24 ✅ | KMP Desktop: 22/22 ✅
+- .NET: 23/24 ✅ | Tauri: 23/24 ✅ | React Native: 24/24 ✅
+
+### Infrastructure
+- Comprehensive E2E test suite (`bridge_e2e_test.mjs`) covering all 13 bridge protocol actions
+- Test apps for each platform in `test/e2e/`
+- Release script now syncs versions across all SDK packages
+
+---
+
 ## 0.7.3
 
 **Release script fix and cleanup**

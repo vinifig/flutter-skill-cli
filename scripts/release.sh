@@ -99,6 +99,47 @@ echo "  ✓ intellij-plugin/plugin.xml"
 sed -i '' "s/flutter_skill: \^[0-9.]*/flutter_skill: ^$VERSION/g" README.md
 echo "  ✓ README.md"
 
+# sdks/electron/package.json
+if [ -f sdks/electron/package.json ]; then
+    sed -i '' "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" sdks/electron/package.json
+    echo "  ✓ sdks/electron/package.json"
+fi
+
+# sdks/react-native/package.json
+if [ -f sdks/react-native/package.json ]; then
+    sed -i '' "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" sdks/react-native/package.json
+    echo "  ✓ sdks/react-native/package.json"
+fi
+
+# sdks/tauri/Cargo.toml
+if [ -f sdks/tauri/Cargo.toml ]; then
+    sed -i '' "s/^version = \"[^\"]*\"/version = \"$VERSION\"/" sdks/tauri/Cargo.toml
+    echo "  ✓ sdks/tauri/Cargo.toml"
+fi
+
+# sdks/android/build.gradle.kts
+if [ -f sdks/android/build.gradle.kts ]; then
+    sed -i '' "s/version = \"[^\"]*\"/version = \"$VERSION\"/" sdks/android/build.gradle.kts
+    echo "  ✓ sdks/android/build.gradle.kts"
+fi
+
+# sdks/kmp/build.gradle.kts
+if [ -f sdks/kmp/build.gradle.kts ]; then
+    sed -i '' "s/version = \"[^\"]*\"/version = \"$VERSION\"/" sdks/kmp/build.gradle.kts
+    echo "  ✓ sdks/kmp/build.gradle.kts"
+fi
+
+# sdks/ios/Package.swift - update in comment/constant if present
+# sdks/dotnet-maui - version in .csproj
+if [ -f sdks/dotnet-maui/FlutterSkill.csproj ]; then
+    sed -i '' "s/<Version>[^<]*<\/Version>/<Version>$VERSION<\/Version>/" sdks/dotnet-maui/FlutterSkill.csproj
+    # Add Version tag if not present
+    if ! grep -q '<Version>' sdks/dotnet-maui/FlutterSkill.csproj; then
+        sed -i '' "s|</PropertyGroup>|  <Version>$VERSION</Version>\n  </PropertyGroup>|" sdks/dotnet-maui/FlutterSkill.csproj
+    fi
+    echo "  ✓ sdks/dotnet-maui/FlutterSkill.csproj"
+fi
+
 # lib/src/cli/server.dart
 sed -i '' "s/const String _currentVersion = '[^']*'/const String _currentVersion = '$VERSION'/" lib/src/cli/server.dart
 echo "  ✓ lib/src/cli/server.dart"
