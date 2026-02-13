@@ -3,6 +3,7 @@ name = "tauri-plugin-flutter-skill"
 version = "1.0.0"
 edition = "2021"
 description = "Flutter Skill AI E2E testing bridge for Tauri apps"
+links = "tauri-plugin-flutter-skill"
 license = "MIT"
 
 [dependencies]
@@ -16,4 +17,5 @@ futures-util = "0.3"
 base64 = "0.22"
 log = "0.4"
 
-# No build-dependencies needed for plugin library
+[build-dependencies]
+tauri-plugin = { version = "2", features = ["build"] }

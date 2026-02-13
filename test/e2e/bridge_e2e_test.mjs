@@ -87,6 +87,7 @@ const KEYS = {
   android:  { increment: 'increment_btn', input: 'input_field', detail: 'detail_btn', counter: 'counter_text', submit: 'submit_btn', checkbox: 'test_checkbox' },
   kmp:      { increment: 'increment-btn', input: 'text-input', detail: 'detail-btn', counter: 'counter', submit: 'submit-btn', checkbox: 'test-checkbox' },
   dotnet:   { increment: 'increment-btn', input: 'text-input', detail: 'detail-btn', counter: 'counter', submit: 'submit-btn', checkbox: 'test-checkbox' },
+  tauri:    { increment: 'increment-btn', input: 'text-input', detail: 'detail-btn', counter: 'counter', submit: 'submit-btn', checkbox: 'test-checkbox' },
   default:  { increment: 'increment_btn', input: 'input_field', detail: 'detail_btn', counter: 'counter_text', submit: 'submit_btn', checkbox: 'test_checkbox' },
 };
 const K = KEYS[PLATFORM] || KEYS.default;

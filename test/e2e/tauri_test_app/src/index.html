@@ -68,6 +68,11 @@
   
   // Register go_back handler for flutter-skill
   window.__flutterSkillGoBack = goHome;
+  
+  // Debug: test if eval + WS result channel works
+  window.__fsDebug = function(msg) {
+    document.getElementById('result').textContent = 'DEBUG: ' + msg;
+  };
 </script>
 </body>
 </html>
