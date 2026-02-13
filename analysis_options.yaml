@@ -1,0 +1,13 @@
+analyzer:
+  errors:
+    deprecated_member_use: ignore
+  exclude:
+    - test_app/**
+    - test_dummy/**
+    - examples/test_app/**
+    - test/e2e/electron_test_app/**
+    - test/e2e/kmp_test_app/**
+    - test/e2e/android_test_app/**
+    - test/e2e/rn_test_app/**
+    - test/e2e/tauri_test_app/**
+    - test/e2e/dotnet_test_app/**
