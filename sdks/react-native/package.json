@@ -1,6 +1,6 @@
 {
   "name": "flutter-skill-react-native",
-  "version": "0.7.4",
+  "version": "0.7.5",
   "description": "React Native bridge SDK for flutter-skill — enables AI agents to automate React Native apps",
   "main": "FlutterSkill.js",
   "files": [

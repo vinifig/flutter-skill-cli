@@ -1,6 +1,6 @@
 [package]
 name = "tauri-plugin-flutter-skill"
-version = "0.7.4"
+version = "0.7.5"
 edition = "2021"
 description = "Flutter Skill AI E2E testing bridge for Tauri apps"
 links = "tauri-plugin-flutter-skill"

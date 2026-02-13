@@ -1,3 +1,12 @@
+## 0.7.5
+
+**Release 0.7.5**
+
+### Changes
+- TODO: Add your changes here
+
+---
+
 ## 0.7.4
 
 **Multi-framework SDK support — 8 platforms, 181/183 E2E tests passing**

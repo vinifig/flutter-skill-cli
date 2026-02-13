@@ -1,6 +1,6 @@
 {
   "name": "flutter-skill",
-  "version": "0.7.4",
+  "version": "0.7.5",
   "description": "MCP Server for app automation - Give your AI Agent eyes and hands inside any app (Flutter, React, Web, Native)",
   "main": "index.js",
   "bin": {
