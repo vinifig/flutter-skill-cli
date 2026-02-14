@@ -38,6 +38,7 @@ interface PlatformBridge {
     suspend fun getText(selector: String): JsonElement
     suspend fun findElement(selector: String?, text: String?): JsonElement
     suspend fun waitForElement(selector: String, timeout: Long): JsonElement
+    suspend fun goBack(): JsonElement
 }
 
 class FlutterSkillBridge(
@@ -117,6 +118,7 @@ class FlutterSkillBridge(
                     params["selector"]?.jsonPrimitive?.content ?: "",
                     params["timeout"]?.jsonPrimitive?.long ?: 5000L
                 )
+                "go_back" -> platformBridge.goBack()
                 else -> {
                     return json.encodeToString(JsonRpcResponse(
                         error = buildJsonObject { put("code", -32601); put("message", "Method not found: ${req.method}") },

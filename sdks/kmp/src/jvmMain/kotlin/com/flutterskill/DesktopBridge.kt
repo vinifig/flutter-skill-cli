@@ -279,6 +279,12 @@ class DesktopBridge(private val rootFrame: Frame? = null) : PlatformBridge {
         return buildJsonObject { put("found", false); put("error", "timeout") }
     }
 
+    override suspend fun goBack(): JsonElement {
+        // Desktop apps don't have a native back navigation concept.
+        // Return success as a no-op rather than destroying any window.
+        return buildJsonObject { put("success", true) }
+    }
+
     private fun findByName(comp: Component, name: String): Component? {
         if (comp.name == name) return comp
         if (comp is Container) {

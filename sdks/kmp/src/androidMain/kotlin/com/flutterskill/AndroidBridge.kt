@@ -293,6 +293,11 @@ class AndroidBridge(activity: Activity) : PlatformBridge {
         return buildJsonObject { put("found", false); put("error", "timeout") }
     }
 
+    override suspend fun goBack(): JsonElement {
+        activity.runOnUiThread { activity.onBackPressed() }
+        return buildJsonObject { put("success", true) }
+    }
+
     private fun findViewBySelector(selector: String): View? {
         val root = activity.window.decorView.rootView
         // Try resource id match
