@@ -500,7 +500,10 @@ jobs:
           node-version: '20'
 
       - name: Install mcp-publisher
-        run: npm install -g @anthropic-ai/mcp-publisher || npm install -g mcp-publisher
+        run: |
+          curl -sL https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher-linux-amd64 -o /usr/local/bin/mcp-publisher
+          chmod +x /usr/local/bin/mcp-publisher
+          mcp-publisher --version
 
       - name: Verify version in server.json
         run: |
