@@ -150,6 +150,12 @@ if [ -f server.json ]; then
     echo "  ✓ server.json"
 fi
 
+# skills/e2e-testing/SKILL.md (skills.sh + OpenClaw)
+if [ -f skills/e2e-testing/SKILL.md ]; then
+    sed -i '' "s/^version: .*/version: $VERSION/" skills/e2e-testing/SKILL.md
+    echo "  ✓ skills/e2e-testing/SKILL.md"
+fi
+
 # packaging/homebrew/flutter-skill.rb
 sed -i '' "s/version \"[^\"]*\"/version \"$VERSION\"/" packaging/homebrew/flutter-skill.rb
 sed -i '' "s|/v[0-9]*\.[0-9]*\.[0-9]*/|/v$VERSION/|g" packaging/homebrew/flutter-skill.rb
