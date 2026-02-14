@@ -141,7 +141,7 @@ if [ -f sdks/dotnet-maui/FlutterSkill.csproj ]; then
 fi
 
 # lib/src/cli/server.dart
-sed -i '' "s/const String _currentVersion = '[^']*'/const String _currentVersion = '$VERSION'/" lib/src/cli/server.dart
+sed -i '' "s/const String currentVersion = '[^']*'/const String currentVersion = '$VERSION'/" lib/src/cli/server.dart
 echo "  ✓ lib/src/cli/server.dart"
 
 # server.json (MCP Registry)
