@@ -15,6 +15,7 @@
   <a href="https://github.com/ai-dashboad/flutter-skill/actions"><img src="https://img.shields.io/github/actions/workflow/status/ai-dashboad/flutter-skill/ci.yml?label=tests" alt="CI"></a>
   <a href="https://github.com/ai-dashboad/flutter-skill/stargazers"><img src="https://img.shields.io/github/stars/ai-dashboad/flutter-skill?style=social" alt="Stars"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
+  <a href="https://skills.sh/ai-dashboad/flutter-skill/flutter-skill-testing"><img src="https://img.shields.io/badge/skills.sh-agent%20skill-black" alt="Agent Skill"></a>
 </p>
 
 <p align="center">
@@ -57,6 +58,7 @@ AI Agent:
 npm install -g flutter-skill        # npm (recommended)
 # or: brew install ai-dashboad/flutter-skill/flutter-skill
 # or: dart pub global activate flutter_skill
+# or: npx skills add ai-dashboad/flutter-skill  # Agent Skill (Claude Code, Cursor, Copilot, Cline, etc.)
 ```
 
 **2. Add to your MCP config** (Claude Code / Cursor / Windsurf)
@@ -103,6 +105,7 @@ That's it. Zero configuration.
 | pub.dev | `dart pub global activate flutter_skill` | All |
 | VSCode | Extensions → "Flutter Skill" | All |
 | IntelliJ | Plugins → "Flutter Skill" | All |
+| Agent Skill | `npx skills add ai-dashboad/flutter-skill` | All (28+ agents) |
 
 </details>
 
