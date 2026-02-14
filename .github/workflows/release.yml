@@ -193,7 +193,7 @@ jobs:
         run: ./gradlew buildPlugin
 
       - name: Publish to JetBrains Marketplace
-        run: ./gradlew publishPlugin
+        run: ./gradlew publishPlugin --info
         env:
           PUBLISH_TOKEN: ${{ secrets.JETBRAINS_MARKETPLACE_TOKEN }}
 
@@ -201,7 +201,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: intellij-plugin
-          path: build/distributions/*.zip
+          path: intellij-plugin/build/distributions/*.zip
 
   # Update Homebrew tap with native binaries
   update-homebrew:
