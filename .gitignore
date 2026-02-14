@@ -88,3 +88,6 @@ target/
 **/icons/icon.png
 test_tiktok/
 assets/demo-tiktok.mp4
+
+# MCP Registry local tokens
+.mcpregistry_*

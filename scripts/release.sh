@@ -144,6 +144,12 @@ fi
 sed -i '' "s/const String _currentVersion = '[^']*'/const String _currentVersion = '$VERSION'/" lib/src/cli/server.dart
 echo "  ✓ lib/src/cli/server.dart"
 
+# server.json (MCP Registry)
+if [ -f server.json ]; then
+    sed -i '' "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/g" server.json
+    echo "  ✓ server.json"
+fi
+
 # packaging/homebrew/flutter-skill.rb
 sed -i '' "s/version \"[^\"]*\"/version \"$VERSION\"/" packaging/homebrew/flutter-skill.rb
 sed -i '' "s|/v[0-9]*\.[0-9]*\.[0-9]*/|/v$VERSION/|g" packaging/homebrew/flutter-skill.rb

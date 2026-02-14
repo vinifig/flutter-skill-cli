@@ -483,6 +483,40 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  # Publish to MCP Registry
+  publish-mcp-registry:
+    needs: [prepare, publish-npm]  # Wait for npm publish first
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    permissions:
+      contents: read
+      id-token: write  # Required for GitHub OIDC authentication
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install mcp-publisher
+        run: npm install -g @anthropic-ai/mcp-publisher || npm install -g mcp-publisher
+
+      - name: Verify version in server.json
+        run: |
+          PKG_VERSION=$(node -p "require('./server.json').version")
+          TAG_VERSION=${{ needs.prepare.outputs.version }}
+          if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
+            echo "Error: server.json version ($PKG_VERSION) doesn't match tag ($TAG_VERSION)"
+            exit 1
+          fi
+
+      - name: Authenticate with MCP Registry
+        run: mcp-publisher login github-oidc
+
+      - name: Publish to MCP Registry
+        run: mcp-publisher publish server.json
+
   # Post release announcement
   # Note: Twitter/X API free tier no longer supports posting (402 Payment Required).
   # To re-enable, upgrade to a paid X API plan and uncomment below.

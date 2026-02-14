@@ -1,0 +1,21 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.telsav/flutter-skill",
+  "description": "AI E2E testing bridge — give AI eyes and hands inside any app. 8 platforms, 40+ tools.",
+  "repository": {
+    "url": "https://github.com/ai-dashboad/flutter-skill",
+    "source": "github"
+  },
+  "version": "0.7.5",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "flutter-skill",
+      "version": "0.7.5",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": []
+    }
+  ]
+}
