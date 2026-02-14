@@ -59,7 +59,7 @@ public class FlutterSkillBridge
                         ["platform"] = "dotnet",
                         ["sdk_version"] = "1.0.0",
                         ["capabilities"] = new JsonArray(
-                            "initialize", "inspect", "tap", "enter_text", "get_text",
+                            "initialize", "inspect", "inspect_interactive", "tap", "enter_text", "get_text",
                             "find_element", "wait_for_element", "scroll", "swipe",
                             "screenshot", "go_back", "get_logs", "clear_logs"
                         )
@@ -145,9 +145,14 @@ public class FlutterSkillBridge
                 "go_back" => await HandleGoBack(parms),
                 "get_logs" => await HandleGetLogs(parms),
                 "clear_logs" => await HandleClearLogs(parms),
-                _ => new JsonObject { ["error"] = $"Unknown method: {method}" }
+                "inspect_interactive" => await HandleInspectInteractive(parms),
+                _ => throw new JsonRpcException(-32601, "Method not found")
             };
             return JsonResponse(id, result: result);
+        }
+        catch (JsonRpcException jex)
+        {
+            return JsonResponse(id, error: jex.Message, code: jex.Code);
         }
         catch (Exception ex)
         {
@@ -168,6 +173,9 @@ public class FlutterSkillBridge
     // --- Override these in your platform-specific subclass ---
 
     protected virtual string GetPlatformName() => "dotnet";
+
+    protected virtual Task<JsonObject> HandleInspectInteractive(JsonObject parms)
+        => Task.FromResult(new JsonObject { ["error"] = "inspect_interactive not implemented — subclass FlutterSkillBridge for your UI framework" });
 
     protected virtual Task<JsonObject> HandleInspect(JsonObject parms)
         => Task.FromResult(new JsonObject { ["error"] = "inspect not implemented — subclass FlutterSkillBridge for your UI framework" });
@@ -201,4 +209,10 @@ public class FlutterSkillBridge
 
     protected virtual Task<JsonObject> HandleClearLogs(JsonObject parms)
         => Task.FromResult(new JsonObject { ["success"] = true });
+}
+
+public class JsonRpcException : Exception
+{
+    public int Code { get; }
+    public JsonRpcException(int code, string message) : base(message) { Code = code; }
 }

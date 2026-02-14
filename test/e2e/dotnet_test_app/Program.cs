@@ -71,6 +71,65 @@ class TestBridge : FlutterSkillBridge
         return Task.FromResult(new JsonObject { ["elements"] = elements });
     }
 
+    protected override Task<JsonObject> HandleInspectInteractive(JsonObject parms)
+    {
+        var elements = new JsonArray();
+        var refCounts = new Dictionary<string, int>();
+        int yOffset = 0;
+
+        foreach (var el in _elements)
+        {
+            if (!IsInteractive(el.Type)) { yOffset += 40; continue; }
+
+            var role = MapRole(el.Type);
+            var content = (el.Text ?? el.Key ?? "").Replace(" ", "_");
+            if (content.Length > 30) content = content[..27] + "...";
+
+            var baseRef = string.IsNullOrEmpty(content) ? role : $"{role}:{content}";
+            refCounts.TryGetValue(baseRef, out var count);
+            refCounts[baseRef] = count + 1;
+            var refId = count == 0 ? baseRef : $"{baseRef}[{count}]";
+
+            var actions = new JsonArray();
+            if (el.Type is "button") actions.Add("tap");
+            else if (el.Type is "text_field") { actions.Add("tap"); actions.Add("enter_text"); }
+            else if (el.Type is "checkbox" or "switch") { actions.Add("tap"); actions.Add("toggle"); }
+            else if (el.Type is "slider") { actions.Add("set_value"); }
+            else actions.Add("tap");
+
+            elements.Add(new JsonObject
+            {
+                ["ref"] = refId,
+                ["type"] = el.Type,
+                ["text"] = el.Text,
+                ["enabled"] = el.Enabled,
+                ["actions"] = actions,
+                ["bounds"] = new JsonObject { ["x"] = 0, ["y"] = yOffset, ["width"] = 200, ["height"] = 40 }
+            });
+            yOffset += 40;
+        }
+
+        return Task.FromResult(new JsonObject
+        {
+            ["elements"] = elements,
+            ["summary"] = $"{elements.Count} interactive elements"
+        });
+    }
+
+    private static bool IsInteractive(string type) =>
+        type is "button" or "text_field" or "checkbox" or "switch" or "slider" or "dropdown" or "link";
+
+    private static string MapRole(string type) => type switch
+    {
+        "button" => "button",
+        "text_field" => "input",
+        "checkbox" or "switch" => "toggle",
+        "slider" => "slider",
+        "dropdown" => "select",
+        "link" => "link",
+        _ => "element"
+    };
+
     private TestElement? FindByKey(string key)
     {
         return _elements.FirstOrDefault(e => e.Key == key);
