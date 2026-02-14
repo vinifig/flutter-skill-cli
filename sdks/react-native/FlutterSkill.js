@@ -168,41 +168,49 @@ function _getInteractiveElementsStructured() {
     const promises = [];
     const refCounts = {};
 
-    function generateRefId(baseType) {
-      let refPrefix;
-      switch (baseType) {
-        case 'button':
-          refPrefix = 'btn';
-          break;
-        case 'text_field':
-          refPrefix = 'tf';
-          break;
-        case 'checkbox':
-        case 'switch':
-          refPrefix = 'sw';
-          break;
-        case 'slider':
-          refPrefix = 'sl';
-          break;
-        case 'tab':
-          refPrefix = 'tab';
-          break;
-        case 'dropdown':
-          refPrefix = 'dd';
-          break;
-        case 'link':
-          refPrefix = 'lnk';
-          break;
-        case 'list_item':
-          refPrefix = 'item';
-          break;
-        default:
-          refPrefix = 'elem';
-      }
+    function generateSemanticRefId(entry, elementType) {
+      // Map element types to semantic roles
+      const roleMap = {
+        button: 'button',
+        text_field: 'input',
+        checkbox: 'toggle',
+        switch: 'toggle',
+        radio: 'toggle',
+        slider: 'slider',
+        dropdown: 'select',
+        link: 'link',
+        list_item: 'item',
+        tab: 'item'
+      };
 
-      const count = refCounts[refPrefix] || 0;
-      refCounts[refPrefix] = count + 1;
-      return refPrefix + '_' + count;
+      const role = roleMap[elementType] || 'element';
+
+      // Extract content with priority: testID > accessibilityLabel > text > fallback
+      let content = entry.testID ||
+                   entry.accessibilityLabel ||
+                   entry.text ||
+                   null;
+
+      if (content) {
+        // Clean and format content
+        content = content.replace(/\s+/g, '_')
+                        .replace(/[^\w]/g, '')
+                        .substring(0, 30);
+        if (content.length > 27) {
+          content = content.substring(0, 27) + '...';
+        }
+
+        const baseRef = role + ':' + content;
+        const count = refCounts[baseRef] || 0;
+        refCounts[baseRef] = count + 1;
+
+        return count === 0 ? baseRef : baseRef + '[' + count + ']';
+      } else {
+        // No content - use role + index fallback
+        const count = refCounts[role] || 0;
+        refCounts[role] = count + 1;
+        return role + '[' + count + ']';
+      }
     }
 
     function getElementType(entry) {
@@ -273,7 +281,7 @@ function _getInteractiveElementsStructured() {
           UIManager.measure(nodeHandle, (x, y, width, height, pageX, pageY) => {
             if (width != null && height != null && width > 0 && height > 0) {
               const elementType = getElementType(entry);
-              const refId = generateRefId(elementType);
+              const refId = generateSemanticRefId(entry, elementType);
 
               const element = {
                 ref: refId,

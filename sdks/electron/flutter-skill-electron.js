@@ -89,31 +89,101 @@ class FlutterSkillElectron {
     return null;
   }
 
-  // Generate JavaScript code to find element by ref ID
+  // Generate JavaScript code to find element by ref ID (semantic fingerprint system)
   _getRefResolutionScript() {
     return `
       function findElementByRef(targetRef) {
         const refCounts = {};
         let foundElement = null;
         
-        function generateRefId(baseType) {
-          let refPrefix;
-          switch (baseType) {
-            case 'button': refPrefix = 'btn'; break;
-            case 'text_field': refPrefix = 'tf'; break;
-            case 'checkbox':
-            case 'switch': refPrefix = 'sw'; break;
-            case 'slider': refPrefix = 'sl'; break;
-            case 'tab': refPrefix = 'tab'; break;
-            case 'dropdown': refPrefix = 'dd'; break;
-            case 'link': refPrefix = 'lnk'; break;
-            case 'list_item': refPrefix = 'item'; break;
-            default: refPrefix = 'elem';
-          }
+        // Semantic ref generation - generates {role}:{content}[{index}] format
+        function generateSemanticRefId(el, elementType) {
+          // Map element types to semantic roles
+          const roleMap = {
+            button: 'button',
+            text_field: 'input',
+            checkbox: 'toggle',
+            switch: 'toggle',
+            radio: 'toggle',
+            slider: 'slider',
+            dropdown: 'select',
+            link: 'link',
+            list_item: 'item',
+            tab: 'item'
+          };
           
-          const count = refCounts[refPrefix] || 0;
-          refCounts[refPrefix] = count + 1;
-          return refPrefix + '_' + count;
+          const role = roleMap[elementType] || 'element';
+          
+          // Extract content with priority: id > aria-label > text > placeholder > fallback
+          let content = el.id ||
+                       el.getAttribute('aria-label') ||
+                       (el.textContent && el.textContent.trim()) ||
+                       el.getAttribute('placeholder') ||
+                       el.getAttribute('title') ||
+                       null;
+          
+          if (content) {
+            // Clean and format content
+            content = content.replace(/\\s+/g, '_')
+                            .replace(/[^\\w]/g, '')
+                            .substring(0, 30);
+            if (content.length > 27) {
+              content = content.substring(0, 27) + '...';
+            }
+            
+            const baseRef = role + ':' + content;
+            const count = refCounts[baseRef] || 0;
+            refCounts[baseRef] = count + 1;
+            
+            return count === 0 ? baseRef : baseRef + '[' + count + ']';
+          } else {
+            // No content - use role + index fallback
+            const count = refCounts[role] || 0;
+            refCounts[role] = count + 1;
+            return role + '[' + count + ']';
+          }
+        }
+        
+        // Check if this is a legacy ref format (btn_0, tf_1, etc.)
+        function isLegacyRef(ref) {
+          return /^[a-z]+_\\d+$/.test(ref);
+        }
+        
+        // Handle legacy ref format for backward compatibility
+        function findByLegacyRef(refId) {
+          const parts = refId.split('_');
+          if (parts.length !== 2) return null;
+          
+          const prefix = parts[0];
+          const index = parseInt(parts[1]);
+          
+          // Map old prefixes to new roles
+          const roleMap = {
+            btn: 'button',
+            tf: 'input',
+            sw: 'toggle',
+            sl: 'slider',
+            dd: 'select',
+            lnk: 'link',
+            item: 'item'
+          };
+          
+          const role = roleMap[prefix];
+          if (!role) return null;
+          
+          // Find all elements of matching role and get by index
+          const matchingElements = [];
+          walk(document.body, (el, ref) => {
+            if (ref.startsWith(role + ':')) {
+              matchingElements.push(el);
+            }
+          });
+          
+          return matchingElements[index] || null;
+        }
+        
+        if (isLegacyRef(targetRef)) {
+          return findByLegacyRef(targetRef);
         }
         
         function getElementType(el) {
@@ -137,8 +207,8 @@ class FlutterSkillElectron {
           return 'button';
         }
         
-        function walk(el) {
-          if (!el || el.nodeType !== 1 || foundElement) return;
+        function walk(el, callback) {
+          if (!el || el.nodeType !== 1) return;
           const style = window.getComputedStyle(el);
           if (style.display === 'none' || style.visibility === 'hidden') return;
 
@@ -147,17 +217,19 @@ class FlutterSkillElectron {
 
           if (isInteractive) {
             const type = getElementType(el);
-            const ref = generateRefId(type);
+            const ref = generateSemanticRefId(el, type);
             
-            if (ref === targetRef) {
+            if (callback) {
+              callback(el, ref);
+            } else if (ref === targetRef) {
               foundElement = el;
               return;
             }
           }
 
           for (const child of el.children) {
-            walk(child);
-            if (foundElement) return;
+            walk(child, callback);
+            if (!callback && foundElement) return;
           }
         }
 
@@ -290,42 +362,52 @@ class FlutterSkillElectron {
         const elements = [];
         const refCounts = {};
         
-        // Generate ref ID according to the unified ref system
-        function generateRefId(baseType) {
-          let refPrefix;
-          switch (baseType) {
-            case 'button':
-              refPrefix = 'btn';
-              break;
-            case 'text_field':
-              refPrefix = 'tf';
-              break;
-            case 'checkbox':
-            case 'switch':
-              refPrefix = 'sw';
-              break;
-            case 'slider':
-              refPrefix = 'sl';
-              break;
-            case 'tab':
-              refPrefix = 'tab';
-              break;
-            case 'dropdown':
-              refPrefix = 'dd';
-              break;
-            case 'link':
-              refPrefix = 'lnk';
-              break;
-            case 'list_item':
-              refPrefix = 'item';
-              break;
-            default:
-              refPrefix = 'elem';
-          }
+        // Semantic ref generation - generates {role}:{content}[{index}] format
+        function generateSemanticRefId(el, elementType) {
+          // Map element types to semantic roles
+          const roleMap = {
+            button: 'button',
+            text_field: 'input',
+            checkbox: 'toggle',
+            switch: 'toggle',
+            radio: 'toggle',
+            slider: 'slider',
+            dropdown: 'select',
+            link: 'link',
+            list_item: 'item',
+            tab: 'item'
+          };
           
-          const count = refCounts[refPrefix] || 0;
-          refCounts[refPrefix] = count + 1;
-          return refPrefix + '_' + count;
+          const role = roleMap[elementType] || 'element';
+          
+          // Extract content with priority: id > aria-label > text > placeholder > fallback
+          let content = el.id ||
+                       el.getAttribute('aria-label') ||
+                       (el.textContent && el.textContent.trim()) ||
+                       el.getAttribute('placeholder') ||
+                       el.getAttribute('title') ||
+                       null;
+          
+          if (content) {
+            // Clean and format content
+            content = content.replace(/\\s+/g, '_')
+                            .replace(/[^\\w]/g, '')
+                            .substring(0, 30);
+            if (content.length > 27) {
+              content = content.substring(0, 27) + '...';
+            }
+            
+            const baseRef = role + ':' + content;
+            const count = refCounts[baseRef] || 0;
+            refCounts[baseRef] = count + 1;
+            
+            return count === 0 ? baseRef : baseRef + '[' + count + ']';
+          } else {
+            // No content - use role + index fallback
+            const count = refCounts[role] || 0;
+            refCounts[role] = count + 1;
+            return role + '[' + count + ']';
+          }
         }
         
         function getElementType(el) {
@@ -393,7 +475,7 @@ class FlutterSkillElectron {
             const label = el.getAttribute('aria-label') || el.getAttribute('placeholder') || el.getAttribute('title') || '';
             
             // Generate ref ID
-            const ref = generateRefId(type);
+            const ref = generateSemanticRefId(el, type);
             
             const element = {
               ref: ref,

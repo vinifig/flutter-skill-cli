@@ -30,12 +30,18 @@
   // Helpers
   // ---------------------------------------------------------------
 
-  /** Find the best element matching key (data-testid / id) or visible text. */
+  /** Find the best element matching key (data-testid / id), visible text, or semantic ref. */
   function findElement(params) {
     if (params.selector) {
       var el = document.querySelector(params.selector);
       return el || null;
     }
+    
+    // Handle semantic ref ID (new system)
+    if (params.ref) {
+      return findElementByRef(params.ref);
+    }
+    
     if (params.key) {
       // data-testid first, then id
       var el =
@@ -60,6 +66,78 @@
       }
     }
     return null;
+  }
+
+  /** Find element by semantic ref ID - regenerates refs and matches */
+  function findElementByRef(refId) {
+    // Check if this is a legacy ref format (btn_0, tf_1, etc.)
+    if (/^[a-z]+_\d+$/.test(refId)) {
+      return findElementByLegacyRef(refId);
+    }
+    
+    // For semantic refs, we need to regenerate the inspect data and match
+    var inspectResult = methods.inspect_interactive({});
+    var elements = inspectResult.elements;
+    
+    for (var i = 0; i < elements.length; i++) {
+      if (elements[i].ref === refId) {
+        // Found matching ref, now find the actual DOM element
+        var bounds = elements[i].bounds;
+        // Use document.elementFromPoint with center of element bounds
+        var centerX = bounds.x + bounds.w / 2;
+        var centerY = bounds.y + bounds.h / 2;
+        var el = document.elementFromPoint(centerX, centerY);
+        return el;
+      }
+    }
+    
+    return null;
+  }
+
+  /** Handle legacy ref format for backward compatibility */
+  function findElementByLegacyRef(refId) {
+    var parts = refId.split('_');
+    if (parts.length !== 2) return null;
+    
+    var prefix = parts[0];
+    var index = parseInt(parts[1]);
+    
+    // Map old prefixes to new roles
+    var roleMap = {
+      btn: 'button',
+      tf: 'input', 
+      sw: 'toggle',
+      sl: 'slider',
+      dd: 'select',
+      lnk: 'link',
+      item: 'item'
+    };
+    
+    var role = roleMap[prefix];
+    if (!role) return null;
+    
+    // Regenerate inspect data and find elements of matching role
+    var inspectResult = methods.inspect_interactive({});
+    var elements = inspectResult.elements;
+    var matchingElements = [];
+    
+    for (var i = 0; i < elements.length; i++) {
+      var ref = elements[i].ref;
+      if (ref.startsWith(role + ':')) {
+        matchingElements.push(elements[i]);
+      }
+    }
+    
+    if (matchingElements.length === 0 || index >= matchingElements.length) {
+      return null;
+    }
+    
+    // Get element at legacy index
+    var targetElement = matchingElements[index];
+    var bounds = targetElement.bounds;
+    var centerX = bounds.x + bounds.w / 2;
+    var centerY = bounds.y + bounds.h / 2;
+    return document.elementFromPoint(centerX, centerY);
   }
 
   /** Build an element descriptor object. */
@@ -111,22 +189,50 @@
     var elements = [];
     var refCounts = {};
 
-    function generateRefId(baseType) {
-      var refPrefix = {
-        button: "btn",
-        text_field: "tf",
-        checkbox: "sw",
-        switch: "sw",
-        slider: "sl",
-        tab: "tab",
-        dropdown: "dd",
-        link: "lnk",
-        list_item: "item"
-      }[baseType] || "elem";
+    // Semantic ref generation system - generates {role}:{content}[{index}] format
+    function generateSemanticRefId(el, elementType) {
+      // Map element types to semantic roles
+      var role = {
+        button: "button",
+        text_field: "input", 
+        checkbox: "toggle",
+        switch: "toggle",
+        radio: "toggle",
+        slider: "slider",
+        dropdown: "select",
+        link: "link",
+        list_item: "item",
+        tab: "item"
+      }[elementType] || "element";
 
-      var count = refCounts[refPrefix] || 0;
-      refCounts[refPrefix] = count + 1;
-      return refPrefix + "_" + count;
+      // Extract content with priority: data-testid > aria-label > text > placeholder > fallback
+      var content = el.getAttribute("data-testid") ||
+                   el.getAttribute("aria-label") ||
+                   (el.textContent && el.textContent.trim()) ||
+                   el.getAttribute("placeholder") ||
+                   el.getAttribute("title") ||
+                   null;
+
+      if (content) {
+        // Clean and format content (replace spaces with underscores, remove special chars)
+        content = content.replace(/\s+/g, '_')
+                        .replace(/[^\w]/g, '')
+                        .substring(0, 30);
+        if (content.length > 27) {
+          content = content.substring(0, 27) + '...';
+        }
+
+        var baseRef = role + ':' + content;
+        var count = refCounts[baseRef] || 0;
+        refCounts[baseRef] = count + 1;
+
+        return count === 0 ? baseRef : baseRef + '[' + count + ']';
+      } else {
+        // No content - use role + index fallback
+        var count = refCounts[role] || 0;
+        refCounts[role] = count + 1;
+        return role + '[' + count + ']';
+      }
     }
 
     function getElementType(el) {
@@ -179,7 +285,7 @@
       var el = nodes[i];
       if (el.offsetParent !== null || el.tagName === "INPUT") { // visible or input
         var elementType = getElementType(el);
-        var refId = generateRefId(elementType);
+        var refId = generateSemanticRefId(el, elementType);
         var rect = el.getBoundingClientRect();
 
         var element = {
@@ -231,7 +337,11 @@
   };
 
   methods.enter_text = function (params) {
-    var el = findElement({ key: params.key, selector: params.selector });
+    var el = findElement({ 
+      key: params.key, 
+      selector: params.selector,
+      ref: params.ref 
+    });
     if (!el) return { success: false, message: "Element not found" };
     // Focus and set value — pick the correct prototype for React/Vue change detection
     el.focus();
