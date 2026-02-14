@@ -449,6 +449,11 @@
     return { found: !!el };
   };
 
+  methods.go_back = function () {
+    window.history.back();
+    return { success: true, message: "Navigated back via history.back()" };
+  };
+
   methods.screenshot = function () {
     // Cannot take a screenshot from inside the page.
     // Signal to the proxy that it should use CDP Page.captureScreenshot.

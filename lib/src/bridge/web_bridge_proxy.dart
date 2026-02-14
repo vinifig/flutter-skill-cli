@@ -264,11 +264,20 @@ class WebBridgeProxy {
         result = await _evaluateInPage(method, params);
       }
 
-      ws.add(jsonEncode({
-        'jsonrpc': '2.0',
-        'id': id,
-        'result': result,
-      }));
+      // Check if the in-page SDK returned an error (e.g. unknown method)
+      if (result.containsKey('error') && result.length == 1) {
+        ws.add(jsonEncode({
+          'jsonrpc': '2.0',
+          'id': id,
+          'error': {'code': -32601, 'message': result['error'].toString()},
+        }));
+      } else {
+        ws.add(jsonEncode({
+          'jsonrpc': '2.0',
+          'id': id,
+          'result': result,
+        }));
+      }
     } catch (e) {
       ws.add(jsonEncode({
         'jsonrpc': '2.0',

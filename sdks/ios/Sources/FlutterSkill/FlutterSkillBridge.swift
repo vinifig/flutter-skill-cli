@@ -827,8 +827,8 @@ public final class FlutterSkillBridge: @unchecked Sendable {
                 var element: [String: Any] = [
                     "ref": refId,
                     "type": String(describing: type(of: view)),
-                    "actions": getActions(elementType),
-                    "enabled": view.isEnabled,
+                    "actions": getActions(elementType: elementType),
+                    "enabled": (view as? UIControl)?.isEnabled ?? view.isUserInteractionEnabled,
                     "bounds": [
                         "x": Int(frame.origin.x),
                         "y": Int(frame.origin.y),
@@ -870,7 +870,7 @@ public final class FlutterSkillBridge: @unchecked Sendable {
                 var element: [String: Any] = [
                     "ref": refId,
                     "type": "SwiftUI.\(entry.tag)",
-                    "actions": getActions(elementType),
+                    "actions": getActions(elementType: elementType),
                     "enabled": true,
                     "bounds": [
                         "x": Int(entry.frame.origin.x),
@@ -1279,24 +1279,33 @@ public final class FlutterSkillBridge: @unchecked Sendable {
             return ["success": false, "message": "No key window"]
         }
 
-        let renderer = UIGraphicsImageRenderer(bounds: window.bounds)
-        let image = renderer.image { ctx in
-            window.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
-        }
+        let scale = window.screen.scale
+        let size = window.bounds.size
 
-        guard let pngData = image.pngData() else {
+        // Use layer.render which is more reliable than drawHierarchy
+        // (drawHierarchy can return blank images when called outside the
+        // normal rendering cycle or from async contexts)
+        UIGraphicsBeginImageContextWithOptions(size, false, scale)
+        guard let context = UIGraphicsGetCurrentContext() else {
+            UIGraphicsEndImageContext()
+            return ["success": false, "message": "Failed to create graphics context"]
+        }
+        window.layer.render(in: context)
+        let image = UIGraphicsGetImageFromCurrentImageContext()
+        UIGraphicsEndImageContext()
+
+        guard let image = image, let pngData = image.pngData() else {
             return ["success": false, "message": "Failed to render PNG"]
         }
 
         let base64 = pngData.base64EncodedString()
-        let scale = window.screen.scale
         return [
             "success": true,
             "format": "png",
             "encoding": "base64",
             "data": base64,
-            "width": Int(window.bounds.width * scale),
-            "height": Int(window.bounds.height * scale),
+            "width": Int(size.width * scale),
+            "height": Int(size.height * scale),
         ]
     }
 
@@ -1312,19 +1321,25 @@ public final class FlutterSkillBridge: @unchecked Sendable {
     }
 
     private func handleGoBack(_ params: [String: Any]) -> [String: Any] {
-        guard let nav = Self.topNavigationController else {
-            return ["success": false, "message": "No UINavigationController found"]
-        }
-        if nav.viewControllers.count > 1 {
+        // 1. Try UINavigationController pop
+        if let nav = Self.topNavigationController, nav.viewControllers.count > 1 {
             nav.popViewController(animated: true)
             return ["success": true, "message": "Popped view controller"]
         }
-        // Try dismiss if presented modally
-        if let presented = nav.presentedViewController {
-            presented.dismiss(animated: true)
+
+        // 2. Try dismissing a presented modal
+        if let topVC = Self.topViewController, topVC.presentingViewController != nil {
+            topVC.dismiss(animated: true)
             return ["success": true, "message": "Dismissed modal"]
         }
-        return ["success": false, "message": "Nothing to go back to"]
+
+        // 3. Post a notification so the app can handle custom back navigation
+        // (e.g., SwiftUI NavigationStack, custom routers, etc.)
+        NotificationCenter.default.post(
+            name: Notification.Name("FlutterSkillGoBack"),
+            object: nil
+        )
+        return ["success": true, "message": "Posted FlutterSkillGoBack notification"]
     }
 
     private func handleGetRoute(_ params: [String: Any]) -> [String: Any] {
