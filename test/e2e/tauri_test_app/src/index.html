@@ -2,77 +2,438 @@
 <html>
 <head><title>Tauri Test App</title>
 <style>
-  body { font-family: sans-serif; padding: 20px; }
-  button { padding: 8px 16px; margin: 4px; font-size: 16px; }
-  input { padding: 8px; font-size: 16px; margin: 4px; }
-  .page { display: none; } .page.active { display: block; }
-  #counter { font-size: 32px; margin: 16px 0; }
-  .list-item { padding: 8px; border-bottom: 1px solid #eee; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f0f2f5; color: #1a1a1a; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+  
+  /* Tab bar */
+  .tab-bar { display: flex; background: #fff; border-top: 1px solid #ddd; position: fixed; bottom: 0; left: 0; right: 0; z-index: 100; }
+  .tab-bar button { flex: 1; padding: 10px 0 8px; border: none; background: none; font-size: 11px; color: #666; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .tab-bar button.active { color: #1877f2; }
+  .tab-bar button .icon { font-size: 20px; }
+  
+  /* Pages */
+  .page { display: none; flex: 1; overflow-y: auto; padding-bottom: 60px; }
+  .page.active { display: flex; flex-direction: column; }
+  
+  /* Header */
+  .header { background: #fff; padding: 12px 16px; border-bottom: 1px solid #ddd; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; }
+  .header h1 { font-size: 20px; }
+  .back-btn { background: none; border: none; font-size: 24px; cursor: pointer; padding: 4px 8px; }
+  
+  /* Feed cards */
+  .feed { padding: 8px; }
+  .card { background: #fff; border-radius: 8px; margin-bottom: 8px; padding: 12px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+  .card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .avatar { width: 40px; height: 40px; border-radius: 50%; background: #ddd; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+  .card-user { font-weight: 600; font-size: 14px; }
+  .card-time { font-size: 12px; color: #888; }
+  .card-body { font-size: 14px; line-height: 1.4; margin-bottom: 10px; color: #333; }
+  .card-image { width: 100%; height: 180px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 6px; margin-bottom: 10px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 14px; }
+  .card-actions { display: flex; gap: 16px; border-top: 1px solid #eee; padding-top: 8px; }
+  .card-actions button { background: none; border: none; color: #666; cursor: pointer; font-size: 13px; display: flex; align-items: center; gap: 4px; }
+  .card-actions button.liked { color: #e74c3c; }
+  
+  /* Search */
+  .search-container { padding: 12px; }
+  .search-box { width: 100%; padding: 10px 14px; border: 1px solid #ddd; border-radius: 20px; font-size: 14px; outline: none; }
+  .search-box:focus { border-color: #1877f2; }
+  .filters { display: flex; gap: 8px; padding: 8px 12px; overflow-x: auto; }
+  .filter-chip { padding: 6px 14px; border-radius: 16px; border: 1px solid #ddd; background: #fff; font-size: 13px; cursor: pointer; white-space: nowrap; }
+  .filter-chip.active { background: #1877f2; color: #fff; border-color: #1877f2; }
+  .search-results { padding: 8px 12px; }
+  .search-result-item { padding: 12px; background: #fff; border-radius: 8px; margin-bottom: 6px; display: flex; align-items: center; gap: 10px; cursor: pointer; }
+  .search-result-item:hover { background: #f5f5f5; }
+  
+  /* Create form */
+  .form-container { padding: 16px; }
+  .form-group { margin-bottom: 16px; }
+  .form-group label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; color: #555; }
+  .form-group input, .form-group textarea, .form-group select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; outline: none; font-family: inherit; }
+  .form-group textarea { height: 100px; resize: vertical; }
+  .form-group input:focus, .form-group textarea:focus, .form-group select:focus { border-color: #1877f2; }
+  .checkbox-group { display: flex; align-items: center; gap: 8px; }
+  .checkbox-group input[type="checkbox"] { width: 18px; height: 18px; }
+  .toggle-container { display: flex; align-items: center; gap: 10px; }
+  .toggle { width: 44px; height: 24px; border-radius: 12px; background: #ccc; position: relative; cursor: pointer; transition: background 0.2s; }
+  .toggle.on { background: #1877f2; }
+  .toggle .knob { width: 20px; height: 20px; border-radius: 50%; background: #fff; position: absolute; top: 2px; left: 2px; transition: left 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+  .toggle.on .knob { left: 22px; }
+  .submit-btn { width: 100%; padding: 12px; background: #1877f2; color: #fff; border: none; border-radius: 6px; font-size: 16px; font-weight: 600; cursor: pointer; }
+  .submit-btn:hover { background: #166fe5; }
+  
+  /* Profile */
+  .profile-header { background: #fff; padding: 20px; text-align: center; border-bottom: 1px solid #eee; }
+  .profile-avatar { width: 80px; height: 80px; border-radius: 50%; background: linear-gradient(135deg, #667eea, #764ba2); margin: 0 auto 12px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 32px; }
+  .profile-name { font-size: 20px; font-weight: 700; }
+  .profile-bio { font-size: 14px; color: #666; margin-top: 4px; }
+  .profile-stats { display: flex; justify-content: center; gap: 32px; margin-top: 16px; }
+  .stat { text-align: center; }
+  .stat-num { font-size: 18px; font-weight: 700; }
+  .stat-label { font-size: 12px; color: #888; }
+  .profile-actions { display: flex; gap: 8px; justify-content: center; margin-top: 12px; }
+  .profile-actions button { padding: 8px 20px; border-radius: 6px; border: 1px solid #ddd; background: #fff; font-size: 14px; cursor: pointer; }
+  .profile-actions button.primary { background: #1877f2; color: #fff; border-color: #1877f2; }
+  .settings-btn { padding: 8px 16px; border: 1px solid #ddd; border-radius: 6px; background: #fff; cursor: pointer; font-size: 14px; }
+  .profile-posts { padding: 8px; }
+  .profile-post { background: #fff; padding: 12px; border-radius: 8px; margin-bottom: 6px; }
+  
+  /* Modal */
+  .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 200; align-items: center; justify-content: center; }
+  .modal-overlay.active { display: flex; }
+  .modal { background: #fff; border-radius: 12px; padding: 20px; width: 90%; max-width: 400px; }
+  .modal h2 { margin-bottom: 16px; }
+  .modal-item { padding: 12px 0; border-bottom: 1px solid #eee; cursor: pointer; font-size: 14px; }
+  .modal-item:last-child { border: none; }
+  .modal-close { width: 100%; padding: 10px; border: none; background: #f0f0f0; border-radius: 6px; margin-top: 12px; cursor: pointer; font-size: 14px; }
+  
+  /* Detail view */
+  .detail-view { padding: 16px; }
+  .detail-image { width: 100%; height: 250px; background: linear-gradient(135deg, #667eea, #764ba2); border-radius: 8px; margin-bottom: 16px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 18px; }
+  .detail-content h2 { margin-bottom: 8px; }
+  .detail-content p { font-size: 14px; line-height: 1.6; color: #444; margin-bottom: 12px; }
+  .comments-section { margin-top: 16px; }
+  .comment { padding: 10px; background: #f5f5f5; border-radius: 8px; margin-bottom: 6px; font-size: 13px; }
+  .comment strong { display: block; margin-bottom: 2px; }
+
+  /* Backward compat elements */
+  #counter { font-size: 14px; padding: 4px 8px; background: #e8f0fe; border-radius: 4px; display: inline-block; }
+  #result { font-size: 13px; color: #666; margin-top: 4px; }
+  #check-status { font-size: 13px; color: #666; }
 </style>
 </head>
 <body>
-  <div id="home-page" class="page active">
-    <h1>Tauri Test App</h1>
-    <div id="counter">Count: 0</div>
-    <button id="increment-btn" onclick="increment()">Increment</button>
-    <button id="decrement-btn" onclick="decrement()">Decrement</button>
-    <br><br>
-    <input id="text-input" type="text" placeholder="Enter text here">
-    <button id="submit-btn" onclick="submitText()">Submit</button>
+
+<!-- HOME PAGE -->
+<div id="home-page" class="page active">
+  <div class="header">
+    <h1>SocialApp</h1>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <span id="counter">Count: 0</span>
+      <button id="increment-btn" onclick="increment()" style="padding:4px 8px;font-size:12px;border:1px solid #ddd;border-radius:4px;background:#fff;cursor:pointer;">+</button>
+    </div>
+  </div>
+  <div class="feed" id="feed-container"></div>
+</div>
+
+<!-- SEARCH PAGE -->
+<div id="search-page" class="page">
+  <div class="header"><h1>Search</h1></div>
+  <div class="search-container">
+    <input type="text" id="search-input" class="search-box" placeholder="Search posts, people, tags..." oninput="handleSearch()">
+  </div>
+  <div class="filters" id="search-filters">
+    <button class="filter-chip active" onclick="setFilter(this,'all')">All</button>
+    <button class="filter-chip" onclick="setFilter(this,'people')">People</button>
+    <button class="filter-chip" onclick="setFilter(this,'posts')">Posts</button>
+    <button class="filter-chip" onclick="setFilter(this,'tags')">Tags</button>
+    <button class="filter-chip" onclick="setFilter(this,'photos')">Photos</button>
+    <button class="filter-chip" onclick="setFilter(this,'videos')">Videos</button>
+  </div>
+  <div class="search-results" id="search-results"></div>
+</div>
+
+<!-- CREATE PAGE -->
+<div id="create-page" class="page">
+  <div class="header"><h1>Create Post</h1></div>
+  <div class="form-container">
+    <div class="form-group">
+      <label for="text-input">Title</label>
+      <input type="text" id="text-input" placeholder="Enter post title...">
+    </div>
+    <div class="form-group">
+      <label for="post-body">Content</label>
+      <textarea id="post-body" placeholder="What's on your mind?"></textarea>
+    </div>
+    <div class="form-group">
+      <label for="post-category">Category</label>
+      <select id="post-category">
+        <option value="">Select category...</option>
+        <option value="general">General</option>
+        <option value="tech">Technology</option>
+        <option value="art">Art & Design</option>
+        <option value="music">Music</option>
+        <option value="food">Food & Drink</option>
+        <option value="travel">Travel</option>
+        <option value="sports">Sports</option>
+        <option value="gaming">Gaming</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Options</label>
+      <div class="checkbox-group" style="margin-bottom:8px;">
+        <input type="checkbox" id="test-checkbox" onchange="toggleCheck()">
+        <label for="test-checkbox">Allow comments</label>
+      </div>
+      <div id="check-status" style="font-size:12px;color:#888;">Unchecked</div>
+      <div class="checkbox-group" style="margin-top:8px;">
+        <input type="checkbox" id="nsfw-checkbox">
+        <label for="nsfw-checkbox">Mark as sensitive</label>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Visibility</label>
+      <div class="toggle-container">
+        <span>Private</span>
+        <div class="toggle" id="toggle-switch" onclick="toggleSwitch()"><div class="knob"></div></div>
+        <span>Public</span>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Schedule</label>
+      <div class="toggle-container">
+        <span>Post now</span>
+        <div class="toggle" id="schedule-toggle" onclick="toggleSchedule()"><div class="knob"></div></div>
+        <span>Schedule</span>
+      </div>
+    </div>
     <div id="result"></div>
-    <br>
-    <label><input type="checkbox" id="test-checkbox" onchange="toggleCheck()"> Toggle me</label>
-    <div id="check-status">Unchecked</div>
-    <br>
-    <button id="detail-btn" onclick="goToDetail()">Go to Detail</button>
-    <br><br>
-    <div id="item-list"></div>
+    <button id="submit-btn" class="submit-btn" onclick="submitText()">Publish Post</button>
   </div>
-  
-  <div id="detail-page" class="page">
-    <h1>Detail Page</h1>
-    <div id="detail-counter"></div>
-    <button id="back-btn" onclick="goHome()">Go Back</button>
+</div>
+
+<!-- PROFILE PAGE -->
+<div id="profile-page" class="page">
+  <div class="profile-header">
+    <div class="profile-avatar">👤</div>
+    <div class="profile-name">Jane Developer</div>
+    <div class="profile-bio">Full-stack dev • Coffee enthusiast • Building cool stuff</div>
+    <div class="profile-stats">
+      <div class="stat"><div class="stat-num">1,234</div><div class="stat-label">Posts</div></div>
+      <div class="stat"><div class="stat-num">5.6K</div><div class="stat-label">Followers</div></div>
+      <div class="stat"><div class="stat-num">892</div><div class="stat-label">Following</div></div>
+    </div>
+    <div class="profile-actions">
+      <button class="primary">Edit Profile</button>
+      <button class="settings-btn" id="settings-btn" onclick="openSettings()">⚙ Settings</button>
+    </div>
   </div>
+  <div class="profile-posts" id="profile-posts"></div>
+</div>
+
+<!-- DETAIL PAGE -->
+<div id="detail-page" class="page">
+  <div class="header">
+    <button class="back-btn" id="back-btn" onclick="goHome()">←</button>
+    <h1 id="detail-title">Post Detail</h1>
+    <div></div>
+  </div>
+  <div class="detail-view">
+    <div class="detail-image" id="detail-image">📸 Post Image</div>
+    <div class="detail-content">
+      <h2 id="detail-heading"></h2>
+      <p id="detail-text"></p>
+      <div id="detail-counter"></div>
+    </div>
+    <div class="comments-section" id="comments-section"></div>
+  </div>
+</div>
+
+<!-- SETTINGS MODAL -->
+<div class="modal-overlay" id="settings-modal">
+  <div class="modal">
+    <h2>Settings</h2>
+    <div class="modal-item" onclick="alert('Account settings')">👤 Account</div>
+    <div class="modal-item" onclick="alert('Privacy settings')">🔒 Privacy</div>
+    <div class="modal-item" onclick="alert('Notifications')">🔔 Notifications</div>
+    <div class="modal-item" onclick="alert('Appearance')">🎨 Appearance</div>
+    <div class="modal-item" onclick="alert('Language')">🌐 Language</div>
+    <div class="modal-item" onclick="alert('Help')">❓ Help & Support</div>
+    <div class="modal-item" style="color:#e74c3c;" onclick="alert('Logged out')">🚪 Log Out</div>
+    <button class="modal-close" id="modal-close" onclick="closeSettings()">Close</button>
+  </div>
+</div>
+
+<!-- Backward compat detail button -->
+<div style="position:fixed;bottom:56px;right:8px;z-index:90;">
+  <button id="detail-btn" onclick="goToDetail()" style="padding:6px 10px;font-size:11px;border:1px solid #ddd;border-radius:4px;background:#fff;cursor:pointer;opacity:0.7;">Detail</button>
+</div>
+
+<!-- TAB BAR -->
+<div class="tab-bar">
+  <button id="tab-home" class="active" onclick="switchTab('home')"><span class="icon">🏠</span>Home</button>
+  <button id="tab-search" onclick="switchTab('search')"><span class="icon">🔍</span>Search</button>
+  <button id="tab-create" onclick="switchTab('create')"><span class="icon">➕</span>Create</button>
+  <button id="tab-profile" onclick="switchTab('profile')"><span class="icon">👤</span>Profile</button>
+</div>
 
 <script>
+  // State
   let count = 0;
-  const list = document.getElementById('item-list');
-  for (let i = 0; i < 20; i++) {
-    const div = document.createElement('div');
-    div.className = 'list-item';
-    div.id = 'item-' + i;
-    div.textContent = 'Item ' + (i + 1);
-    list.appendChild(div);
+  let currentTab = 'home';
+  let toggleState = false;
+  let scheduleState = false;
+  let likes = {};
+  let currentFilter = 'all';
+
+  // Users for feed
+  const users = ['Alex Kim','Sam Rivera','Jordan Lee','Taylor Swift','Morgan Chen','Casey Jones','Riley Park','Drew Williams','Avery Zhang','Quinn Murphy','Blake Foster','Jamie Cruz','Sage Thompson','Harper Davis','Reese Clark'];
+  const topics = ['Just shipped a new feature! 🚀','Beautiful sunset from my balcony today','Anyone else excited about the new framework?','Coffee is definitely a love language ☕','Working on something exciting...stay tuned!','The best debugging tool is a good night\'s sleep','Thoughts on the latest tech trends?','Nature walk = instant mood boost 🌿','Learning Rust and loving every minute of it','Hot take: tabs > spaces','Just finished reading an amazing book 📚','Weekend project coming along nicely','The future of AI is fascinating','Cooking experiment: surprisingly didn\'t burn anything','Gratitude post: thankful for this community ❤️','New music discovery of the week 🎵','Exercise done, endorphins flowing 💪','Sometimes the simplest solution is the best','Road trip plans for next month!','Late night coding session vibes','Design inspiration everywhere today','Finally fixed that bug that\'s been haunting me','Morning routine game strong ☀️','Collaboration > Competition','Who else is working on side projects?'];
+
+  // Build feed (25+ cards)
+  const feedContainer = document.getElementById('feed-container');
+  for (let i = 0; i < 25; i++) {
+    const user = users[i % users.length];
+    const topic = topics[i % topics.length];
+    const hasImage = i % 3 !== 2;
+    const timeAgo = i === 0 ? 'Just now' : i < 5 ? `${i * 15}m ago` : `${Math.floor(i/2)}h ago`;
+    const likeCount = Math.floor(Math.random() * 200) + 5;
+    const commentCount = Math.floor(Math.random() * 30) + 1;
+    
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.id = `feed-item-${i}`;
+    card.innerHTML = `
+      <div class="card-header">
+        <div class="avatar">${user[0]}</div>
+        <div><div class="card-user">${user}</div><div class="card-time">${timeAgo}</div></div>
+      </div>
+      <div class="card-body" onclick="openDetail(${i})" style="cursor:pointer">${topic}</div>
+      ${hasImage ? `<div class="card-image" onclick="openDetail(${i})" style="cursor:pointer">📷 Photo ${i + 1}</div>` : ''}
+      <div class="card-actions">
+        <button id="like-btn-${i}" onclick="toggleLike(${i})">♡ <span id="like-count-${i}">${likeCount}</span></button>
+        <button onclick="openDetail(${i})">💬 ${commentCount}</button>
+        <button>↗ Share</button>
+        <button>🔖 Save</button>
+      </div>
+    `;
+    feedContainer.appendChild(card);
   }
+
+  // Build additional scrollable items (50+ total including feed)
+  for (let i = 25; i < 55; i++) {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.id = `feed-item-${i}`;
+    card.innerHTML = `<div class="card-body" style="padding:8px;font-size:13px;color:#666;">Suggested post #${i + 1} — ${topics[i % topics.length]}</div>`;
+    feedContainer.appendChild(card);
+  }
+
+  // Build search results
+  function buildSearchResults(query) {
+    const container = document.getElementById('search-results');
+    container.innerHTML = '';
+    const items = query ? users.filter(u => u.toLowerCase().includes(query.toLowerCase())) : users;
+    const results = query ? items : [...users, ...topics.slice(0, 10)];
+    results.forEach((item, i) => {
+      const div = document.createElement('div');
+      div.className = 'search-result-item';
+      div.id = `search-result-${i}`;
+      div.innerHTML = `<div class="avatar" style="width:36px;height:36px;font-size:14px;">${(item[0] || '?')}</div><div style="font-size:14px;">${item}</div>`;
+      div.onclick = () => alert(`Selected: ${item}`);
+      container.appendChild(div);
+    });
+  }
+  buildSearchResults('');
+
+  // Build profile posts
+  const profilePosts = document.getElementById('profile-posts');
+  for (let i = 0; i < 15; i++) {
+    const post = document.createElement('div');
+    post.className = 'profile-post';
+    post.id = `profile-post-${i}`;
+    post.innerHTML = `<div style="font-weight:600;font-size:14px;margin-bottom:4px;">My Post #${i + 1}</div><div style="font-size:13px;color:#666;">${topics[i % topics.length]}</div><div style="font-size:12px;color:#999;margin-top:4px;">${i + 1}d ago • ${Math.floor(Math.random() * 50) + 5} likes</div>`;
+    profilePosts.appendChild(post);
+  }
+
+  // Tab switching
+  function switchTab(tab) {
+    currentTab = tab;
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-bar button').forEach(b => b.classList.remove('active'));
+    document.getElementById(tab + '-page').classList.add('active');
+    document.getElementById('tab-' + tab).classList.add('active');
+  }
+
+  // Counter (backward compat)
   function increment() { count++; updateCounter(); }
   function decrement() { count--; updateCounter(); }
   function updateCounter() { document.getElementById('counter').textContent = 'Count: ' + count; }
+
+  // Form
   function submitText() {
-    const text = document.getElementById('text-input').value;
-    document.getElementById('result').textContent = 'Submitted: ' + text;
+    const title = document.getElementById('text-input').value;
+    const body = document.getElementById('post-body')?.value || '';
+    const cat = document.getElementById('post-category')?.value || '';
+    document.getElementById('result').textContent = 'Submitted: ' + title;
+    if (title) alert(`Post published!\nTitle: ${title}\nCategory: ${cat}\nPublic: ${toggleState}`);
   }
   function toggleCheck() {
     const checked = document.getElementById('test-checkbox').checked;
     document.getElementById('check-status').textContent = checked ? 'Checked' : 'Unchecked';
   }
+  function toggleSwitch() {
+    toggleState = !toggleState;
+    document.getElementById('toggle-switch').classList.toggle('on', toggleState);
+  }
+  function toggleSchedule() {
+    scheduleState = !scheduleState;
+    document.getElementById('schedule-toggle').classList.toggle('on', scheduleState);
+  }
+
+  // Likes
+  function toggleLike(i) {
+    likes[i] = !likes[i];
+    const btn = document.getElementById('like-btn-' + i);
+    const countEl = document.getElementById('like-count-' + i);
+    const current = parseInt(countEl.textContent);
+    if (likes[i]) { btn.classList.add('liked'); btn.innerHTML = `❤ <span id="like-count-${i}">${current + 1}</span>`; }
+    else { btn.classList.remove('liked'); btn.innerHTML = `♡ <span id="like-count-${i}">${current - 1}</span>`; }
+  }
+
+  // Search
+  function handleSearch() { buildSearchResults(document.getElementById('search-input').value); }
+  function setFilter(el, filter) {
+    currentFilter = filter;
+    document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+    el.classList.add('active');
+    handleSearch();
+  }
+
+  // Detail view
+  function openDetail(i) {
+    const user = users[i % users.length];
+    const topic = topics[i % topics.length];
+    document.getElementById('detail-heading').textContent = `${user}'s Post`;
+    document.getElementById('detail-text').textContent = topic + '\n\nThis is the full post content with more details about the topic. It includes additional context and thoughts that weren\'t visible in the feed preview.';
+    document.getElementById('detail-counter').textContent = 'Counter: ' + count;
+    document.getElementById('detail-image').textContent = `📸 ${user}'s Photo`;
+    
+    // Comments
+    const comments = document.getElementById('comments-section');
+    comments.innerHTML = '<h3 style="margin-bottom:8px;">Comments</h3>';
+    for (let c = 0; c < 8; c++) {
+      const commenter = users[(i + c + 1) % users.length];
+      const div = document.createElement('div');
+      div.className = 'comment';
+      div.innerHTML = `<strong>${commenter}</strong>${['Great post! 👏','Love this!','So true!','Amazing content','Thanks for sharing','Couldn\'t agree more','This is gold ✨','Well said!'][c]}`;
+      comments.appendChild(div);
+    }
+
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.getElementById('detail-page').classList.add('active');
+    document.querySelectorAll('.tab-bar button').forEach(b => b.classList.remove('active'));
+  }
+
+  // Navigation
   function showPage(id) {
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     document.getElementById(id).classList.add('active');
   }
-  function goToDetail() {
-    document.getElementById('detail-counter').textContent = 'Counter: ' + count;
-    showPage('detail-page');
+  function goToDetail() { openDetail(0); }
+  function goHome() {
+    switchTab(currentTab === 'home' ? 'home' : currentTab);
+    if (currentTab === 'home' || !currentTab) switchTab('home');
   }
-  function goHome() { showPage('home-page'); }
-  
-  // Register go_back handler for flutter-skill
+
+  // Settings modal
+  function openSettings() { document.getElementById('settings-modal').classList.add('active'); }
+  function closeSettings() { document.getElementById('settings-modal').classList.remove('active'); }
+
+  // Backward compat
   window.__flutterSkillGoBack = goHome;
-  
-  // Debug: test if eval + WS result channel works
-  window.__fsDebug = function(msg) {
-    document.getElementById('result').textContent = 'DEBUG: ' + msg;
-  };
+  window.__fsDebug = function(msg) { document.getElementById('result').textContent = 'DEBUG: ' + msg; };
+
+  // detail-btn is in the static DOM above the tab bar
 </script>
 </body>
 </html>
