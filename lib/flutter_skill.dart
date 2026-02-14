@@ -2121,6 +2121,7 @@ class FlutterSkillBinding {
         };
 
         // Add optional fields
+        if (key != null && key.isNotEmpty) elementEntry['key'] = key;
         if (text != null && text.isNotEmpty) elementEntry['text'] = text;
         if (label != null && label.isNotEmpty) elementEntry['label'] = label;
         if (tooltip != null) elementEntry['tooltip'] = tooltip;
