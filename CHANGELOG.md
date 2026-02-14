@@ -1,3 +1,12 @@
+## 0.7.7
+
+**Release 0.7.7**
+
+### Changes
+- TODO: Add your changes here
+
+---
+
 ## 0.7.6
 
 **CI improvements + MCP Registry auto-publish**
