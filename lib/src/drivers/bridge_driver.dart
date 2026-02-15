@@ -68,7 +68,7 @@ class BridgeDriver implements AppDriver {
       );
 
       // Send initialize handshake
-      await _call('initialize', {
+      await callMethod('initialize', {
         'protocol_version': bridgeProtocolVersion,
         'client': 'flutter-skill',
       });
@@ -91,7 +91,7 @@ class BridgeDriver implements AppDriver {
 
   @override
   Future<Map<String, dynamic>> tap({String? key, String? text, String? ref}) async {
-    return _call('tap', {
+    return callMethod('tap', {
       if (key != null) 'key': key,
       if (text != null) 'text': text,
       if (ref != null) 'ref': ref,
@@ -100,7 +100,7 @@ class BridgeDriver implements AppDriver {
 
   @override
   Future<Map<String, dynamic>> enterText(String? key, String text, {String? ref}) async {
-    return _call('enter_text', {
+    return callMethod('enter_text', {
       if (key != null) 'key': key,
       'text': text,
       if (ref != null) 'ref': ref,
@@ -110,7 +110,7 @@ class BridgeDriver implements AppDriver {
   @override
   Future<bool> swipe(
       {required String direction, double distance = 300, String? key}) async {
-    final result = await _call('swipe', {
+    final result = await callMethod('swipe', {
       'direction': direction,
       'distance': distance,
       if (key != null) 'key': key,
@@ -121,7 +121,7 @@ class BridgeDriver implements AppDriver {
   @override
   Future<List<dynamic>> getInteractiveElements(
       {bool includePositions = true}) async {
-    final result = await _call('inspect', {
+    final result = await callMethod('inspect', {
       'includePositions': includePositions,
     });
     return (result['elements'] as List<dynamic>?) ?? [];
@@ -129,13 +129,13 @@ class BridgeDriver implements AppDriver {
 
   @override
   Future<Map<String, dynamic>> getInteractiveElementsStructured() async {
-    final result = await _call('inspect_interactive', {});
+    final result = await callMethod('inspect_interactive', {});
     return result.cast<String, dynamic>();
   }
 
   @override
   Future<String?> takeScreenshot({double quality = 1.0, int? maxWidth}) async {
-    final result = await _call('screenshot', {
+    final result = await callMethod('screenshot', {
       'quality': quality,
       if (maxWidth != null) 'maxWidth': maxWidth,
     });
@@ -144,18 +144,18 @@ class BridgeDriver implements AppDriver {
 
   @override
   Future<List<String>> getLogs() async {
-    final result = await _call('get_logs');
+    final result = await callMethod('get_logs');
     return (result['logs'] as List?)?.cast<String>() ?? [];
   }
 
   @override
   Future<void> clearLogs() async {
-    await _call('clear_logs');
+    await callMethod('clear_logs');
   }
 
   @override
   Future<void> hotReload() async {
-    await _call('hot_reload');
+    await callMethod('hot_reload');
   }
 
   // ------------------------------------------------------------------
@@ -164,7 +164,7 @@ class BridgeDriver implements AppDriver {
 
   Future<Map<String, dynamic>> findElement(
       {String? key, String? text, String? selector}) async {
-    return _call('find_element', {
+    return callMethod('find_element', {
       if (key != null) 'key': key,
       if (text != null) 'text': text,
       if (selector != null) 'selector': selector,
@@ -172,7 +172,7 @@ class BridgeDriver implements AppDriver {
   }
 
   Future<String?> getText({String? key, String? selector}) async {
-    final result = await _call('get_text', {
+    final result = await callMethod('get_text', {
       if (key != null) 'key': key,
       if (selector != null) 'selector': selector,
     });
@@ -181,7 +181,7 @@ class BridgeDriver implements AppDriver {
 
   Future<bool> waitForElement(
       {String? key, String? text, int timeout = 5000}) async {
-    final result = await _call('wait_for_element', {
+    final result = await callMethod('wait_for_element', {
       if (key != null) 'key': key,
       if (text != null) 'text': text,
       'timeout': timeout,
@@ -191,7 +191,7 @@ class BridgeDriver implements AppDriver {
 
   Future<Map<String, dynamic>> scroll(
       {String? direction, double? distance, String? key}) async {
-    return _call('scroll', {
+    return callMethod('scroll', {
       if (direction != null) 'direction': direction,
       if (distance != null) 'distance': distance,
       if (key != null) 'key': key,
@@ -200,7 +200,7 @@ class BridgeDriver implements AppDriver {
 
   Future<bool> longPress(
       {String? key, String? text, int duration = 500}) async {
-    final result = await _call('long_press', {
+    final result = await callMethod('long_press', {
       if (key != null) 'key': key,
       if (text != null) 'text': text,
       'duration': duration,
@@ -209,7 +209,7 @@ class BridgeDriver implements AppDriver {
   }
 
   Future<bool> doubleTap({String? key, String? text}) async {
-    final result = await _call('double_tap', {
+    final result = await callMethod('double_tap', {
       if (key != null) 'key': key,
       if (text != null) 'text': text,
     });
@@ -217,12 +217,12 @@ class BridgeDriver implements AppDriver {
   }
 
   Future<String?> getRoute() async {
-    final result = await _call('get_route');
+    final result = await callMethod('get_route');
     return result['route'] as String?;
   }
 
   Future<bool> goBack() async {
-    final result = await _call('go_back');
+    final result = await callMethod('go_back');
     return result['success'] == true;
   }
 
@@ -234,14 +234,14 @@ class BridgeDriver implements AppDriver {
   // ------------------------------------------------------------------
 
     /// Public raw method call for tools that need direct bridge access (e.g. eval)
-  Future<Map<String, dynamic>> callMethod(String method, [Map<String, dynamic>? params]) => _call(method, params);
-
-  Future<Map<String, dynamic>> _call(String method,
-      [Map<String, dynamic>? params]) async {
+  /// Subclasses (e.g. WebBridgeDriver) override this to route through
+  /// a different transport. All internal methods call [callMethod] so the
+  /// override is always respected.
+  Future<Map<String, dynamic>> callMethod(String method, [Map<String, dynamic>? params]) async {
     if (_ws == null || !_connected) {
       // Attempt one reconnect
       if (!_reconnecting && await _reconnect()) {
-        return _call(method, params);
+        return callMethod(method, params);
       }
       throw Exception('Not connected to bridge at $_wsUri');
     }
