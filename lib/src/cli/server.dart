@@ -8,7 +8,9 @@ import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
 import '../bridge/bridge_protocol.dart';
 import '../bridge/cdp_driver.dart';
+import '../bridge/web_bridge_listener.dart';
 import '../discovery/bridge_discovery.dart';
+import '../drivers/web_bridge_driver.dart';
 import '../drivers/app_driver.dart';
 import '../drivers/bridge_driver.dart';
 import '../drivers/flutter_driver.dart';
@@ -64,6 +66,17 @@ Future<void> runServer(List<String> args) async {
 
   try {
     final server = FlutterMcpServer();
+
+    // Parse --bridge-port flag
+    for (final arg in args) {
+      if (arg.startsWith('--bridge-port=')) {
+        final port = int.tryParse(arg.substring('--bridge-port='.length)) ?? bridgeDefaultPort;
+        await server.startBridgeListener(port);
+      } else if (arg == '--bridge-port') {
+        await server.startBridgeListener(bridgeDefaultPort);
+      }
+    }
+
     await server.run();
   } finally {
     // Release lock on exit
@@ -154,6 +167,9 @@ class FlutterMcpServer {
   // CDP driver for vanilla web testing
   CdpDriver? _cdpDriver;
 
+  // Web bridge listener for browser-based SDKs
+  WebBridgeListener? _webBridgeListener;
+
   // Native platform drivers (for interacting with native OS views)
   final Map<String, NativeDriver> _nativeDrivers = {};
 
@@ -174,6 +190,37 @@ class FlutterMcpServer {
       _nativeDrivers[key] = driver;
     }
     return driver;
+  }
+
+  /// Start the web bridge listener for browser-based SDKs.
+  Future<void> startBridgeListener(int port) async {
+    if (_webBridgeListener != null) return;
+    final listener = WebBridgeListener();
+    listener.onClientConnected = (_) {
+      final sessionId = _generateSessionId();
+      final driver = WebBridgeDriver(listener);
+      driver.connect().then((_) {
+        _clients[sessionId] = driver;
+        _sessions[sessionId] = SessionInfo(
+          id: sessionId,
+          name: 'Web app (bridge listener)',
+          projectPath: 'web',
+          deviceId: 'web',
+          port: port,
+          vmServiceUri: 'ws://127.0.0.1:$port',
+        );
+        _activeSessionId = sessionId;
+        stderr.writeln('Browser client connected — session $sessionId created');
+      }).catchError((e) {
+        stderr.writeln('Failed to initialize web bridge session: $e');
+      });
+    };
+    listener.onClientDisconnected = () {
+      stderr.writeln('Browser client disconnected from bridge listener');
+    };
+    await listener.start(port);
+    _webBridgeListener = listener;
+    stderr.writeln('Bridge listener started on ws://127.0.0.1:$port');
   }
 
   Future<void> run() async {
@@ -578,6 +625,32 @@ They will automatically route through the CDP connection.""",
           },
           "required": ["url"],
         },
+      },
+
+      // Web Bridge Listener
+      {
+        "name": "start_bridge_listener",
+        "description": """Start a WebSocket listener for browser-based SDKs.
+
+Browser SDKs cannot start a WebSocket server, so this starts one on the MCP
+server side that browser clients connect TO. A session is auto-created when
+a client connects.
+
+After starting, point the web SDK at ws://127.0.0.1:<port>.""",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "port": {
+              "type": "integer",
+              "description": "Port to listen on (default: 18118)"
+            },
+          },
+        },
+      },
+      {
+        "name": "stop_bridge_listener",
+        "description": "Stop the WebSocket bridge listener.",
+        "inputSchema": {"type": "object", "properties": {}},
       },
 
       // Basic Inspection
@@ -2300,6 +2373,39 @@ Detailed diagnostic report with:
       }
     }
 
+    if (name == 'start_bridge_listener') {
+      final port = args['port'] as int? ?? bridgeDefaultPort;
+      if (_webBridgeListener != null) {
+        return {
+          "success": true,
+          "message": "Bridge listener already running",
+          "port": _webBridgeListener!.port,
+          "url": "ws://127.0.0.1:${_webBridgeListener!.port}",
+          "has_client": _webBridgeListener!.hasClient,
+        };
+      }
+      try {
+        await startBridgeListener(port);
+        return {
+          "success": true,
+          "port": port,
+          "url": "ws://127.0.0.1:$port",
+          "message": "Bridge listener started. Browser SDK can connect to ws://127.0.0.1:$port",
+        };
+      } catch (e) {
+        return {"success": false, "error": "Failed to start bridge listener: $e"};
+      }
+    }
+
+    if (name == 'stop_bridge_listener') {
+      if (_webBridgeListener == null) {
+        return {"success": true, "message": "No bridge listener running"};
+      }
+      await _webBridgeListener!.stop();
+      _webBridgeListener = null;
+      return {"success": true, "message": "Bridge listener stopped"};
+    }
+
     if (name == 'scan_and_connect') {
       final portStart = args['port_start'] ?? 50000;
       final portEnd = args['port_end'] ?? 50100;
@@ -2314,6 +2420,43 @@ Detailed diagnostic report with:
           // Continue even if setup fails
           print('Warning: Auto-setup failed: $e');
         }
+      }
+
+      // Check web bridge listener first
+      if (_webBridgeListener != null && _webBridgeListener!.hasClient) {
+        final existing = _sessions.values
+            .where((s) => s.deviceId == 'web' && s.port == _webBridgeListener!.port);
+        if (existing.isNotEmpty) {
+          _activeSessionId = existing.first.id;
+          return {
+            "success": true,
+            "connected": "ws://127.0.0.1:${_webBridgeListener!.port}",
+            "framework": "web",
+            "session_id": existing.first.id,
+            "active_session": true,
+            "source": "bridge_listener",
+          };
+        }
+        final driver = WebBridgeDriver(_webBridgeListener!);
+        await driver.connect();
+        _clients[sessionId] = driver;
+        _sessions[sessionId] = SessionInfo(
+          id: sessionId,
+          name: args['name'] as String? ?? 'Web app (bridge listener)',
+          projectPath: args['project_path'] as String? ?? 'web',
+          deviceId: 'web',
+          port: _webBridgeListener!.port!,
+          vmServiceUri: 'ws://127.0.0.1:${_webBridgeListener!.port}',
+        );
+        _activeSessionId = sessionId;
+        return {
+          "success": true,
+          "connected": "ws://127.0.0.1:${_webBridgeListener!.port}",
+          "framework": "web",
+          "session_id": sessionId,
+          "active_session": true,
+          "source": "bridge_listener",
+        };
       }
 
       // Try bridge discovery first (cross-framework)

@@ -22,6 +22,21 @@ class BridgeDriver implements AppDriver {
   final Map<int, Completer<Map<String, dynamic>>> _pending = {};
   int _nextId = 1;
 
+  /// Set WebSocket and connection state directly (used by WebBridgeDriver).
+  void setWebSocket(WebSocket ws) {
+    _ws = ws;
+    _connected = true;
+    _ws!.listen(
+      _onMessage,
+      onDone: _onDisconnect,
+      onError: (_) => _onDisconnect(),
+      cancelOnError: false,
+    );
+  }
+
+  /// Mark as connected without a WebSocket (for subclasses).
+  void setConnected(bool value) => _connected = value;
+
   BridgeDriver(this._wsUri, this.info);
 
   /// Create from a [BridgeServiceInfo] returned by discovery.
