@@ -61,7 +61,6 @@ class WebBridgeListener {
     }
 
     _clientConnection = ws;
-    onClientConnected?.call(ws);
 
     ws.listen(
       (data) {
@@ -97,6 +96,9 @@ class WebBridgeListener {
         onClientDisconnected?.call();
       },
     );
+
+    // Notify after ws.listen is set up so responses can be received
+    onClientConnected?.call(ws);
   }
 
   bool get hasClient =>

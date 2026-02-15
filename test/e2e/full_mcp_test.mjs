@@ -183,7 +183,10 @@ async function main() {
   console.log(`  Full MCP Test — ${PLATFORM} (${TOOLS.length} tool calls)`);
   console.log('════════════════════════════════════════════════════════════════\n');
 
-  const proc = spawn(DART, ['run', SERVER, 'server'], {
+  const serverArgs = ['run', SERVER, 'server'];
+  // For web-sdk platform, start bridge listener so browser SDK can connect
+  if (PLATFORM === 'web-sdk') serverArgs.push('--bridge-port=18118');
+  const proc = spawn(DART, serverArgs, {
     stdio: ['pipe', 'pipe', 'pipe'],
     env: { ...process.env, PATH: `/Users/cw/development/flutter/bin:${process.env.HOME}/Library/Android/sdk/platform-tools:${process.env.PATH}`, ANDROID_HOME: `${process.env.HOME}/Library/Android/sdk` },
   });
@@ -237,6 +240,26 @@ async function main() {
   }
   console.log(`Server: ${init.result.serverInfo?.name} v${init.result.serverInfo?.version}\n`);
 
+  // ── For web-sdk: wait for browser SDK to connect to bridge listener ──
+  if (PLATFORM === 'web-sdk') {
+    // Bridge listener auto-starts with --bridge-port. Browser must already be open at http://localhost:3000
+    // The SDK auto-connects to ws://127.0.0.1:18118
+    console.log('  Waiting for browser SDK to connect to bridge listener on port 18118...');
+    console.log('  (Ensure browser is open at http://localhost:3000 with SDK loaded)');
+    // Wait for SDK to connect
+    for (let i = 0; i < 30; i++) {
+      await new Promise(r => setTimeout(r, 1000));
+      // Check if scan_and_connect would find it
+      const r = await callTool('get_connection_status', {});
+      const text = r.result?.content?.[0]?.text || '';
+      if (text.includes('web') || text.includes('connected')) break;
+      // Try scan
+      if (i === 5 || i === 15) {
+        await callTool('scan_and_connect', {});
+      }
+    }
+  }
+
   // ── Connect (platform-appropriate) ───────────────────────────────────────
   console.log('--- Connecting ---');
   let connected = false;
@@ -246,15 +269,12 @@ async function main() {
   } else if (VM_SERVICE) {
     const r = await callTool('connect_app', { uri: VM_SERVICE });
     connected = !r.error;
-  } else if (URI) {
-    const r = await callTool('connect_app', { uri: URI });
-    connected = !r.error;
   } else {
-    // Try scan_and_connect
+    // For bridge platforms, always use scan_and_connect (connect_app treats ws:// as VM Service)
     const r = await callTool('scan_and_connect', {});
     try {
       const c = JSON.parse(r.result?.content?.[0]?.text || '{}');
-      connected = !!c.success;
+      connected = !!c.success || (c.app != null);
     } catch { connected = !r.error; }
   }
 
