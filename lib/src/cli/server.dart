@@ -3828,17 +3828,19 @@ Detailed diagnostic report with:
       case 'swipe_coordinates':
         if (client is BridgeDriver) {
           await client.callMethod('swipe_coordinates', {
-            'start_x': (args['start_x'] as num).toDouble(), 'start_y': (args['start_y'] as num).toDouble(),
-            'end_x': (args['end_x'] as num).toDouble(), 'end_y': (args['end_y'] as num).toDouble(),
-            'duration': args['duration'] ?? 300,
+            'start_x': ((args['start_x'] ?? args['startX']) as num).toDouble(),
+            'start_y': ((args['start_y'] ?? args['startY']) as num).toDouble(),
+            'end_x': ((args['end_x'] ?? args['endX']) as num).toDouble(),
+            'end_y': ((args['end_y'] ?? args['endY']) as num).toDouble(),
+            'duration': args['duration'] ?? args['durationMs'] ?? 300,
           });
           return {"success": true, "action": "swipe_coordinates"};
         }
         final fc = _asFlutterClient(client!, 'swipe_coordinates');
-        final startX = (args['start_x'] as num).toDouble();
-        final startY = (args['start_y'] as num).toDouble();
-        final endX = (args['end_x'] as num).toDouble();
-        final endY = (args['end_y'] as num).toDouble();
+        final startX = ((args['start_x'] ?? args['startX']) as num).toDouble();
+        final startY = ((args['start_y'] ?? args['startY']) as num).toDouble();
+        final endX = ((args['end_x'] ?? args['endX']) as num).toDouble();
+        final endY = ((args['end_y'] ?? args['endY']) as num).toDouble();
         final duration = args['duration'] ?? 300;
         await fc.swipeCoordinates(startX, startY, endX, endY,
             duration: duration);
