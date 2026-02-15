@@ -70,19 +70,12 @@ class CdpDriver implements AppDriver {
     await _call('Page.enable');
     await _call('DOM.enable');
     await _call('Runtime.enable');
-    await _call('Input.enable');
 
     // Navigate to URL
     await _call('Page.navigate', {'url': _url});
 
-    // Wait for load
-    await _call('Page.loadEventFired').timeout(
-      const Duration(seconds: 30),
-      onTimeout: () => <String, dynamic>{},
-    ).catchError((_) => <String, dynamic>{});
-
-    // Small delay for page to settle
-    await Future.delayed(const Duration(milliseconds: 500));
+    // Wait for page to load
+    await Future.delayed(const Duration(seconds: 2));
   }
 
   @override
@@ -614,6 +607,13 @@ class CdpDriver implements AppDriver {
         client.close();
 
         final tabs = jsonDecode(body) as List;
+        // Prefer tab already showing the target URL
+        for (final tab in tabs) {
+          if (tab is Map && tab['type'] == 'page' && tab['url'] == _url) {
+            return tab['webSocketDebuggerUrl'] as String?;
+          }
+        }
+        // Fall back to first page tab
         for (final tab in tabs) {
           if (tab is Map && tab['type'] == 'page') {
             return tab['webSocketDebuggerUrl'] as String?;

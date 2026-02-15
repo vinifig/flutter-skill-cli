@@ -256,7 +256,8 @@ async function main() {
     // Auto-connected via bridge listener — session created when browser SDK connected
     connected = true;
   } else if (isCDP && URL) {
-    const r = await callTool('connect_cdp', { url: URL });
+    const cdpPort = parseInt(args.port) || 18800;
+    const r = await callTool('connect_cdp', { url: URL, port: cdpPort, launch_chrome: false });
     connected = !r.error;
   } else if (VM_SERVICE) {
     const r = await callTool('connect_app', { uri: VM_SERVICE });
