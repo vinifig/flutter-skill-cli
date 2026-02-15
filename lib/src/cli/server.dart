@@ -198,8 +198,8 @@ class FlutterMcpServer {
     final listener = WebBridgeListener();
     String? _webSessionId;
     listener.onClientConnected = (_) {
-      // Small delay to let WS connection stabilize (SDK may disconnect/reconnect)
-      Future.delayed(const Duration(milliseconds: 500), () async {
+      // Delay to let WS connection stabilize (SDK sends bridge.hello, may reconnect)
+      Future.delayed(const Duration(milliseconds: 2000), () async {
         if (!listener.hasClient) return; // Already disconnected
         try {
           final driver = WebBridgeDriver(listener);

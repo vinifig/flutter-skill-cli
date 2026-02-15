@@ -54,12 +54,7 @@ class WebBridgeListener {
   }
 
   void _handleClient(WebSocket ws) {
-    // Close existing client if any
-    if (_clientConnection != null &&
-        _clientConnection!.readyState == WebSocket.open) {
-      _clientConnection!.close();
-    }
-
+    // Replace existing client reference (don't close — may trigger SDK reconnect loop)
     _clientConnection = ws;
 
     ws.listen(
