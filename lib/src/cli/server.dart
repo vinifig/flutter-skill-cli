@@ -685,6 +685,13 @@ After starting, point the web SDK at ws://127.0.0.1:<port>.""",
       {"name": "get_css_property", "description": "Get computed CSS property of an element", "inputSchema": {"type": "object", "properties": {"key": {"type": "string"}, "property": {"type": "string"}}, "required": ["key", "property"]}},
       {"name": "get_bounding_box", "description": "Get element position and size", "inputSchema": {"type": "object", "properties": {"key": {"type": "string"}}, "required": ["key"]}},
       {"name": "focus", "description": "Focus an element", "inputSchema": {"type": "object", "properties": {"key": {"type": "string"}}, "required": ["key"]}},
+      {"name": "blur", "description": "Remove focus from an element", "inputSchema": {"type": "object", "properties": {"key": {"type": "string"}}, "required": ["key"]}},
+      {"name": "count_elements", "description": "Count elements matching a CSS selector", "inputSchema": {"type": "object", "properties": {"selector": {"type": "string"}}, "required": ["selector"]}},
+      {"name": "is_visible", "description": "Check if an element is visible on page", "inputSchema": {"type": "object", "properties": {"key": {"type": "string"}}, "required": ["key"]}},
+      {"name": "get_page_source", "description": "Get the full HTML source of the current page", "inputSchema": {"type": "object", "properties": {}}},
+      {"name": "get_window_handles", "description": "Get all browser window/tab handles", "inputSchema": {"type": "object", "properties": {}}},
+      {"name": "install_dialog_handler", "description": "Install auto-handler for JS dialogs (alert/confirm/prompt)", "inputSchema": {"type": "object", "properties": {"auto_accept": {"type": "boolean", "description": "Auto-accept dialogs (default: true)"}}}},
+      {"name": "wait_for_navigation", "description": "Wait for page navigation to complete", "inputSchema": {"type": "object", "properties": {"timeout_ms": {"type": "integer", "description": "Timeout in ms (default: 30000)"}}}},
       {"name": "get_title", "description": "Get the page title", "inputSchema": {"type": "object", "properties": {}}},
       {"name": "set_geolocation", "description": "Override browser geolocation", "inputSchema": {"type": "object", "properties": {"latitude": {"type": "number"}, "longitude": {"type": "number"}}, "required": ["latitude", "longitude"]}},
       {"name": "set_color_scheme", "description": "Set dark/light mode preference", "inputSchema": {"type": "object", "properties": {"scheme": {"type": "string", "enum": ["dark", "light"]}}, "required": ["scheme"]}},
@@ -4625,6 +4632,30 @@ Detailed diagnostic report with:
 
       case 'get_session_storage':
         return await cdp.getSessionStorage();
+
+      case 'count_elements':
+        final selector = args['selector'] as String? ?? '*';
+        return {"count": await cdp.countElements(selector), "selector": selector};
+
+      case 'is_visible':
+        final key = args['key'] as String? ?? '';
+        return {"visible": await cdp.isVisible(key), "key": key};
+
+      case 'get_page_source':
+        return {"source": await cdp.getPageSource()};
+
+      case 'get_window_handles':
+        return await cdp.getWindowHandles();
+
+      case 'install_dialog_handler':
+        final autoAccept = args['auto_accept'] ?? true;
+        await cdp.installDialogHandler(autoAccept: autoAccept);
+        return {"success": true, "auto_accept": autoAccept};
+
+      case 'wait_for_navigation':
+        return await cdp.waitForNavigation(
+          timeoutMs: (args['timeout_ms'] as num?)?.toInt() ?? 30000,
+        );
 
       default:
         throw Exception('Tool "$name" is not supported in CDP mode.');
