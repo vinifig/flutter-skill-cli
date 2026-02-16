@@ -1,3 +1,12 @@
+## 0.8.3
+
+**Fix WebSocket stability + ping/pong keepalive**
+
+### Changes
+- TODO: Add your changes here
+
+---
+
 ## 0.8.2
 
 **Zero-config CDP, 143 device presets, smart tool filtering, 5 codegen formats, retry/reconnect**
