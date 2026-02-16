@@ -1156,6 +1156,11 @@ function _handleConnection(socket) {
         }
 
         if (frame.opcode === 0x01) {
+          // Handle text ping keepalive
+          if (frame.payload === 'ping') {
+            try { socket.write(_encodeWsFrame('pong')); } catch (e) { /* */ }
+            continue;
+          }
           _handleJsonRpc(frame.payload).then((response) => {
             try { socket.write(_encodeWsFrame(response)); } catch (e) { /* */ }
           });

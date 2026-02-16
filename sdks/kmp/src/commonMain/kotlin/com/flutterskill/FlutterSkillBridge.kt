@@ -56,6 +56,11 @@ class FlutterSkillBridge(
                     for (frame in incoming) {
                         if (frame is Frame.Text) {
                             val text = frame.readText()
+                            // Handle text ping keepalive
+                            if (text == "ping") {
+                                send(Frame.Text("pong"))
+                                continue
+                            }
                             val response = handleRequest(text)
                             send(Frame.Text(response))
                         }

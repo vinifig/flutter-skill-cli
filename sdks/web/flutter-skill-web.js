@@ -858,6 +858,8 @@
     };
 
     _ws.onmessage = function (evt) {
+      // Handle text ping keepalive
+      if (evt.data === 'ping') { try { _ws.send('pong'); } catch (_) {} return; }
       var req;
       try { req = JSON.parse(evt.data); } catch (e) {
         _ws.send(JSON.stringify({ jsonrpc: '2.0', error: { code: -32700, message: 'Parse error' }, id: null }));

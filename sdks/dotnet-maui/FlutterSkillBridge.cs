@@ -97,6 +97,14 @@ public class FlutterSkillBridge
             var text = Encoding.UTF8.GetString(messageBuffer.ToArray());
             messageBuffer.Clear();
 
+            // Handle text ping keepalive
+            if (text == "ping")
+            {
+                var pongBytes = Encoding.UTF8.GetBytes("pong");
+                await ws.SendAsync(pongBytes, WebSocketMessageType.Text, true, ct);
+                continue;
+            }
+
             var response = await HandleRequest(text);
             var bytes = Encoding.UTF8.GetBytes(response);
             await ws.SendAsync(bytes, WebSocketMessageType.Text, true, ct);

@@ -499,6 +499,11 @@ public final class FlutterSkillBridge: @unchecked Sendable {
 
     /// Handle a decoded text-frame payload as a JSON-RPC message.
     private func handleWebSocketTextMessage(data: Data, on connection: NWConnection) {
+        // Handle text ping keepalive
+        if let text = String(data: data, encoding: .utf8), text == "ping" {
+            sendWSText("pong".data(using: .utf8)!, on: connection)
+            return
+        }
         // Parse JSON-RPC request
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let rpcMethod = json["method"] as? String else {

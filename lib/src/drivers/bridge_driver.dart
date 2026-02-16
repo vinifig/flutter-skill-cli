@@ -21,6 +21,7 @@ class BridgeDriver implements AppDriver {
   /// Pending RPC calls keyed by request id.
   final Map<int, Completer<Map<String, dynamic>>> _pending = {};
   int _nextId = 1;
+  Timer? _pingTimer;
 
   /// Set WebSocket and connection state directly (used by WebBridgeDriver).
   void setWebSocket(WebSocket ws) {
@@ -32,6 +33,7 @@ class BridgeDriver implements AppDriver {
       onError: (_) => _onDisconnect(),
       cancelOnError: false,
     );
+    _startPingTimer();
   }
 
   /// Mark as connected without a WebSocket (for subclasses).
@@ -67,6 +69,9 @@ class BridgeDriver implements AppDriver {
         cancelOnError: false,
       );
 
+      // Start ping keepalive (every 15s)
+      _startPingTimer();
+
       // Send initialize handshake
       await callMethod('initialize', {
         'protocol_version': bridgeProtocolVersion,
@@ -82,11 +87,24 @@ class BridgeDriver implements AppDriver {
   @override
   Future<void> disconnect() async {
     _connected = false;
+    _pingTimer?.cancel();
+    _pingTimer = null;
     _failAllPending('Disconnected');
     try {
       await _ws?.close();
     } catch (_) {}
     _ws = null;
+  }
+
+  void _startPingTimer() {
+    _pingTimer?.cancel();
+    _pingTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      try {
+        _ws?.add('ping');
+      } catch (_) {
+        _onDisconnect();
+      }
+    });
   }
 
   @override
@@ -266,7 +284,10 @@ class BridgeDriver implements AppDriver {
 
   void _onMessage(dynamic data) {
     try {
-      final json = jsonDecode(data as String) as Map<String, dynamic>;
+      final str = data as String;
+      // Ignore pong keepalive responses
+      if (str == 'pong') return;
+      final json = jsonDecode(str) as Map<String, dynamic>;
       final id = json['id'] as int?;
       if (id != null && _pending.containsKey(id)) {
         final completer = _pending.remove(id)!;
@@ -306,7 +327,7 @@ class BridgeDriver implements AppDriver {
     _reconnecting = true;
     try {
       await disconnect();
-      _ws = await WebSocket.connect(_wsUri).timeout(const Duration(seconds: 3));
+      _ws = await WebSocket.connect(_wsUri).timeout(const Duration(seconds: 5));
       _connected = true;
       _ws!.listen(
         _onMessage,
@@ -314,6 +335,15 @@ class BridgeDriver implements AppDriver {
         onError: (_) => _onDisconnect(),
         cancelOnError: false,
       );
+      // Re-send initialize handshake after reconnect
+      try {
+        await callMethod('initialize', {
+          'protocol_version': bridgeProtocolVersion,
+          'client': 'flutter-skill',
+        });
+      } catch (_) {
+        // Some SDKs may not require re-init
+      }
       return true;
     } catch (_) {
       _connected = false;

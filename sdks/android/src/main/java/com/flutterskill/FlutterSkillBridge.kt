@@ -277,8 +277,13 @@ object FlutterSkillBridge {
                 when (frame.opcode) {
                     0x01 -> { // Text frame
                         val text = String(frame.payload, StandardCharsets.UTF_8)
-                        val responseText = handleJsonRpc(text)
-                        writeWebSocketFrame(output, 0x01, responseText.toByteArray(StandardCharsets.UTF_8))
+                        // Handle text ping keepalive
+                        if (text == "ping") {
+                            writeWebSocketFrame(output, 0x01, "pong".toByteArray(StandardCharsets.UTF_8))
+                        } else {
+                            val responseText = handleJsonRpc(text)
+                            writeWebSocketFrame(output, 0x01, responseText.toByteArray(StandardCharsets.UTF_8))
+                        }
                     }
                     0x08 -> break // Close
                     0x09 -> { // Ping -> Pong

@@ -834,8 +834,17 @@ async fn handle_ws<R: Runtime>(
 ) {
     let (mut tx, mut rx) = ws.split();
     while let Some(Ok(msg)) = rx.next().await {
+        if msg.is_ping() {
+            let _ = tx.send(tungstenite::Message::Pong(msg.into_data())).await;
+            continue;
+        }
         if !msg.is_text() { continue; }
         let text = msg.to_text().unwrap_or("");
+        // Handle text ping keepalive
+        if text == "ping" {
+            let _ = tx.send(tungstenite::Message::Text("pong".into())).await;
+            continue;
+        }
         let req: JsonRpcRequest = match serde_json::from_str(text) {
             Ok(r) => r,
             Err(_) => continue,

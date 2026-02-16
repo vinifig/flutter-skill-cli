@@ -44,24 +44,47 @@ class FlutterSkillElectron {
     console.log(`[flutter-skill-electron] Bridge on port ${this.port}`);
 
     this.wss.on('connection', (ws) => {
+      // Ping/pong keepalive — every 15s
+      ws.isAlive = true;
+      ws.on('pong', () => { ws.isAlive = true; });
+
+      const pingInterval = setInterval(() => {
+        if (!ws.isAlive) {
+          clearInterval(pingInterval);
+          ws.terminate();
+          return;
+        }
+        ws.isAlive = false;
+        try { ws.ping(); } catch (_) { clearInterval(pingInterval); }
+      }, 15000);
+
+      ws.on('close', () => clearInterval(pingInterval));
+      ws.on('error', () => clearInterval(pingInterval));
+
       ws.on('message', async (data) => {
+        const msg = String(data);
+        // Handle ping keepalive
+        if (msg === 'ping') { try { ws.send('pong'); } catch (_) {} return; }
+
         let req;
         try {
-          req = JSON.parse(data);
+          req = JSON.parse(msg);
         } catch {
-          ws.send(JSON.stringify({ jsonrpc: '2.0', error: { code: -32700, message: 'Parse error' }, id: null }));
+          try { ws.send(JSON.stringify({ jsonrpc: '2.0', error: { code: -32700, message: 'Parse error' }, id: null })); } catch (_) {}
           return;
         }
 
         try {
           const result = await this._handle(req.method, req.params || {});
-          ws.send(JSON.stringify({ jsonrpc: '2.0', result, id: req.id }));
+          try { ws.send(JSON.stringify({ jsonrpc: '2.0', result, id: req.id })); } catch (_) {}
         } catch (err) {
-          ws.send(JSON.stringify({
-            jsonrpc: '2.0',
-            error: { code: -32000, message: err.message || String(err) },
-            id: req.id,
-          }));
+          try {
+            ws.send(JSON.stringify({
+              jsonrpc: '2.0',
+              error: { code: -32000, message: err.message || String(err) },
+              id: req.id,
+            }));
+          } catch (_) {}
         }
       });
     });
