@@ -848,6 +848,11 @@ After starting, point the web SDK at ws://127.0.0.1:<port>.""",
       {"name": "cancel_operation", "description": "Cancel a running long operation (wait_for_element, wait_for_gone, wait_for_network_idle) by operation ID.", "inputSchema": {"type": "object", "properties": {"operation_id": {"type": "string", "description": "ID of the operation to cancel"}}, "required": ["operation_id"]}},
       {"name": "highlight_elements", "description": "Toggle colored outlines on ALL interactive elements (like Playwright's inspector). Useful for visual debugging and test development.", "inputSchema": {"type": "object", "properties": {"show": {"type": "boolean", "description": "true to show highlights, false to remove them", "default": true}}}},
 
+      // WebMCP: Structured page tools
+      {"name": "discover_page_tools", "description": "Discover all structured tools on the current page. Scans JS-registered tools (window.__flutter_skill_tools__), data-mcp-tool HTML attributes, <link rel=\"mcp-tools\"> manifests, /.well-known/mcp.json, and auto-converts <form> elements into callable tools. CDP-only.", "inputSchema": {"type": "object", "properties": {}}},
+      {"name": "call_page_tool", "description": "Call a discovered page tool by name with parameters. Routes to JS handler, form fill+submit, or API endpoint depending on tool source. Use discover_page_tools first to see available tools. CDP-only.", "inputSchema": {"type": "object", "properties": {"name": {"type": "string", "description": "Tool name (from discover_page_tools)"}, "params": {"type": "object", "description": "Parameters to pass to the tool"}}, "required": ["name"]}},
+      {"name": "auto_discover_forms", "description": "Auto-detect ALL <form> elements on the page and convert them into callable tools with field names, labels, types, and validation info. CDP-only.", "inputSchema": {"type": "object", "properties": {}}},
+
       // Basic Inspection
       {
         "name": "inspect",
@@ -5885,6 +5890,17 @@ function toggleImg(el) { el.classList.toggle('expanded'); }
           await cdp.eval("if(window.__fsHighlightStyle){window.__fsHighlightStyle.remove();delete window.__fsHighlightStyle;}");
           return {'success': true, 'message': 'Highlights removed'};
         }
+
+      case 'discover_page_tools':
+        return await cdp.discoverTools();
+
+      case 'call_page_tool':
+        final toolName = args['name'] as String? ?? '';
+        final toolParams = (args['params'] as Map<String, dynamic>?) ?? {};
+        return await cdp.callTool(toolName, toolParams);
+
+      case 'auto_discover_forms':
+        return await cdp.autoDiscoverForms();
 
       default:
         throw Exception('Tool "$name" is not supported in CDP mode.');

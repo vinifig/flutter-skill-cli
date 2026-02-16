@@ -909,6 +909,39 @@
     }, RECONNECT_DELAY);
   }
 
+  // --------------- WebMCP Tool Registration ---------------
+  window.__flutter_skill_tools__ = window.__flutter_skill_tools__ || [];
+
+  function registerTool(name, description, params, handler) {
+    var tool = {
+      name: name,
+      description: description || '',
+      params: params || {},
+      handler: handler,
+      source: 'js-registered'
+    };
+    // Replace existing tool with same name
+    var existing = window.__flutter_skill_tools__.findIndex(function (t) { return t.name === name; });
+    if (existing !== -1) {
+      window.__flutter_skill_tools__[existing] = tool;
+    } else {
+      window.__flutter_skill_tools__.push(tool);
+    }
+    return tool;
+  }
+
+  handlers.get_registered_tools = function () {
+    var tools = (window.__flutter_skill_tools__ || []).map(function (t) {
+      return {
+        name: t.name,
+        description: t.description,
+        params: t.params,
+        source: t.source || 'js-registered'
+      };
+    });
+    return { tools: tools, count: tools.length };
+  };
+
   // --------------- Health endpoint via fetch intercept ---------------
   // Since browsers can't create HTTP servers, we expose health info on window
   window.__flutterSkillHealth = function () {
@@ -930,8 +963,13 @@
       if (_ws) _ws.close();
     },
     health: window.__flutterSkillHealth,
-    handlers: handlers
+    handlers: handlers,
+    registerTool: registerTool
   };
+
+  // Also expose as FlutterSkill for convenience
+  window.FlutterSkill = window.FlutterSkill || {};
+  window.FlutterSkill.registerTool = registerTool;
 
   // Auto-connect on load
   if (document.readyState === 'loading') {

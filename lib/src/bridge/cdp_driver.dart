@@ -2010,6 +2010,190 @@ function _dqAll(sel, root) {
     return await interceptRequests(urlPattern, statusCode: statusCode, body: body, headers: headers);
   }
 
+  // ── WebMCP: Discover and call structured page tools ──
+
+  /// Discover all tools on the current page from multiple sources:
+  /// 1. JS-registered tools (window.__flutter_skill_tools__)
+  /// 2. data-mcp-tool annotated forms
+  /// 3. <link rel="mcp-tools"> manifest
+  /// 4. /.well-known/mcp.json
+  /// 5. Auto-converted <form> elements
+  Future<Map<String, dynamic>> discoverTools() async {
+    final result = await _call('Runtime.evaluate', {
+      'expression': '''
+      (async () => {
+        const tools = [];
+        // 1. JS-registered tools
+        if (window.__flutter_skill_tools__ && Array.isArray(window.__flutter_skill_tools__)) {
+          window.__flutter_skill_tools__.forEach(t => {
+            tools.push({ name: t.name, description: t.description || '', params: t.params || {}, source: 'js-registered', hasHandler: typeof t.handler === 'function' });
+          });
+        }
+        // 2. data-mcp-tool annotated elements
+        document.querySelectorAll('[data-mcp-tool]').forEach(el => {
+          const name = el.getAttribute('data-mcp-tool');
+          const desc = el.getAttribute('data-mcp-description') || '';
+          const params = {};
+          el.querySelectorAll('[data-mcp-param]').forEach(input => {
+            const pName = input.getAttribute('data-mcp-param');
+            params[pName] = { type: input.getAttribute('data-mcp-type') || 'string', required: input.hasAttribute('data-mcp-required'), description: input.getAttribute('data-mcp-description') || input.getAttribute('placeholder') || '' };
+          });
+          el.querySelectorAll('input[name], textarea[name], select[name]').forEach(input => {
+            if (!input.hasAttribute('data-mcp-param')) {
+              const pName = input.getAttribute('name');
+              if (!params[pName]) params[pName] = { type: input.type === 'number' ? 'number' : input.type === 'checkbox' ? 'boolean' : 'string', required: input.required, description: input.getAttribute('placeholder') || '' };
+            }
+          });
+          tools.push({ name: name, description: desc, params: params, source: 'data-mcp-tool' });
+        });
+        // 3. <link rel="mcp-tools"> manifests
+        for (const link of document.querySelectorAll('link[rel="mcp-tools"]')) {
+          try { const r = await fetch(link.href); const m = await r.json(); if (m.tools) m.tools.forEach(t => tools.push({ ...t, source: 'link-manifest', manifestUrl: link.href })); } catch(e) {}
+        }
+        // 4. /.well-known/mcp.json
+        try { const r = await fetch('/.well-known/mcp.json'); if (r.ok) { const m = await r.json(); if (m.tools) m.tools.forEach(t => tools.push({ ...t, source: 'well-known' })); } } catch(e) {}
+        // 5. Auto-discover forms
+        document.querySelectorAll('form').forEach((form, i) => {
+          if (form.hasAttribute('data-mcp-tool')) return;
+          const fid = form.id || form.getAttribute('name') || '';
+          const name = 'form_' + (fid || i);
+          const params = {};
+          form.querySelectorAll('input[name], textarea[name], select[name]').forEach(input => {
+            const pName = input.getAttribute('name');
+            const label = (input.labels && input.labels[0]) ? input.labels[0].textContent.trim() : '';
+            params[pName] = { type: input.type === 'number' ? 'number' : input.type === 'checkbox' ? 'boolean' : 'string', required: input.required, description: label || input.getAttribute('placeholder') || '' };
+          });
+          if (Object.keys(params).length > 0) tools.push({ name: name, description: 'Form: ' + (fid || form.getAttribute('action') || 'unnamed'), params: params, source: 'auto-form', formAction: form.getAttribute('action') || '', formMethod: (form.getAttribute('method') || 'GET').toUpperCase() });
+        });
+        return JSON.stringify({ tools: tools, count: tools.length });
+      })()
+      ''',
+      'returnByValue': true,
+      'awaitPromise': true,
+    });
+    final v = result['result']?['value'] as String?;
+    if (v != null) return jsonDecode(v) as Map<String, dynamic>;
+    return {'tools': [], 'count': 0};
+  }
+
+  /// Call a discovered tool by name with parameters.
+  /// Routes to the appropriate handler based on tool source.
+  Future<Map<String, dynamic>> callTool(String toolName, Map<String, dynamic> params) async {
+    final paramsJson = jsonEncode(params);
+    final escapedName = jsonEncode(toolName);
+    final result = await _call('Runtime.evaluate', {
+      'expression': '''
+      (async () => {
+        const toolName = $escapedName;
+        const params = $paramsJson;
+        // 1. JS-registered tools
+        if (window.__flutter_skill_tools__) {
+          const tool = window.__flutter_skill_tools__.find(t => t.name === toolName);
+          if (tool && typeof tool.handler === 'function') {
+            try {
+              const result = await tool.handler(params);
+              return JSON.stringify({ success: true, result: result, source: 'js-registered' });
+            } catch (e) {
+              return JSON.stringify({ success: false, error: e.message, source: 'js-registered' });
+            }
+          }
+        }
+        // 2. data-mcp-tool forms
+        const mcpForm = document.querySelector('[data-mcp-tool="' + toolName + '"]');
+        if (mcpForm) {
+          for (const [key, value] of Object.entries(params)) {
+            const input = mcpForm.querySelector('[name="' + key + '"], [data-mcp-param="' + key + '"]');
+            if (input) {
+              if (input.type === 'checkbox') input.checked = !!value;
+              else input.value = value;
+              input.dispatchEvent(new Event('input', { bubbles: true }));
+              input.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+          }
+          if (typeof mcpForm.requestSubmit === 'function') mcpForm.requestSubmit();
+          else mcpForm.submit();
+          return JSON.stringify({ success: true, source: 'data-mcp-tool', action: 'form-submitted' });
+        }
+        // 3. Auto-discovered forms
+        const forms = document.querySelectorAll('form');
+        for (let i = 0; i < forms.length; i++) {
+          const form = forms[i];
+          const fid = form.id || form.getAttribute('name') || '';
+          const formName = 'form_' + (fid || i);
+          if (formName === toolName) {
+            for (const [key, value] of Object.entries(params)) {
+              const input = form.querySelector('[name="' + key + '"]');
+              if (input) {
+                if (input.type === 'checkbox') input.checked = !!value;
+                else input.value = value;
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+                input.dispatchEvent(new Event('change', { bubbles: true }));
+              }
+            }
+            if (typeof form.requestSubmit === 'function') form.requestSubmit();
+            else form.submit();
+            return JSON.stringify({ success: true, source: 'auto-form', action: 'form-submitted' });
+          }
+        }
+        return JSON.stringify({ success: false, error: 'Tool not found: ' + toolName });
+      })()
+      ''',
+      'returnByValue': true,
+      'awaitPromise': true,
+    });
+    final v = result['result']?['value'] as String?;
+    if (v != null) return jsonDecode(v) as Map<String, dynamic>;
+    return {'success': false, 'error': 'Evaluation failed'};
+  }
+
+  /// Auto-discover ALL form elements on the page and convert them to tools.
+  Future<Map<String, dynamic>> autoDiscoverForms() async {
+    final result = await _evalJs('''
+      (() => {
+        const tools = [];
+        document.querySelectorAll('form').forEach((form, i) => {
+          const fid = form.id || form.getAttribute('name') || '';
+          const action = form.getAttribute('action') || '';
+          const method = (form.getAttribute('method') || 'GET').toUpperCase();
+          const name = 'form_' + (fid || i);
+          const params = {};
+          form.querySelectorAll('input, textarea, select').forEach(input => {
+            const inputName = input.getAttribute('name') || input.id || '';
+            if (!inputName || input.type === 'hidden' || input.type === 'submit') return;
+            const label = (input.labels && input.labels[0]) ? input.labels[0].textContent.trim() : '';
+            const placeholder = input.getAttribute('placeholder') || '';
+            const ariaLabel = input.getAttribute('aria-label') || '';
+            params[inputName] = {
+              type: input.type === 'number' || input.type === 'range' ? 'number'
+                  : input.type === 'checkbox' ? 'boolean'
+                  : input.type === 'email' ? 'string (email)'
+                  : input.type === 'date' ? 'string (date)'
+                  : 'string',
+              required: input.required || input.hasAttribute('data-mcp-required'),
+              description: label || ariaLabel || placeholder || inputName,
+              inputType: input.type || 'text',
+              tag: input.tagName.toLowerCase()
+            };
+          });
+          tools.push({
+            name: name,
+            description: fid ? ('Form: ' + fid) : ('Form #' + i + (action ? ' → ' + action : '')),
+            params: params,
+            fieldCount: Object.keys(params).length,
+            source: 'auto-form',
+            formAction: action,
+            formMethod: method,
+            hasSubmitButton: !!form.querySelector('[type="submit"], button:not([type="button"])')
+          });
+        });
+        return JSON.stringify({ tools: tools, count: tools.length });
+      })()
+    ''');
+    final v = result['result']?['value'] as String?;
+    if (v != null) return jsonDecode(v) as Map<String, dynamic>;
+    return {'tools': [], 'count': 0};
+  }
+
   void _onDisconnect() {
     _connected = false;
     _failAllPending('Connection lost');
