@@ -36,11 +36,14 @@ class BridgeDiscovery {
   }
 
   /// Probe a single port. Returns [BridgeServiceInfo] or null.
+  /// Tries all hosts in parallel for speed.
   static Future<BridgeServiceInfo?> _probePort(int port) async {
-    // Try IPv4 first, then localhost (may resolve to IPv6)
-    for (final host in ['127.0.0.1', '::1', 'localhost']) {
-      final result = await _probeHost(host, port);
-      if (result != null) return result;
+    final results = await Future.wait([
+      _probeHost('127.0.0.1', port),
+      _probeHost('::1', port),
+    ]);
+    for (final r in results) {
+      if (r != null) return r;
     }
     return null;
   }
@@ -48,18 +51,18 @@ class BridgeDiscovery {
   static Future<BridgeServiceInfo?> _probeHost(String host, int port) async {
     try {
       final client = HttpClient();
-      client.connectionTimeout = const Duration(milliseconds: 500);
+      client.connectionTimeout = const Duration(milliseconds: 200);
 
       final request = await client.get(host, port, bridgeHealthPath);
       final response = await request.close().timeout(
-            const Duration(milliseconds: 800),
+            const Duration(milliseconds: 300),
           );
 
       if (response.statusCode == 200) {
         final body = await response
             .transform(utf8.decoder)
             .join()
-            .timeout(const Duration(milliseconds: 500));
+            .timeout(const Duration(milliseconds: 200));
         final json = jsonDecode(body) as Map<String, dynamic>;
 
         // Validate minimum fields

@@ -4549,10 +4549,10 @@ function toggleImg(el) { el.classList.toggle('expanded'); }
       // Screenshot
       case 'screenshot':
         // Default to lower quality and max width to prevent token overflow
-        final quality = (args['quality'] as num?)?.toDouble() ?? 0.5;
+        final quality = (args['quality'] as num?)?.toDouble() ?? 0.8;
         final maxWidth = args['max_width'] as int? ?? 800;
         final saveToFile =
-            args['save_to_file'] ?? true; // Default to saving as file
+            args['save_to_file'] ?? false; // Return base64 by default for speed
 
         final imageBase64 =
             await client!.takeScreenshot(quality: quality, maxWidth: maxWidth);
@@ -5250,18 +5250,18 @@ function toggleImg(el) { el.classList.toggle('expanded'); }
         return await cdp.enterText(args['key'], args['text'], ref: args['ref']);
 
       case 'screenshot':
-        final quality = (args['quality'] as num?)?.toDouble() ?? 0.5;
-        final saveToFile = args['save_to_file'] ?? true;
+        final quality = (args['quality'] as num?)?.toDouble() ?? 0.8;
+        final saveToFile = args['save_to_file'] ?? false;
         final imageBase64 = await cdp.takeScreenshot(quality: quality);
         if (imageBase64 == null) {
           return {"success": false, "error": "Failed to capture screenshot"};
         }
         if (saveToFile) {
           final timestamp = DateTime.now().millisecondsSinceEpoch;
-          final file = File('${Directory.systemTemp.path}/flutter_skill_screenshot_$timestamp.png');
+          final file = File('${Directory.systemTemp.path}/flutter_skill_screenshot_$timestamp.jpg');
           final bytes = base64.decode(imageBase64);
           await file.writeAsBytes(bytes);
-          return {"success": true, "file_path": file.path, "size_bytes": bytes.length, "format": "png"};
+          return {"success": true, "file_path": file.path, "size_bytes": bytes.length, "format": "jpeg"};
         }
         return {"image": imageBase64, "quality": quality};
 
@@ -5270,12 +5270,12 @@ function toggleImg(el) { el.classList.toggle('expanded'); }
         final y = (args['y'] as num).toDouble();
         final width = (args['width'] as num).toDouble();
         final height = (args['height'] as num).toDouble();
-        final saveToFile = args['save_to_file'] ?? true;
+        final saveToFile = args['save_to_file'] ?? false;
         final image = await cdp.takeRegionScreenshot(x, y, width, height);
         if (image == null) return {"success": false, "error": "Failed to capture region screenshot"};
         if (saveToFile) {
           final timestamp = DateTime.now().millisecondsSinceEpoch;
-          final file = File('${Directory.systemTemp.path}/flutter_skill_region_$timestamp.png');
+          final file = File('${Directory.systemTemp.path}/flutter_skill_region_$timestamp.jpg');
           final bytes = base64.decode(image);
           await file.writeAsBytes(bytes);
           return {"success": true, "file_path": file.path, "size_bytes": bytes.length, "region": {"x": x, "y": y, "width": width, "height": height}};

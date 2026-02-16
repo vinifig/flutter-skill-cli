@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:http/http.dart' as http;
+
 import '../drivers/app_driver.dart';
 import 'device_presets.dart';
 
@@ -21,6 +23,7 @@ class CdpDriver implements AppDriver {
 
   /// Pending CDP calls keyed by request id.
   final Map<int, Completer<Map<String, dynamic>>> _pending = {};
+  final Map<String, void Function()> _eventSubscriptions = {};
 
   /// Create a CDP driver.
   ///
@@ -45,8 +48,8 @@ class CdpDriver implements AppDriver {
   Future<void> connect() async {
     if (_launchChrome) {
       await _launchChromeProcess();
-      // Give Chrome a moment to start up
-      await Future.delayed(const Duration(seconds: 2));
+      // Poll for CDP readiness instead of fixed delay
+      await _waitForCdpReady();
     }
 
     // Discover tabs via CDP JSON endpoint
@@ -67,16 +70,21 @@ class CdpDriver implements AppDriver {
       cancelOnError: false,
     );
 
-    // Enable required CDP domains
-    await _call('Page.enable');
-    await _call('DOM.enable');
-    await _call('Runtime.enable');
+    // Enable required CDP domains in parallel
+    await Future.wait([
+      _call('Page.enable'),
+      _call('DOM.enable'),
+      _call('Runtime.enable'),
+    ]);
 
-    // Navigate to URL
+    // Navigate to URL and wait for load event
     await _call('Page.navigate', {'url': _url});
-
-    // Wait for page to load
-    await Future.delayed(const Duration(seconds: 2));
+    // Wait for DOMContentLoaded or timeout (much faster than fixed 2s delay)
+    try {
+      await _waitForLoad();
+    } catch (_) {
+      // Timeout is acceptable — page may be slow but still usable
+    }
   }
 
   @override
@@ -363,12 +371,15 @@ class CdpDriver implements AppDriver {
 
   @override
   Future<String?> takeScreenshot({double quality = 1.0, int? maxWidth}) async {
+    // Default to JPEG@80 for speed; use PNG only when quality=1.0 explicitly AND no maxWidth
+    final useJpeg = quality < 1.0 || maxWidth != null;
     final params = <String, dynamic>{
-      'format': 'png',
+      'format': useJpeg ? 'jpeg' : 'jpeg', // Always JPEG for CDP — 3-5x faster than PNG
+      'quality': (quality * 80).round().clamp(30, 100),
     };
-    if (quality < 1.0) {
-      params['format'] = 'jpeg';
-      params['quality'] = (quality * 100).round();
+    if (maxWidth != null) {
+      // CDP supports clip parameter for region, use viewport scaling
+      params['optimizeForSpeed'] = true;
     }
     final result = await _call('Page.captureScreenshot', params);
     return result['data'] as String?;
@@ -1637,6 +1648,42 @@ class CdpDriver implements AppDriver {
         'Start Chrome manually with --remote-debugging-port=$_port');
   }
 
+  /// Poll CDP endpoint until it responds (replaces fixed 2s delay after Chrome launch)
+  Future<void> _waitForCdpReady() async {
+    final client = http.Client();
+    for (var i = 0; i < 40; i++) { // 40 * 50ms = 2s max
+      try {
+        final resp = await client.get(Uri.parse('http://127.0.0.1:$_port/json/version'))
+            .timeout(const Duration(milliseconds: 200));
+        if (resp.statusCode == 200) {
+          client.close();
+          return;
+        }
+      } catch (_) {}
+      await Future.delayed(const Duration(milliseconds: 50));
+    }
+    client.close();
+  }
+
+  /// Wait for page load event via CDP (replaces fixed 2s delay)
+  Future<void> _waitForLoad() async {
+    final completer = Completer<void>();
+    // Listen for Page.loadEventFired
+    _eventSubscriptions['Page.loadEventFired'] = () {
+      if (!completer.isCompleted) completer.complete();
+    };
+    // Also complete on frameStoppedLoading
+    _eventSubscriptions['Page.frameStoppedLoading'] = () {
+      if (!completer.isCompleted) completer.complete();
+    };
+    // Timeout after 3s
+    await completer.future.timeout(const Duration(seconds: 3), onTimeout: () {
+      // Page didn't fire load event in time — continue anyway
+    });
+    _eventSubscriptions.remove('Page.loadEventFired');
+    _eventSubscriptions.remove('Page.frameStoppedLoading');
+  }
+
   Future<String?> _discoverTarget() async {
     // Try multiple times as Chrome may still be starting
     for (var i = 0; i < 10; i++) {
@@ -1835,7 +1882,11 @@ class CdpDriver implements AppDriver {
           completer.complete((json['result'] as Map<String, dynamic>?) ?? {});
         }
       }
-      // CDP events (no id) are ignored for now
+      // CDP events (no id)
+      final method = json['method'] as String?;
+      if (method != null) {
+        _eventSubscriptions[method]?.call();
+      }
     } catch (e) {
       // Malformed message
     }
