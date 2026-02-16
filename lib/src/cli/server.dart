@@ -67,14 +67,26 @@ Future<void> runServer(List<String> args) async {
   try {
     final server = FlutterMcpServer();
 
-    // Parse --bridge-port flag
+    String? autoUrl;
+    int? cdpPort;
+
+    // Parse flags
     for (final arg in args) {
       if (arg.startsWith('--bridge-port=')) {
         final port = int.tryParse(arg.substring('--bridge-port='.length)) ?? bridgeDefaultPort;
         await server.startBridgeListener(port);
       } else if (arg == '--bridge-port') {
         await server.startBridgeListener(bridgeDefaultPort);
+      } else if (arg.startsWith('--url=')) {
+        autoUrl = arg.substring('--url='.length);
+      } else if (arg.startsWith('--cdp-port=')) {
+        cdpPort = int.tryParse(arg.substring('--cdp-port='.length));
       }
+    }
+
+    if (autoUrl != null) {
+      server._autoConnectUrl = autoUrl;
+      server._autoConnectCdpPort = cdpPort;
     }
 
     await server.run();
@@ -143,6 +155,10 @@ class FlutterMcpServer {
   final Map<String, AppDriver> _clients = {};
   final Map<String, SessionInfo> _sessions = {};
   String? _activeSessionId;
+
+  // Auto-connect CDP on startup (set via --url flag)
+  String? _autoConnectUrl;
+  int? _autoConnectCdpPort;
 
   // Legacy single client support (for backward compatibility)
   AppDriver? get _client => _activeSessionId != null
@@ -259,6 +275,25 @@ class FlutterMcpServer {
           "protocolVersion": "2024-11-05",
           "serverInfo": {"name": "flutter-skill", "version": currentVersion},
         });
+        // Auto-connect CDP if --url was provided
+        if (_autoConnectUrl != null) {
+          final url = _autoConnectUrl!;
+          _autoConnectUrl = null; // Only once
+          Future(() async {
+            try {
+              final port = _autoConnectCdpPort ?? 9222;
+              stderr.writeln('Auto-connecting CDP to $url (port $port)...');
+              final result = await _executeTool('connect_cdp', {
+                'url': url,
+                'port': port,
+                'launch_chrome': true,
+              });
+              stderr.writeln('CDP auto-connect: $result');
+            } catch (e) {
+              stderr.writeln('CDP auto-connect failed: $e');
+            }
+          });
+        }
       } else if (method == 'notifications/initialized') {
         // No op
       } else if (method == 'tools/list') {
@@ -2010,7 +2045,7 @@ Detailed diagnostic report with:
         "inputSchema": {
           "type": "object",
           "properties": {
-            "format": {"type": "string", "enum": ["jest", "pytest", "dart_test", "playwright", "json"], "description": "Export format"},
+            "format": {"type": "string", "enum": ["jest", "pytest", "dart_test", "playwright", "cypress", "selenium", "xcuitest", "espresso", "json"], "description": "Export format: jest (JS), pytest (Python), dart_test (Dart), playwright (JS), cypress (JS), selenium (Python), xcuitest (Swift), espresso (Kotlin), json (raw)"},
           },
           "required": ["format"],
         },
@@ -3292,6 +3327,18 @@ Detailed diagnostic report with:
           break;
         case 'playwright':
           code = _exportPlaywright();
+          break;
+        case 'cypress':
+          code = _exportCypress();
+          break;
+        case 'selenium':
+          code = _exportSelenium();
+          break;
+        case 'xcuitest':
+          code = _exportXCUITest();
+          break;
+        case 'espresso':
+          code = _exportEspresso();
           break;
         default:
           code = jsonEncode(_recordedSteps);

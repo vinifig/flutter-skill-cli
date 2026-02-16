@@ -21,6 +21,7 @@ void main(List<String> args) async {
     print('  inspect      Inspect interactive elements');
     print('  act          Perform actions (tap, enter_text, scroll)');
     print('  screenshot   Take a screenshot of the running app');
+    print('  test <url>   Zero-config web testing — launch Chrome + CDP');
     print('  doctor       Check installation and environment health');
     print('  setup        Install tool priority rules for Claude Code');
     print('  report-error Report a bug to GitHub Issues');
@@ -88,6 +89,23 @@ void main(List<String> args) async {
       break;
     case 'report-error':
       await runReportError(commandArgs);
+      break;
+    case 'test':
+      // Convenience wrapper: `flutter-skill test <url>` → `server --url=<url>`
+      if (commandArgs.isEmpty) {
+        print('Usage: flutter-skill test <url>');
+        print('');
+        print('Example: flutter-skill test https://example.com');
+        print('');
+        print('Launches Chrome, navigates to the URL, and starts the MCP server');
+        print('with CDP auto-connected. No setup needed.');
+        exit(1);
+      }
+      final testUrl = commandArgs[0];
+      final serverArgs = ['--url=$testUrl'];
+      // Pass through any additional flags (e.g. --cdp-port=9333)
+      serverArgs.addAll(commandArgs.sublist(1));
+      await runServer(serverArgs);
       break;
     default:
       print('Unknown command: $command');
