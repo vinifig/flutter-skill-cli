@@ -2059,6 +2059,26 @@ Detailed diagnostic report with:
         },
       },
     ];
+
+    // Smart filtering: when connected, only return relevant tools
+    if (!hasConnection) return allTools; // No connection = show all for discovery
+
+    return allTools.where((tool) {
+      final name = tool['name'] as String;
+      if (hasCdp) {
+        // CDP mode: hide Flutter-only and mobile-only tools
+        if (flutterOnlyTools.contains(name)) return false;
+        if (mobileOnlyTools.contains(name)) return false;
+      } else if (hasBridge) {
+        // Bridge mode: hide CDP-only and Flutter-only tools
+        if (cdpOnlyTools.contains(name)) return false;
+        if (flutterOnlyTools.contains(name)) return false;
+      } else if (hasFlutter) {
+        // Flutter VM Service: hide CDP-only tools
+        if (cdpOnlyTools.contains(name)) return false;
+      }
+      return true;
+    }).toList();
   }
 
   /// Get the client for a specific session or the active session
