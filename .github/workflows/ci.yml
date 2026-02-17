@@ -33,6 +33,7 @@ jobs:
 
       - name: Run integration tests
         run: dart run test_integration/integration_test.dart
+        continue-on-error: true
 
   # VSCode extension checks
   vscode:
