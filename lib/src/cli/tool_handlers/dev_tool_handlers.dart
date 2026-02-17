@@ -76,6 +76,100 @@ extension _DevToolHandlers on FlutterMcpServer {
       return await fc.getIndicatorStatus();
     }
 
+    if (name == 'reset_app') {
+      final client = _getClient(args);
+      final clearStorage = args['clear_storage'] ?? true;
+      final clearCookies = args['clear_cookies'] ?? true;
+
+      // CDP: clear browser state and reload
+      if (client is CdpDriver) {
+        final actions = <String>[];
+        if (clearStorage) {
+          await client.call('Runtime.evaluate', {
+            'expression': 'localStorage.clear(); sessionStorage.clear();',
+            'returnByValue': true,
+          });
+          actions.add('storage cleared');
+        }
+        if (clearCookies) {
+          await client.call('Network.clearBrowserCookies');
+          actions.add('cookies cleared');
+        }
+        // Reload page
+        await client.call('Page.reload', {'ignoreCache': true});
+        await Future.delayed(const Duration(seconds: 2));
+        actions.add('page reloaded');
+        return {
+          'success': true,
+          'platform': 'cdp',
+          'actions': actions,
+        };
+      }
+
+      // Bridge: send reset command
+      if (client is BridgeDriver) {
+        try {
+          final result = await client.callMethod('reset_app', {
+            'clear_storage': clearStorage,
+          });
+          return {'success': true, 'platform': 'bridge', 'result': result};
+        } catch (_) {
+          // Fallback: hot restart if bridge doesn't support reset
+          try {
+            await client.callMethod('hot_restart');
+            return {
+              'success': true,
+              'platform': 'bridge',
+              'fallback': 'hot_restart'
+            };
+          } catch (e) {
+            return {'success': false, 'error': e.toString()};
+          }
+        }
+      }
+
+      // Flutter: hot restart
+      if (client != null) {
+        try {
+          final fc = _asFlutterClient(client, 'reset_app');
+          await fc.hotRestart();
+          return {
+            'success': true,
+            'platform': 'flutter',
+            'action': 'hot_restart'
+          };
+        } catch (e) {
+          return {'success': false, 'error': e.toString()};
+        }
+      }
+
+      // Android: adb clear
+      try {
+        // Try to find package name from active session
+        final adbResult = await Process.run('adb', [
+          'shell',
+          'dumpsys',
+          'activity',
+          'activities',
+        ]);
+        final output = adbResult.stdout as String;
+        final match =
+            RegExp(r'mResumedActivity.*?(\w+\.\w+[\.\w]*)/').firstMatch(output);
+        if (match != null) {
+          final pkg = match.group(1)!;
+          await Process.run('adb', ['shell', 'pm', 'clear', pkg]);
+          return {
+            'success': true,
+            'platform': 'android',
+            'package': pkg,
+            'action': 'pm clear'
+          };
+        }
+      } catch (_) {}
+
+      return {'success': false, 'error': 'No connected app to reset'};
+    }
+
     // Native platform interaction tools (no VM Service connection required)
 
     return null; // Not handled by this group

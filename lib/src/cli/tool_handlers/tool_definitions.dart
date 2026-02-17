@@ -71,6 +71,7 @@ extension _ToolDefinitions on FlutterMcpServer {
       'find_by_type',
       'hot_reload',
       'hot_restart',
+      'reset_app',
     };
 
     // Mobile-only tools
@@ -1864,6 +1865,36 @@ Each request includes: method, url, status_code, duration_ms, response_body (tru
         "name": "hot_restart",
         "description": "Trigger hot restart (slower, resets app state)",
         "inputSchema": {"type": "object", "properties": {}},
+      },
+      {
+        "name": "reset_app",
+        "description": """Reset app to clean state for testing.
+
+Platform behavior:
+• Flutter: hot_restart (resets all state)
+• Android: clears app data via adb (pm clear)
+• Web/CDP: clears localStorage, sessionStorage, cookies, then reloads
+• Electron/Tauri/KMP/.NET MAUI: sends reset command via bridge
+
+Use between test runs to ensure clean state.""",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "session_id": {
+              "type": "string",
+              "description": "Optional session ID"
+            },
+            "clear_storage": {
+              "type": "boolean",
+              "description":
+                  "Clear local/session storage (web platforms, default: true)"
+            },
+            "clear_cookies": {
+              "type": "boolean",
+              "description": "Clear cookies (web platforms, default: true)"
+            },
+          },
+        },
       },
       {
         // Native platform interaction tools

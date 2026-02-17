@@ -1,0 +1,150 @@
+# flutter-skill CI/CD — AI E2E Testing
+# Add this to .github/workflows/e2e-test.yml
+#
+# Zero test code needed — AI tests your app automatically.
+# Just describe what to test in the TEST_PROMPT.
+
+name: AI E2E Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  # Describe your test in natural language
+  TEST_PROMPT: |
+    Test the login flow:
+    1. Find the email input and enter "test@example.com"
+    2. Find the password input and enter "password123"
+    3. Tap the login button
+    4. Verify the dashboard appears
+
+jobs:
+  e2e-web:
+    name: Web E2E Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Dart
+        uses: dart-lang/setup-dart@v1
+
+      - name: Install flutter-skill
+        run: dart pub global activate flutter_skill
+
+      - name: Start app (customize this)
+        run: |
+          # Example: npm start, flutter run -d chrome, python -m http.server
+          npm start &
+          sleep 5
+        working-directory: ./my-app
+
+      - name: Run AI E2E tests
+        run: |
+          flutter-skill serve http://localhost:3000 --headless --port=3001 &
+          sleep 5
+
+          # Discover available tools
+          curl -s http://localhost:3001/tools/list | jq '.tools | length'
+
+          # Take snapshot to verify page loaded
+          curl -s http://localhost:3001/snapshot | jq '.snapshot' | head -20
+
+          # Run test via MCP (works with any MCP-compatible AI)
+          # Or call tools directly:
+          curl -s -X POST http://localhost:3001/tools/call \
+            -H "Content-Type: application/json" \
+            -d '{"name":"fill_email","arguments":{"text":"test@example.com"}}'
+
+          curl -s -X POST http://localhost:3001/tools/call \
+            -H "Content-Type: application/json" \
+            -d '{"name":"tap_login","arguments":{}}'
+
+          # Verify result
+          curl -s http://localhost:3001/snapshot | jq '.snapshot' | grep -i "dashboard"
+
+  e2e-flutter:
+    name: Flutter E2E Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Install flutter-skill
+        run: dart pub global activate flutter_skill
+
+      - name: Run Flutter web app
+        run: |
+          flutter run -d chrome --web-port=3000 &
+          sleep 30  # Flutter web build takes time
+
+      - name: Run tests
+        run: |
+          flutter-skill test http://localhost:3000 &
+          sleep 5
+          # Use MCP server at default port
+
+  e2e-electron:
+    name: Electron E2E Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Add flutter-skill SDK
+        run: npm install flutter-skill
+
+      - name: Start Electron app
+        run: |
+          npx electron . &
+          sleep 5
+
+      - name: Run tests via bridge
+        run: |
+          flutter-skill server &
+          sleep 3
+          # flutter-skill auto-discovers the running Electron app
+
+  e2e-mobile:
+    name: Mobile E2E Tests (Android)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Start Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          script: |
+            # Install and launch app
+            adb install app-debug.apk
+            adb shell am start -n com.example.app/.MainActivity
+            sleep 10
+
+            # flutter-skill auto-discovers via bridge
+            dart pub global activate flutter_skill
+            flutter-skill server &
+            sleep 3

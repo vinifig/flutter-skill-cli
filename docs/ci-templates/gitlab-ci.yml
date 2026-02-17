@@ -1,0 +1,34 @@
+# flutter-skill GitLab CI — AI E2E Testing
+# Add this to .gitlab-ci.yml
+
+stages:
+  - test
+
+e2e-web:
+  stage: test
+  image: dart:stable
+  services:
+    - name: selenium/standalone-chrome:latest
+      alias: chrome
+  script:
+    - dart pub global activate flutter_skill
+    # Start your app
+    - cd my-app && npm start &
+    - sleep 5
+    # Run flutter-skill serve
+    - flutter-skill serve http://localhost:3000 --headless --port=3001 &
+    - sleep 5
+    # Verify tools discovered
+    - curl -s http://localhost:3001/health | grep '"status":"ok"'
+    - curl -s http://localhost:3001/tools/list | python3 -c "import sys,json; print(len(json.load(sys.stdin)['tools']), 'tools')"
+    # Run your tests
+    - curl -s http://localhost:3001/snapshot
+
+e2e-flutter:
+  stage: test
+  image: cirrusci/flutter:stable
+  script:
+    - dart pub global activate flutter_skill
+    - flutter run -d chrome --web-port=3000 &
+    - sleep 30
+    - flutter-skill test http://localhost:3000

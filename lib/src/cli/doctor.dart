@@ -156,6 +156,59 @@ Future<void> runDoctor(List<String> args) async {
     }
   }
 
+  // Check Chrome for CDP/serve mode
+  print('');
+  print('CDP / Serve Mode:');
+  try {
+    String chromePath;
+    if (Platform.isMacOS) {
+      chromePath =
+          '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+    } else if (Platform.isLinux) {
+      chromePath = 'google-chrome';
+    } else {
+      chromePath = 'chrome.exe';
+    }
+    if (Platform.isMacOS && await File(chromePath).exists()) {
+      final result = await Process.run(chromePath, ['--version']);
+      _printOk('Chrome: ${(result.stdout as String).trim()}');
+      okCount++;
+    } else {
+      final result = await Process.run('which', ['google-chrome']);
+      if (result.exitCode == 0) {
+        _printOk('Chrome found');
+        okCount++;
+      } else {
+        _printWarn('Chrome not found — needed for serve/test commands');
+        warnCount++;
+      }
+    }
+  } catch (_) {
+    _printInfo('Could not check Chrome');
+  }
+
+  // Check for common port conflicts
+  try {
+    final result = await Process.run('lsof', ['-i', ':9222', '-t']);
+    if (result.exitCode == 0 && (result.stdout as String).trim().isNotEmpty) {
+      _printInfo('Port 9222 in use — CDP may need --cdp-port flag');
+    } else {
+      _printOk('Port 9222 available for CDP');
+      okCount++;
+    }
+  } catch (_) {}
+
+  // Check bridge port range
+  try {
+    final result = await Process.run('lsof', ['-i', ':18118', '-t']);
+    if (result.exitCode == 0 && (result.stdout as String).trim().isNotEmpty) {
+      _printOk('Bridge port 18118 active (app may be running)');
+      okCount++;
+    } else {
+      _printInfo('Bridge port 18118 free (no app detected)');
+    }
+  } catch (_) {}
+
   // Summary
   print('');
   print('=' * 50);
