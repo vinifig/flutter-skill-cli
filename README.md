@@ -27,6 +27,10 @@
   <a href="docs/USAGE_GUIDE.md">Docs</a>
 </p>
 
+<p align="center"><b>🚀 Zero config. Zero test code. Just talk to your AI.</b></p>
+
+<p align="center"><sub>If this saves you time, please consider <a href="https://github.com/ai-dashboad/flutter-skill/stargazers">starring the repo ⭐</a> — it helps others find it!</sub></p>
+
 ---
 
 ## 30-Second Demo
@@ -39,9 +43,12 @@ https://github.com/user-attachments/assets/d4617c73-043f-424c-9a9a-1a61d4c2d3c6
 
 ## Why This Exists
 
-Writing E2E tests is painful. Maintaining them is worse.
+Writing E2E tests is painful. Maintaining them is worse. **flutter-skill** takes a different approach:
 
-**flutter-skill** connects your AI agent (Claude, Cursor, Windsurf, Copilot, OpenClaw) directly to your running app via [MCP](https://modelcontextprotocol.io/). The agent can see the screen, tap buttons, type text, scroll — like a human tester who never sleeps.
+- 🔌 **Connects any AI agent** (Claude, Cursor, Windsurf, Copilot, OpenClaw) directly to your running app via [MCP](https://modelcontextprotocol.io/)
+- 👀 **The agent sees your screen** — taps buttons, types text, scrolls, navigates — like a human tester who never sleeps
+- ✅ **Zero test code** — no Page Objects, no XPath, no brittle selectors. Just plain English
+- ⚡ **Zero config** — 2 lines of code, works on all 8 platforms
 
 ```
 You: "Test the checkout flow with an empty cart, then add 3 items and complete purchase"
@@ -90,7 +97,7 @@ void main() {
 
 > *"Launch my app, explore every screen, and report any bugs"*
 
-That's it. **Zero configuration. Zero test code.**
+That's it. **Zero configuration. Zero test code. Works in under 60 seconds.**
 
 <details>
 <summary>📦 More install methods (Homebrew, Scoop, Docker, IDE, Agent Skill)</summary>
