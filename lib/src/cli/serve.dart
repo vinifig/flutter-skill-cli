@@ -86,7 +86,6 @@ Future<void> runServe(List<String> args) async {
   // Step 2: Initial tool discovery
   print('🔍 Scanning page for interactive elements...');
   var toolCache = await _discoverAndPrint(cdp);
-  var toolCacheTime = DateTime.now();
 
   // Step 3: Set up hot reload detection
   if (watch) {
@@ -113,16 +112,18 @@ Future<void> runServe(List<String> args) async {
 
   final server = await HttpServer.bind(InternetAddress.anyIPv4, serverPort);
 
+  // Shared mutable state
+  final state = _ServeState(toolCache, DateTime.now());
+
   // Background: poll for DOM changes
   if (watch) {
     Timer.periodic(const Duration(seconds: 2), (timer) async {
       try {
         final changed = await _checkForChanges(cdp);
         if (changed) {
-          print(
-              '🔄 Page changed (hot reload?) — rescanning ${DateTime.now().toIso8601String()}');
-          toolCache = await _discoverAndPrint(cdp);
-          toolCacheTime = DateTime.now();
+          print('🔄 Page changed (hot reload?) — rescanning...');
+          state.tools = await _discoverAndPrint(cdp);
+          state.updatedAt = DateTime.now();
         }
       } catch (e) {
         // CDP connection may drop — ignore
@@ -133,14 +134,17 @@ Future<void> runServe(List<String> args) async {
   await for (final request in server) {
     try {
       // Refresh tools on each request if stale (> 30s)
-      if (DateTime.now().difference(toolCacheTime).inSeconds > 30) {
+      if (DateTime.now().difference(state.updatedAt).inSeconds > 30) {
         try {
-          toolCache = await _discoverTools(cdp);
-          toolCacheTime = DateTime.now();
-        } catch (_) {}
+          state.tools = await _discoverTools(cdp);
+          state.updatedAt = DateTime.now();
+        } catch (e) {
+          print('   ⚠️ Tool refresh failed: $e');
+        }
       }
-      await _handleRequest(request, cdp, toolCache);
+      await _handleRequest(request, cdp, state);
     } catch (e) {
+      print('   ❌ Request error: $e');
       try {
         request.response
           ..statusCode = 500
@@ -152,12 +156,20 @@ Future<void> runServe(List<String> args) async {
   }
 }
 
+/// Shared mutable state for the serve session
+class _ServeState {
+  List<Map<String, dynamic>> tools;
+  DateTime updatedAt;
+  _ServeState(this.tools, this.updatedAt);
+}
+
 /// Handle HTTP requests
 Future<void> _handleRequest(
   HttpRequest request,
   CdpDriver cdp,
-  List<Map<String, dynamic>> tools,
+  _ServeState state,
 ) async {
+  final tools = state.tools;
   final path = request.uri.path;
   final method = request.method;
   final response = request.response;
@@ -280,22 +292,36 @@ Future<void> _handleRequest(
         return;
       }
       print('   🌐 Navigating to: $navUrl');
-      final navResult = await cdp.navigate(navUrl);
-      // Wait for page load, then re-scan
-      await Future.delayed(const Duration(seconds: 2));
-      response
-        ..statusCode = 200
-        ..headers.contentType = ContentType.json
-        ..write(jsonEncode(navResult));
+      try {
+        // Use CDP Page.navigate directly to stay on same WS connection
+        await cdp.call('Page.navigate', {'url': navUrl});
+        // Wait for page load
+        await Future.delayed(const Duration(seconds: 3));
+        // Re-setup observers and re-scan tools
+        await _setupHotReloadDetection(cdp);
+        state.tools = await _discoverAndPrint(cdp);
+        state.updatedAt = DateTime.now();
+        response
+          ..statusCode = 200
+          ..headers.contentType = ContentType.json
+          ..write(
+              jsonEncode({'navigated': navUrl, 'tools': state.tools.length}));
+      } catch (e) {
+        response
+          ..statusCode = 500
+          ..headers.contentType = ContentType.json
+          ..write(jsonEncode({'error': e.toString()}));
+      }
       await response.close();
 
     case '/refresh':
       print('   🔄 Force refresh tools');
-      final newTools = await _discoverTools(cdp);
+      state.tools = await _discoverAndPrint(cdp);
+      state.updatedAt = DateTime.now();
       response
         ..statusCode = 200
         ..headers.contentType = ContentType.json
-        ..write(jsonEncode({'tools': newTools.length, 'refreshed': true}));
+        ..write(jsonEncode({'tools': state.tools.length, 'refreshed': true}));
       await response.close();
 
     default:
