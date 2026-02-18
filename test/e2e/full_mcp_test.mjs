@@ -24,8 +24,8 @@ const URL        = args.url || null;
 const VM_SERVICE = args['vm-service'] || null;
 const PORT       = parseInt(args.port || '18118');
 
-const DART   = '/Users/cw/development/flutter/bin/dart';
-const SERVER = '/Users/cw/development/flutter-skill/bin/flutter_skill.dart';
+const DART   = '/tmp/fs-test4';
+const SERVER = '';
 
 // ── Platform classification ────────────────────────────────────────────────
 const FLUTTER_PLATFORMS = new Set(['flutter-ios', 'flutter-web']);
@@ -301,7 +301,7 @@ async function main() {
   console.log(`  Full MCP Test — ${PLATFORM} (${TOOLS.length} tool calls)`);
   console.log('════════════════════════════════════════════════════════════════\n');
 
-  const serverArgs = ['run', SERVER, 'server'];
+  const serverArgs = ['server'];
   // For web-sdk platform, start bridge listener so browser SDK can connect
   if (PLATFORM === 'web-sdk') serverArgs.push('--bridge-port=18118');
   const proc = spawn(DART, serverArgs, {
