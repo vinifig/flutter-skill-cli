@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'dart:async';
 import 'package:flutter_skill/src/cli/explore.dart' show runExplore;
-import 'package:flutter_skill/src/cli/monkey.dart' show runMonkey;
 
 /// Run a quick guided demo to showcase flutter-skill capabilities.
 Future<void> runQuickstart(List<String> args) async {
@@ -30,16 +29,9 @@ Future<void> _quickstartWithUrl(String url) async {
     // Run serve in background, explore, then monkey
     // We'll run explore and monkey directly with the URL
     await _runStep('explore', () async {
-      print('  ── Step 1/2: AI Explore (depth=1) ──');
+      print('  ── AI Explore (depth=1) ──');
       print('');
       await runExplore([url, '--depth=1', '--headless']);
-    });
-
-    await _runStep('monkey', () async {
-      print('');
-      print('  ── Step 2/2: Monkey Testing (5 actions) ──');
-      print('');
-      await runMonkey([url, '--max-actions=5', '--headless']);
     });
   } catch (e) {
     print('  ⚠️  Error during quickstart: $e');
@@ -87,23 +79,13 @@ Future<void> _quickstartWithDemo() async {
       await request.response.close();
     });
 
-    // Run explore
-    print('  ── Step 1/2: AI Explore ──');
+    // Run explore only — fast onboarding
+    print('  ── AI Explore ──');
     print('');
     try {
       await runExplore([demoUrl, '--depth=1', '--headless']);
     } catch (e) {
       print('  ⚠️  Explore: $e');
-    }
-
-    // Run monkey
-    print('');
-    print('  ── Step 2/2: Monkey Testing (5 actions) ──');
-    print('');
-    try {
-      await runMonkey([demoUrl, '--max-actions=5', '--headless']);
-    } catch (e) {
-      print('  ⚠️  Monkey: $e');
     }
 
     _printSummary(demoUrl);
