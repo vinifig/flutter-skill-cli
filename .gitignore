@@ -91,3 +91,4 @@ assets/demo-tiktok.mp4
 
 # MCP Registry local tokens
 .mcpregistry_*
+test/e2e/electron_test_app/test-*.mjs

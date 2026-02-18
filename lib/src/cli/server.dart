@@ -42,7 +42,12 @@ part 'tool_handlers/dev_tool_handlers.dart';
 part 'tool_handlers/native_handlers.dart';
 part 'tool_handlers/auth_handlers.dart';
 part 'tool_handlers/recording_handlers.dart';
+part 'tool_handlers/i18n_handlers.dart';
+part 'tool_handlers/performance_handlers.dart';
 part 'tool_handlers/parallel_handlers.dart';
+part 'tool_handlers/api_handlers.dart';
+part 'tool_handlers/reliability_handlers.dart';
+part 'tool_handlers/visual_regression_handlers.dart';
 
 const String currentVersion = '0.8.3';
 
@@ -224,6 +229,11 @@ class FlutterMcpServer {
   bool _isRecording = false;
   final List<Map<String, dynamic>> _recordedSteps = [];
   DateTime? _recordingStartTime;
+
+  // Performance monitoring state
+  bool _perfCollecting = false;
+  DateTime? _perfStartTime;
+  final List<Map<String, dynamic>> _perfMetricSnapshots = [];
 
   // Video recording state
   Process? _videoProcess;
@@ -554,6 +564,10 @@ class FlutterMcpServer {
       };
     }
 
+    // Visual regression tools (work with or without connection for some ops)
+    final vrResult = await _handleVisualRegressionTool(name, args);
+    if (vrResult != null) return vrResult;
+
     // Delegate to handler groups
     final handlers = [
       _handleConnectionTools,
@@ -562,7 +576,11 @@ class FlutterMcpServer {
       _handleNativeTools,
       _handleAuthTools,
       _handleRecordingTools,
+      _handleI18nTools,
+      _handlePerformanceTools,
       _handleParallelTools,
+      _handleApiTools,
+      _handleReliabilityTools,
     ];
     for (final handler in handlers) {
       final result = await handler(name, args);

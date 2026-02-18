@@ -192,6 +192,60 @@ extension _BfInspection on FlutterMcpServer {
         final fc = _asFlutterClient(client!, 'find_by_type');
         return await fc.findByType(args['type']);
 
+      case 'accessibility_audit':
+        if (client is BridgeDriver) {
+          // Bridge platform: use SDK's inspect_interactive to build a11y report
+          final structured = await client.getInteractiveElementsStructured();
+          final elements =
+              (structured['elements'] as List<dynamic>?) ?? [];
+          final issues = <Map<String, dynamic>>[];
+
+          for (final el in elements) {
+            if (el is! Map<String, dynamic>) continue;
+            final type = (el['type'] as String? ?? '').toLowerCase();
+            final text = (el['text'] as String? ?? '').trim();
+            final label = (el['label'] as String? ?? '').trim();
+            final ref = el['ref'] as String? ?? '';
+
+            // Check buttons without accessible name
+            if ((type == 'button' || ref.startsWith('button:')) &&
+                text.isEmpty &&
+                label.isEmpty) {
+              issues.add({
+                'type': 'error',
+                'rule': 'button-name',
+                'message': 'Button has no accessible name',
+                'element': ref,
+              });
+            }
+
+            // Check inputs without label/hint
+            if ((type == 'input' || type == 'textarea' || ref.startsWith('input:')) &&
+                label.isEmpty) {
+              issues.add({
+                'type': 'warning',
+                'rule': 'input-label',
+                'message': 'Input missing label or hint text',
+                'element': ref,
+              });
+            }
+          }
+
+          return {
+            'issues': issues,
+            'total': issues.length,
+            'errors': issues.where((i) => i['type'] == 'error').length,
+            'warnings': issues.where((i) => i['type'] == 'warning').length,
+            'platform': 'bridge',
+          };
+        }
+        // Non-bridge, non-CDP — not supported
+        return {
+          'issues': [],
+          'total': 0,
+          'error': 'accessibility_audit requires CDP or Bridge connection',
+        };
+
       // Basic Actions
       default:
         return null;

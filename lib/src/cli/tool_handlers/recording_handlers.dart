@@ -55,6 +55,12 @@ extension _RecordingHandlers on FlutterMcpServer {
         case 'espresso':
           code = _exportEspresso();
           break;
+        case 'detox':
+          code = _exportDetox();
+          break;
+        case 'maestro':
+          code = _exportMaestro();
+          break;
         default:
           code = jsonEncode(_recordedSteps);
       }

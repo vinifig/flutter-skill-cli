@@ -486,4 +486,175 @@ function toggleImg(el) { el.classList.toggle('expanded'); }
       s.replaceAll("\\", "\\\\").replaceAll('"', '\\"');
   String _swiftVar(String s) =>
       s.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '').toLowerCase();
+
+  /// Export recorded steps as Detox (JavaScript) test
+  String _exportDetox() {
+    final buf = StringBuffer();
+    buf.writeln("const { device, element, by, expect } = require('detox');");
+    buf.writeln("");
+    buf.writeln("describe('Recorded Test', () => {");
+    buf.writeln("  beforeAll(async () => {");
+    buf.writeln("    await device.launchApp();");
+    buf.writeln("  });");
+    buf.writeln("");
+    buf.writeln("  afterAll(async () => {");
+    buf.writeln("    await device.terminateApp();");
+    buf.writeln("  });");
+    buf.writeln("");
+    buf.writeln("  it('should complete recorded flow', async () => {");
+    for (final step in _recordedSteps) {
+      final tool = step['tool'] as String;
+      final params = step['params'] as Map<String, dynamic>? ?? {};
+      final key = params['key'] as String?;
+      final text = params['text'] as String?;
+      switch (tool) {
+        case 'tap':
+          if (key != null) {
+            buf.writeln("    // Tap element with testID '$key'");
+            buf.writeln("    await element(by.id('$key')).tap();");
+          } else if (text != null) {
+            buf.writeln("    // Tap element with text '$text'");
+            buf.writeln("    await element(by.text('${_escapeJs(text)}')).tap();");
+          }
+          break;
+        case 'enter_text':
+          final value =
+              params['value'] as String? ?? params['text'] as String? ?? '';
+          if (key != null) {
+            buf.writeln("    // Type text into '$key'");
+            buf.writeln("    await element(by.id('$key')).typeText('${_escapeJs(value)}');");
+          }
+          break;
+        case 'swipe':
+          final direction = params['direction'] as String? ?? 'up';
+          if (key != null) {
+            buf.writeln("    // Swipe $direction on '$key'");
+            buf.writeln("    await element(by.id('$key')).swipe('$direction');");
+          } else {
+            buf.writeln("    // Swipe $direction on screen");
+            buf.writeln("    await element(by.id('scrollView')).swipe('$direction');");
+          }
+          break;
+        case 'screenshot':
+          buf.writeln("    // Take screenshot");
+          buf.writeln("    await device.takeScreenshot('step_${_recordedSteps.indexOf(step)}');");
+          break;
+        case 'scroll':
+          final dy = (params['dy'] ?? 200) as num;
+          final direction = dy > 0 ? 'down' : 'up';
+          buf.writeln("    // Scroll $direction");
+          buf.writeln("    await element(by.id('scrollView')).scroll(${dy.abs()}, '$direction');");
+          break;
+        case 'assert_visible':
+          if (key != null) {
+            buf.writeln("    // Assert '$key' is visible");
+            buf.writeln("    await expect(element(by.id('$key'))).toBeVisible();");
+          } else if (text != null) {
+            buf.writeln("    // Assert text '$text' is visible");
+            buf.writeln("    await expect(element(by.text('${_escapeJs(text)}'))).toBeVisible();");
+          }
+          break;
+        default:
+          buf.writeln("    // $tool: ${jsonEncode(params)}");
+      }
+    }
+    buf.writeln("  });");
+    buf.writeln("});");
+    return buf.toString();
+  }
+
+  /// Export recorded steps as Maestro (YAML) flow
+  String _exportMaestro() {
+    final buf = StringBuffer();
+    buf.writeln("# Maestro Flow - Recorded Test");
+    buf.writeln("# Run with: maestro test recorded_flow.yaml");
+    buf.writeln("appId: com.example.app  # TODO: Replace with your app ID");
+    buf.writeln("---");
+    for (final step in _recordedSteps) {
+      final tool = step['tool'] as String;
+      final params = step['params'] as Map<String, dynamic>? ?? {};
+      final key = params['key'] as String?;
+      final text = params['text'] as String?;
+      switch (tool) {
+        case 'tap':
+          if (key != null) {
+            buf.writeln("# Tap element with testID '$key'");
+            buf.writeln("- tapOn:");
+            buf.writeln("    id: \"$key\"");
+          } else if (text != null) {
+            buf.writeln("# Tap element with text '$text'");
+            buf.writeln("- tapOn: \"${_escapeYaml(text)}\"");
+          }
+          break;
+        case 'enter_text':
+          final value =
+              params['value'] as String? ?? params['text'] as String? ?? '';
+          if (key != null) {
+            buf.writeln("# Type text into '$key'");
+            buf.writeln("- tapOn:");
+            buf.writeln("    id: \"$key\"");
+            buf.writeln("- inputText: \"${_escapeYaml(value)}\"");
+          } else {
+            buf.writeln("# Type text");
+            buf.writeln("- inputText: \"${_escapeYaml(value)}\"");
+          }
+          break;
+        case 'swipe':
+          final direction = params['direction'] as String? ?? 'up';
+          buf.writeln("# Swipe $direction");
+          switch (direction) {
+            case 'up':
+              buf.writeln("- swipe:");
+              buf.writeln("    direction: UP");
+              break;
+            case 'down':
+              buf.writeln("- swipe:");
+              buf.writeln("    direction: DOWN");
+              break;
+            case 'left':
+              buf.writeln("- swipe:");
+              buf.writeln("    direction: LEFT");
+              break;
+            case 'right':
+              buf.writeln("- swipe:");
+              buf.writeln("    direction: RIGHT");
+              break;
+          }
+          break;
+        case 'screenshot':
+          buf.writeln("# Take screenshot");
+          buf.writeln("- takeScreenshot: step_${_recordedSteps.indexOf(step)}");
+          break;
+        case 'scroll':
+          final dy = params['dy'] ?? 200;
+          final direction = (dy as num) > 0 ? 'DOWN' : 'UP';
+          buf.writeln("# Scroll $direction");
+          buf.writeln("- scroll:");
+          buf.writeln("    direction: $direction");
+          break;
+        case 'assert_visible':
+          if (key != null) {
+            buf.writeln("# Assert '$key' is visible");
+            buf.writeln("- assertVisible:");
+            buf.writeln("    id: \"$key\"");
+          } else if (text != null) {
+            buf.writeln("# Assert text '$text' is visible");
+            buf.writeln("- assertVisible: \"${_escapeYaml(text)}\"");
+          }
+          break;
+        case 'wait':
+          final ms = params['timeout_ms'] ?? params['ms'] ?? 1000;
+          buf.writeln("# Wait");
+          buf.writeln("- extendedWaitUntil:");
+          buf.writeln("    visible: \".*\"");
+          buf.writeln("    timeout: $ms");
+          break;
+        default:
+          buf.writeln("# $tool: ${jsonEncode(params)}");
+      }
+    }
+    return buf.toString();
+  }
+
+  String _escapeYaml(String s) => s.replaceAll('"', '\\"');
 }

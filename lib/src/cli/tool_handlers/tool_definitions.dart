@@ -2591,13 +2591,122 @@ Detailed diagnostic report with:
                 "selenium",
                 "xcuitest",
                 "espresso",
+                "detox",
+                "maestro",
                 "json"
               ],
               "description":
-                  "Export format: jest (JS), pytest (Python), dart_test (Dart), playwright (JS), cypress (JS), selenium (Python), xcuitest (Swift), espresso (Kotlin), json (raw)"
+                  "Export format: jest (JS), pytest (Python), dart_test (Dart), playwright (JS), cypress (JS), selenium (Python), xcuitest (Swift), espresso (Kotlin), detox (JS), maestro (YAML), json (raw)"
             },
           },
           "required": ["format"],
+        },
+      },
+
+      // i18n / Multi-language Testing
+      {
+        "name": "set_locale",
+        "description":
+            "Switch app locale/language for i18n testing. Supports CDP emulation, bridge method, or deep link.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "locale": {
+              "type": "string",
+              "description": "Locale code (e.g. en-US, zh-CN, ja-JP)"
+            },
+            "platform_method": {
+              "type": "string",
+              "enum": ["cdp_emulation", "bridge_method", "deep_link"],
+              "description":
+                  "Method to switch locale. Defaults to auto-detect based on connection type."
+            },
+          },
+          "required": ["locale"],
+        },
+      },
+      {
+        "name": "verify_translations",
+        "description":
+            "Check for untranslated strings, missing translations, or text overflow after locale switch.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "expected_locale": {
+              "type": "string",
+              "description": "Expected locale code to verify against"
+            },
+            "check_overflow": {
+              "type": "boolean",
+              "description": "Check for text overflow/truncation (default: true)"
+            },
+            "check_untranslated": {
+              "type": "boolean",
+              "description":
+                  "Check for untranslated (English) strings when locale is non-English (default: true)"
+            },
+          },
+          "required": ["expected_locale"],
+        },
+      },
+      {
+        "name": "i18n_snapshot",
+        "description":
+            "Take screenshots across multiple locales for visual comparison.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "locales": {
+              "type": "array",
+              "items": {"type": "string"},
+              "description": "List of locale codes to snapshot"
+            },
+            "save_dir": {
+              "type": "string",
+              "description":
+                  "Directory to save snapshots (default: ./i18n-snapshots)"
+            },
+          },
+          "required": ["locales"],
+        },
+      },
+
+      // Performance Monitoring
+      {
+        "name": "perf_start",
+        "description":
+            "Start collecting performance metrics (FPS, memory, network, layout shifts).",
+        "inputSchema": {
+          "type": "object",
+          "properties": {},
+        },
+      },
+      {
+        "name": "perf_stop",
+        "description":
+            "Stop collecting and return performance summary with key metrics.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {},
+        },
+      },
+      {
+        "name": "perf_report",
+        "description":
+            "Generate detailed performance report with recommendations. Flags issues like FPS<30, CLS>0.25, LCP>2.5s.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "format": {
+              "type": "string",
+              "enum": ["json", "html"],
+              "description": "Report format (default: json)"
+            },
+            "save_path": {
+              "type": "string",
+              "description": "Path to save the report file"
+            },
+          },
         },
       },
 
@@ -2800,6 +2909,175 @@ can visually compare them. Also returns text snapshots for structural comparison
             "include_screenshots": {
               "type": "boolean",
               "description": "Embed screenshots in report (default: true)"
+            },
+          },
+        },
+      },
+      // ── API + UI Mixed Testing ──
+      {
+        "name": "api_request",
+        "description": "Send HTTP request and validate response (status, body, headers). Use alongside UI actions for full-stack testing.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "url": {"type": "string"},
+            "method": {"type": "string", "enum": ["GET","POST","PUT","DELETE","PATCH"]},
+            "headers": {"type": "object"},
+            "body": {"type": "string"},
+            "expect_status": {"type": "integer"},
+            "expect_body_contains": {"type": "string"},
+            "expect_json_path": {"type": "string", "description": "JSONPath expression to validate"},
+            "expect_json_value": {"description": "Expected value at JSONPath"},
+          },
+          "required": ["url"],
+        },
+      },
+      {
+        "name": "api_assert",
+        "description": "Assert API state matches expected values. Verify backend state after UI actions.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "url": {"type": "string"},
+            "method": {"type": "string"},
+            "headers": {"type": "object"},
+            "json_path": {"type": "string"},
+            "expected_value": {},
+            "comparison": {"type": "string", "enum": ["equals","contains","gt","lt","exists","not_exists"]},
+          },
+          "required": ["url", "json_path"],
+        },
+      },
+      // ── Flaky Test Detection ──
+      {
+        "name": "retry_on_fail",
+        "description": "Re-run a failed test action up to N times. Marks as flaky if passes on retry.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "action": {"type": "string", "description": "Tool name to retry"},
+            "arguments": {"type": "object", "description": "Arguments for the tool"},
+            "max_retries": {"type": "integer", "description": "Max retry attempts (default: 3)"},
+            "delay_ms": {"type": "integer", "description": "Delay between retries in ms (default: 1000)"},
+          },
+          "required": ["action", "arguments"],
+        },
+      },
+      {
+        "name": "stability_check",
+        "description": "Run a tool N times and report success rate. Detects flaky behavior.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "action": {"type": "string"},
+            "arguments": {"type": "object"},
+            "runs": {"type": "integer", "description": "Number of runs (default: 5)"},
+          },
+          "required": ["action", "arguments"],
+        },
+      },
+      // Visual Regression Pipeline
+      {
+        "name": "visual_baseline_save",
+        "description":
+            "Save current screenshot as visual baseline for regression testing",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Page/test name for the baseline"
+            },
+            "baseline_dir": {
+              "type": "string",
+              "description":
+                  "Directory to store baselines (default: .visual-baselines)"
+            },
+            "quality": {
+              "type": "number",
+              "description": "Screenshot quality 0-1 (default: 0.8)"
+            },
+          },
+          "required": ["name"]
+        },
+      },
+      {
+        "name": "visual_baseline_compare",
+        "description":
+            "Compare current screenshot against saved baseline. Returns diff percentage and generates diff image",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Baseline name to compare against"
+            },
+            "baseline_dir": {
+              "type": "string",
+              "description":
+                  "Directory containing baselines (default: .visual-baselines)"
+            },
+            "threshold": {
+              "type": "number",
+              "description":
+                  "Acceptable diff percentage (default: 5.0 = 5%)"
+            },
+            "ignore_regions": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "x": {"type": "integer"},
+                  "y": {"type": "integer"},
+                  "width": {"type": "integer"},
+                  "height": {"type": "integer"},
+                },
+              },
+              "description": "Rectangles to ignore during comparison"
+            },
+          },
+          "required": ["name"]
+        },
+      },
+      {
+        "name": "visual_baseline_update",
+        "description":
+            "Update an existing visual baseline with the current screenshot",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Baseline name to update"
+            },
+            "baseline_dir": {
+              "type": "string",
+              "description":
+                  "Directory containing baselines (default: .visual-baselines)"
+            },
+          },
+          "required": ["name"]
+        },
+      },
+      {
+        "name": "visual_regression_report",
+        "description":
+            "Generate an HTML report showing all baselines and their diffs",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "baseline_dir": {
+              "type": "string",
+              "description":
+                  "Directory containing baselines (default: .visual-baselines)"
+            },
+            "report_path": {
+              "type": "string",
+              "description": "Output HTML report path"
+            },
+            "title": {
+              "type": "string",
+              "description": "Report title"
             },
           },
         },

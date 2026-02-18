@@ -9,6 +9,8 @@ import 'package:flutter_skill/src/cli/doctor.dart';
 import 'package:flutter_skill/src/cli/init.dart';
 import 'package:flutter_skill/src/cli/demo.dart';
 import 'package:flutter_skill/src/cli/serve.dart';
+import 'package:flutter_skill/src/cli/test_runner.dart';
+import 'package:flutter_skill/src/cli/explore.dart';
 
 void main(List<String> args) async {
   if (args.isEmpty) {
@@ -23,6 +25,7 @@ void main(List<String> args) async {
     print('  act          Perform actions (tap, enter_text, scroll)');
     print('  screenshot   Take a screenshot of the running app');
     print('  serve <url>  Zero-config WebMCP server — any site → AI tools');
+    print('  explore <url> AI Test Agent — auto-explore and test any web app');
     print('  test <url>   Zero-config web testing — launch Chrome + CDP');
     print('  doctor       Check installation and environment health');
     print('  setup        Install tool priority rules for Claude Code');
@@ -95,23 +98,44 @@ void main(List<String> args) async {
     case 'serve':
       await runServe(commandArgs);
       break;
+    case 'explore':
+      await runExplore(commandArgs);
+      break;
     case 'test':
-      // Convenience wrapper: `flutter-skill test <url>` → `server --url=<url>`
       if (commandArgs.isEmpty) {
-        print('Usage: flutter-skill test <url>');
+        print('Usage: flutter-skill test <url> [options]');
         print('');
-        print('Example: flutter-skill test https://example.com');
+        print('Examples:');
+        print('  flutter-skill test https://example.com');
+        print('  flutter-skill test --url=https://example.com --platforms=web,electron,android');
         print('');
-        print(
-            'Launches Chrome, navigates to the URL, and starts the MCP server');
-        print('with CDP auto-connected. No setup needed.');
+        print('Options:');
+        print('  --url=<url>             URL to test');
+        print('  --platforms=<list>      Platforms: web,electron,android,ios (default: web)');
+        print('  --cdp-port=<port>       CDP port (default: 9222)');
+        print('  --no-headless           Show browser window');
+        print('  --report=<path>         Save JSON report to file');
         exit(1);
       }
-      final testUrl = commandArgs[0];
-      final serverArgs = ['--url=$testUrl'];
-      // Pass through any additional flags (e.g. --cdp-port=9333)
-      serverArgs.addAll(commandArgs.sublist(1));
-      await runServer(serverArgs);
+      // Check if --platforms flag is used → parallel test runner
+      final hasMultiPlatform = commandArgs.any((a) => a.startsWith('--platforms='));
+      if (hasMultiPlatform) {
+        await runTestRunner(commandArgs);
+      } else {
+        // Single-platform: convenience wrapper → server --url=<url>
+        final testUrl = commandArgs.firstWhere((a) => !a.startsWith('--'),
+            orElse: () => commandArgs
+                .firstWhere((a) => a.startsWith('--url='),
+                    orElse: () => '')
+                .replaceFirst('--url=', ''));
+        if (testUrl.isEmpty) {
+          print('Error: URL is required');
+          exit(1);
+        }
+        final serverArgs = ['--url=$testUrl'];
+        serverArgs.addAll(commandArgs.where((a) => a != testUrl && !a.startsWith('--url=')));
+        await runServer(serverArgs);
+      }
       break;
     default:
       print('Unknown command: $command');
