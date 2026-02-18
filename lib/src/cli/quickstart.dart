@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:async';
 import 'package:flutter_skill/src/cli/explore.dart' show runExplore;
+import 'package:flutter_skill/src/cli/monkey.dart' show runMonkey;
 
 /// Run a quick guided demo to showcase flutter-skill capabilities.
 Future<void> runQuickstart(List<String> args) async {
@@ -28,11 +29,20 @@ Future<void> _quickstartWithUrl(String url) async {
   try {
     // Run serve in background, explore, then monkey
     // We'll run explore and monkey directly with the URL
-    await _runStep('explore', () async {
-      print('  ── AI Explore (depth=1) ──');
-      print('');
-      await runExplore([url, '--depth=1', '--headless']);
-    });
+    // Run explore and monkey in parallel for speed
+    await Future.wait([
+      _runStep('explore', () async {
+        print('  ── AI Explore (depth=1) ──');
+        print('');
+        await runExplore([url, '--depth=1', '--headless']);
+      }),
+      _runStep('monkey', () async {
+        print('');
+        print('  ── Monkey Testing (3 actions) ──');
+        print('');
+        await runMonkey([url, '--actions=3', '--headless']);
+      }),
+    ]);
   } catch (e) {
     print('  ⚠️  Error during quickstart: $e');
   }
@@ -79,14 +89,28 @@ Future<void> _quickstartWithDemo() async {
       await request.response.close();
     });
 
-    // Run explore only — fast onboarding
-    print('  ── AI Explore ──');
-    print('');
-    try {
-      await runExplore([demoUrl, '--depth=1', '--headless']);
-    } catch (e) {
-      print('  ⚠️  Explore: $e');
-    }
+    // Run explore and monkey in parallel for speed
+    await Future.wait([
+      () async {
+        print('  ── AI Explore ──');
+        print('');
+        try {
+          await runExplore([demoUrl, '--depth=1', '--headless']);
+        } catch (e) {
+          print('  ⚠️  Explore: $e');
+        }
+      }(),
+      () async {
+        print('');
+        print('  ── Monkey Testing (3 actions) ──');
+        print('');
+        try {
+          await runMonkey([demoUrl, '--actions=3', '--headless']);
+        } catch (e) {
+          print('  ⚠️  Monkey: $e');
+        }
+      }(),
+    ]);
 
     _printSummary(demoUrl);
   } catch (e) {
