@@ -69,6 +69,14 @@ extension _ToolDefinitions on FlutterMcpServer {
       'highlight_element',
       'mock_response',
       'highlight_elements',
+      'test_offline_forms',
+      'test_network_transitions',
+      'test_request_timeout',
+      'analyze_console',
+      'detect_memory_leak',
+      'detect_render_issues',
+      'cross_browser_test',
+      'responsive_test',
     };
 
     // Flutter VM Service-only tools
@@ -3421,6 +3429,298 @@ can visually compare them. Also returns text snapshots for structural comparison
             "path_b": {"type": "string"}
           },
           "required": ["path_a", "path_b"]
+        }
+      },
+      // --- Security & Test Plan tools ---
+      {
+        "name": "generate_test_plan",
+        "description": "Auto-generate comprehensive test plan from current app state — positive, negative, security, and accessibility test cases",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "format": {"type": "string", "enum": ["yaml", "json"], "default": "yaml"},
+            "include_security": {"type": "boolean", "default": true},
+            "include_a11y": {"type": "boolean", "default": true}
+          }
+        }
+      },
+      {
+        "name": "security_scan",
+        "description": "Run comprehensive security scan — XSS, CSRF, sensitive data exposure, HTTP headers, mixed content",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "checks": {
+              "type": "array",
+              "items": {"type": "string", "enum": ["xss", "csrf", "headers", "sensitive_data", "mixed_content", "open_redirect", "clickjacking"]},
+              "default": ["xss", "csrf", "headers", "sensitive_data", "mixed_content"]
+            }
+          }
+        }
+      },
+      {
+        "name": "security_xss_scan",
+        "description": "Test all input fields for XSS vulnerabilities with common payloads",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "payloads": {"type": "array", "items": {"type": "string"}, "description": "Custom XSS payloads (uses built-in set if omitted)"}
+          }
+        }
+      },
+      {
+        "name": "security_check_headers",
+        "description": "Check HTTP security headers (CSP, HSTS, X-Frame-Options, X-Content-Type-Options, etc.)",
+        "inputSchema": {"type": "object", "properties": {}}
+      },
+      {
+        "name": "security_sensitive_data",
+        "description": "Scan for sensitive data exposure in localStorage, sessionStorage, cookies, console logs, page source",
+        "inputSchema": {"type": "object", "properties": {}}
+      },
+      // ======================== Diff Testing ========================
+      {
+        "name": "diff_baseline_create",
+        "description": "Create a baseline snapshot of current app state (all pages) for future comparison",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "path": {"type": "string"},
+            "depth": {"type": "integer"}
+          }
+        }
+      },
+      {
+        "name": "diff_compare",
+        "description": "Compare current app state against a saved baseline — detect UI changes, missing elements, new pages",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "baseline_path": {"type": "string"},
+            "threshold": {"type": "number"}
+          }
+        }
+      },
+      {
+        "name": "diff_pages",
+        "description": "Compare two specific pages or URLs side by side",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "url_a": {"type": "string"},
+            "url_b": {"type": "string"}
+          },
+          "required": ["url_a", "url_b"]
+        }
+      },
+      // ======================== Bug Report ========================
+      {
+        "name": "create_bug_report",
+        "description": "Generate a structured bug report from current state — screenshot, repro steps, environment info, severity classification",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "title": {"type": "string"},
+            "steps": {"type": "array", "items": {"type": "string"}},
+            "severity": {"type": "string", "enum": ["critical", "high", "medium", "low"]},
+            "format": {"type": "string", "enum": ["markdown", "github_issue", "jira"]},
+            "save_path": {"type": "string"}
+          }
+        }
+      },
+      {
+        "name": "create_github_issue",
+        "description": "Create a GitHub issue with bug report (requires gh CLI authenticated)",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "repo": {"type": "string"},
+            "title": {"type": "string"},
+            "severity": {"type": "string", "enum": ["critical", "high", "medium", "low"]},
+            "steps": {"type": "array", "items": {"type": "string"}},
+            "labels": {"type": "array", "items": {"type": "string"}}
+          },
+          "required": ["repo", "title"]
+        }
+      },
+      // ======================== Test Fixtures ========================
+      {
+        "name": "fixture_load",
+        "description": "Load test fixture — seed app with test data via API call or localStorage injection",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "type": {"type": "string", "enum": ["api", "localStorage", "cookies", "file"]},
+            "url": {"type": "string"},
+            "data": {"type": "object"},
+            "file_path": {"type": "string"}
+          }
+        }
+      },
+      {
+        "name": "fixture_reset",
+        "description": "Reset app to clean state — clear all storage, cookies, caches, and optionally call reset API",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "reset_api_url": {"type": "string"},
+            "clear_storage": {"type": "boolean"},
+            "clear_cookies": {"type": "boolean"},
+            "clear_cache": {"type": "boolean"}
+          }
+        }
+      },
+      {
+        "name": "fixture_switch_user",
+        "description": "Switch user role/account for multi-role testing (admin, user, guest, etc.)",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "role": {"type": "string"},
+            "credentials": {"type": "object"},
+            "login_url": {"type": "string"},
+            "username_field": {"type": "string"},
+            "password_field": {"type": "string"},
+            "submit_button": {"type": "string"}
+          }
+        }
+      },
+      {
+        "name": "fixture_switch_env",
+        "description": "Switch test environment (dev/staging/prod) — changes base URL and reloads",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "env": {"type": "string", "enum": ["dev", "staging", "prod", "custom"]},
+            "base_url": {"type": "string"},
+            "env_vars": {"type": "object"}
+          },
+          "required": ["env"]
+        }
+      },
+      // --- Network Condition Testing tools ---
+      {
+        "name": "test_offline_forms",
+        "description": "Automatically test all forms on current page under offline conditions — checks error handling, data persistence, retry behavior",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "restore_after": {"type": "boolean", "default": true}
+          }
+        }
+      },
+      {
+        "name": "test_network_transitions",
+        "description": "Test app behavior during network transitions: online→offline→online, fast→slow→fast",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "scenarios": {
+              "type": "array",
+              "items": {"type": "string", "enum": ["offline_online", "slow_3g", "fast_3g", "regular_4g", "wifi", "intermittent"]},
+              "default": ["offline_online", "slow_3g"]
+            }
+          }
+        }
+      },
+      {
+        "name": "test_request_timeout",
+        "description": "Test how app handles request timeouts — artificially delay all network requests",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "delay_ms": {"type": "integer", "default": 30000},
+            "timeout_ms": {"type": "integer", "default": 60000}
+          }
+        }
+      },
+      // --- Console/Log Analysis tools ---
+      {
+        "name": "analyze_console",
+        "description": "Intelligent analysis of console logs — detect memory leaks, deprecated APIs, repeated errors, unhandled rejections",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "duration_ms": {"type": "integer", "default": 10000, "description": "How long to collect logs before analyzing"},
+            "checks": {
+              "type": "array",
+              "items": {"type": "string", "enum": ["memory_leak", "deprecated_api", "repeated_errors", "unhandled_rejections", "render_warnings", "slow_operations"]},
+              "default": ["memory_leak", "deprecated_api", "repeated_errors", "unhandled_rejections"]
+            }
+          }
+        }
+      },
+      {
+        "name": "detect_memory_leak",
+        "description": "Monitor memory usage over time to detect leaks — takes snapshots at intervals and checks for growth pattern",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "duration_ms": {"type": "integer", "default": 30000},
+            "interval_ms": {"type": "integer", "default": 5000},
+            "action_between": {"type": "string", "description": "Tool to execute between snapshots (e.g. navigate, scroll)"}
+          }
+        }
+      },
+      {
+        "name": "detect_render_issues",
+        "description": "Detect rendering issues — unnecessary re-renders, layout thrashing, forced reflows",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "duration_ms": {"type": "integer", "default": 10000}
+          }
+        }
+      },
+      // --- Cross-Browser Matrix tools ---
+      {
+        "name": "cross_browser_test",
+        "description": "Run same test across multiple browser viewports/user agents to detect cross-browser issues",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "browsers": {
+              "type": "array",
+              "items": {"type": "string", "enum": ["chrome_desktop", "chrome_mobile", "safari_iphone", "safari_ipad", "firefox_desktop", "edge_desktop"]},
+              "default": ["chrome_desktop", "chrome_mobile", "safari_iphone"]
+            },
+            "url": {"type": "string"},
+            "actions": {
+              "type": "array",
+              "items": {"type": "object"},
+              "description": "Actions to run on each browser config"
+            }
+          },
+          "required": ["url"]
+        }
+      },
+      {
+        "name": "responsive_test",
+        "description": "Test responsive design across multiple viewport sizes — desktop, tablet, mobile, custom",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "viewports": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {"type": "string"},
+                  "width": {"type": "integer"},
+                  "height": {"type": "integer"}
+                }
+              },
+              "default": [
+                {"name": "mobile", "width": 375, "height": 812},
+                {"name": "tablet", "width": 768, "height": 1024},
+                {"name": "desktop", "width": 1440, "height": 900}
+              ]
+            },
+            "url": {"type": "string"},
+            "save_screenshots": {"type": "boolean", "default": true},
+            "save_dir": {"type": "string", "default": "./responsive-screenshots"}
+          },
+          "required": ["url"]
         }
       },
     ];

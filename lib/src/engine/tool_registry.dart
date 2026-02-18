@@ -2800,6 +2800,244 @@ can visually compare them. Also returns text snapshots for structural comparison
           }
         }
       },
+      // ======================== Diff Testing ========================
+      {
+        "name": "diff_baseline_create",
+        "description":
+            "Create a baseline snapshot of current app state (all pages) for future comparison. Crawls pages via CDP and saves screenshots + element snapshots.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description":
+                  "Directory to save baseline (default: ./.flutter-skill-baseline)"
+            },
+            "depth": {
+              "type": "integer",
+              "description": "Max crawl depth (default: 2)"
+            }
+          }
+        }
+      },
+      {
+        "name": "diff_compare",
+        "description":
+            "Compare current app state against a saved baseline — detect UI changes, missing elements, new pages. Returns per-page diff results.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "baseline_path": {
+              "type": "string",
+              "description":
+                  "Path to baseline directory (default: ./.flutter-skill-baseline)"
+            },
+            "threshold": {
+              "type": "number",
+              "description":
+                  "Pixel diff threshold 0-1 (default: 0.05). Changes below this are ignored."
+            }
+          }
+        }
+      },
+      {
+        "name": "diff_pages",
+        "description":
+            "Compare two specific pages or URLs side by side — element counts, visual diff, text content.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "url_a": {"type": "string", "description": "First URL"},
+            "url_b": {"type": "string", "description": "Second URL"}
+          },
+          "required": ["url_a", "url_b"]
+        }
+      },
+
+      // ======================== Bug Report ========================
+      {
+        "name": "create_bug_report",
+        "description":
+            "Generate a structured bug report from current state — screenshot, repro steps (auto-collected from recording), environment info, console errors, severity classification.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "title": {"type": "string", "description": "Bug title"},
+            "steps": {
+              "type": "array",
+              "items": {"type": "string"},
+              "description":
+                  "Reproduction steps (auto-collected from recording if omitted)"
+            },
+            "severity": {
+              "type": "string",
+              "enum": ["critical", "high", "medium", "low"],
+              "description": "Bug severity (default: medium)"
+            },
+            "format": {
+              "type": "string",
+              "enum": ["markdown", "github_issue", "jira"],
+              "description": "Output format (default: markdown)"
+            },
+            "save_path": {
+              "type": "string",
+              "description": "Optional file path to save the report"
+            }
+          }
+        }
+      },
+      {
+        "name": "create_github_issue",
+        "description":
+            "Create a GitHub issue with auto-generated bug report (requires gh CLI authenticated). Includes screenshot, environment info, and repro steps.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "repo": {
+              "type": "string",
+              "description": "GitHub repository (owner/repo)"
+            },
+            "title": {"type": "string", "description": "Issue title"},
+            "severity": {
+              "type": "string",
+              "enum": ["critical", "high", "medium", "low"],
+              "description": "Bug severity"
+            },
+            "steps": {
+              "type": "array",
+              "items": {"type": "string"},
+              "description": "Reproduction steps"
+            },
+            "labels": {
+              "type": "array",
+              "items": {"type": "string"},
+              "description": "Issue labels (default: [\"bug\"])"
+            }
+          },
+          "required": ["repo", "title"]
+        }
+      },
+
+      // ======================== Test Fixtures ========================
+      {
+        "name": "fixture_load",
+        "description":
+            "Load test fixture — seed app with test data via API call, localStorage injection, cookies, or JSON file.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": ["api", "localStorage", "cookies", "file"],
+              "description":
+                  "Injection method (default: localStorage)"
+            },
+            "url": {
+              "type": "string",
+              "description": "API endpoint for seeding (POST) — used with type=api"
+            },
+            "data": {
+              "type": "object",
+              "description": "Data to inject as key-value pairs"
+            },
+            "file_path": {
+              "type": "string",
+              "description": "JSON file with fixture data"
+            }
+          }
+        }
+      },
+      {
+        "name": "fixture_reset",
+        "description":
+            "Reset app to clean state — clear localStorage, sessionStorage, cookies, cache, and optionally call a reset API endpoint.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "reset_api_url": {
+              "type": "string",
+              "description":
+                  "Optional API endpoint to call for server-side reset (POST)"
+            },
+            "clear_storage": {
+              "type": "boolean",
+              "description":
+                  "Clear localStorage and sessionStorage (default: true)"
+            },
+            "clear_cookies": {
+              "type": "boolean",
+              "description": "Clear all cookies (default: true)"
+            },
+            "clear_cache": {
+              "type": "boolean",
+              "description": "Clear browser cache (default: true)"
+            }
+          }
+        }
+      },
+      {
+        "name": "fixture_switch_user",
+        "description":
+            "Switch user role/account for multi-role testing. Navigates to login page, fills credentials, and submits. Or injects auth token directly.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "role": {
+              "type": "string",
+              "description": "Role name: admin, user, guest, or custom"
+            },
+            "credentials": {
+              "type": "object",
+              "description":
+                  "Login credentials: {username, password} or {token}"
+            },
+            "login_url": {
+              "type": "string",
+              "description": "URL of login page"
+            },
+            "username_field": {
+              "type": "string",
+              "description":
+                  "Name/type of username field to match (default: email)"
+            },
+            "password_field": {
+              "type": "string",
+              "description": "Name of password field (default: password)"
+            },
+            "submit_button": {
+              "type": "string",
+              "description":
+                  "Text of submit button (default: Sign In)"
+            }
+          }
+        }
+      },
+      {
+        "name": "fixture_switch_env",
+        "description":
+            "Switch test environment (dev/staging/prod) — sets env in localStorage, injects env vars, and navigates to new base URL.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "env": {
+              "type": "string",
+              "enum": ["dev", "staging", "prod", "custom"],
+              "description": "Target environment"
+            },
+            "base_url": {
+              "type": "string",
+              "description":
+                  "Base URL for the environment (navigates there if provided)"
+            },
+            "env_vars": {
+              "type": "object",
+              "description":
+                  "Environment-specific variables to inject into localStorage"
+            }
+          },
+          "required": ["env"]
+        }
+      },
     ];
   }
 

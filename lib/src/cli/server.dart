@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
@@ -19,6 +20,7 @@ import '../diagnostics/error_reporter.dart';
 import '../engine/skill_engine.dart';
 import '../engine/tool_registry.dart';
 import 'setup.dart';
+import 'security.dart';
 
 part 'tool_handlers/cdp_tool_handlers.dart';
 part 'tool_handlers/tool_definitions.dart';
@@ -53,9 +55,16 @@ part 'tool_handlers/accessibility_deep_handlers.dart';
 part 'tool_handlers/session_handlers.dart';
 part 'tool_handlers/self_healing_handlers.dart';
 part 'tool_handlers/network_mock_handlers.dart';
+part 'tool_handlers/network_condition_handlers.dart';
+part 'tool_handlers/log_analysis_handlers.dart';
+part 'tool_handlers/cross_browser_handlers.dart';
 part 'tool_handlers/coverage_handlers.dart';
 part 'tool_handlers/smart_wait_handlers.dart';
 part 'tool_handlers/data_driven_handlers.dart';
+part 'tool_handlers/security_handlers.dart';
+part 'tool_handlers/diff_handlers.dart';
+part 'tool_handlers/bug_report_handlers.dart';
+part 'tool_handlers/fixture_handlers.dart';
 
 const String currentVersion = '0.8.3';
 
@@ -606,6 +615,13 @@ class FlutterMcpServer {
       _handleMultiDeviceTools,
       _handleAccessibilityDeepTools,
       _handleSessionPersistenceTools,
+      _handleDiffTools,
+      _handleBugReportTools,
+      _handleFixtureTools,
+      _handleSecurityTools,
+      _handleNetworkConditionTools,
+      _handleLogAnalysisTools,
+      _handleCrossBrowserTools,
     ];
     for (final handler in handlers) {
       final result = await handler(name, args);

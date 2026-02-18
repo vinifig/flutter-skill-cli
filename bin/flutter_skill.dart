@@ -12,6 +12,10 @@ import 'package:flutter_skill/src/cli/serve.dart';
 import 'package:flutter_skill/src/cli/test_runner.dart';
 import 'package:flutter_skill/src/cli/explore.dart';
 import 'package:flutter_skill/src/cli/monkey.dart';
+import 'package:flutter_skill/src/cli/plan.dart';
+import 'package:flutter_skill/src/cli/security.dart';
+import 'package:flutter_skill/src/cli/diff.dart';
+import 'package:flutter_skill/src/cli/quickstart.dart';
 
 void main(List<String> args) async {
   if (args.isEmpty) {
@@ -19,6 +23,7 @@ void main(List<String> args) async {
     print('');
     print('Commands:');
     print('  init         Auto-setup any project (Flutter/iOS/Android/RN/Web)');
+    print('  quickstart   Guided demo — see flutter-skill in action in 30s');
     print('  demo         Launch a built-in demo app — zero setup needed');
     print('  launch       Launch and auto-connect to an app');
     print('  server       Start MCP server (used by IDEs)');
@@ -28,6 +33,9 @@ void main(List<String> args) async {
     print('  serve <url>  Zero-config WebMCP server — any site → AI tools');
     print('  explore <url> AI Test Agent — auto-explore and test any web app');
     print('  monkey <url>  Monkey testing — random fuzz testing for web apps');
+    print('  plan <url>    AI Test Plan Generator — auto-generate test cases');
+    print('  security <url> Security Scanner — XSS, CSRF, headers, sensitive data');
+    print('  diff <url>    Diff testing — compare app state against baseline');
     print('  test <url>   Zero-config web testing — launch Chrome + CDP');
     print('  doctor       Check installation and environment health');
     print('  setup        Install tool priority rules for Claude Code');
@@ -141,6 +149,18 @@ void main(List<String> args) async {
       break;
     case 'monkey':
       await runMonkey(commandArgs);
+      break;
+    case 'quickstart':
+      await runQuickstart(commandArgs);
+      break;
+    case 'diff':
+      await runDiff(commandArgs);
+      break;
+    case 'plan':
+      await runPlan(commandArgs);
+      break;
+    case 'security':
+      await runSecurity(commandArgs);
       break;
     default:
       print('Unknown command: $command');
