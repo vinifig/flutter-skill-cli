@@ -152,9 +152,10 @@ class _ExploreAgent {
         final linksToFollow = result.discoveredLinks.take(maxLinks).toList();
         final baseNorm = _normalizeUrl(pageUrl);
         for (final link in linksToFollow) {
-          // Skip fragment-only links (same page anchors)
-          if (link.contains('#')) {
-            final withoutFrag = link.split('#')[0];
+          // Skip fragment-only links and same-page anchors
+          final hashIdx = link.indexOf('#');
+          if (hashIdx >= 0) {
+            final withoutFrag = link.substring(0, hashIdx);
             if (withoutFrag.isEmpty || _normalizeUrl(withoutFrag) == baseNorm) continue;
           }
           final normLink = _normalizeUrl(link);
@@ -383,8 +384,11 @@ class _ExploreAgent {
   String _normalizeUrl(String url) {
     try {
       final uri = Uri.parse(url);
-      // Remove fragment and trailing slash
-      return uri.replace(fragment: '').toString().replaceAll(RegExp(r'/$'), '');
+      // Remove fragment (including #) and trailing slash
+      var normalized = uri.replace(fragment: '').toString();
+      normalized = normalized.replaceAll(RegExp(r'#$'), ''); // Remove trailing #
+      normalized = normalized.replaceAll(RegExp(r'/$'), ''); // Remove trailing /
+      return normalized;
     } catch (_) {
       return url;
     }
