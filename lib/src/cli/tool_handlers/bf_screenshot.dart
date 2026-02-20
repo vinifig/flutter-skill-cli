@@ -196,7 +196,9 @@ extension _BfScreenshot on FlutterMcpServer {
         if (!await baselineFile.exists()) {
           return {
             'success': false,
-            'error': 'Baseline file not found: $baselinePath'
+            'error': 'Baseline file not found at path: $baselinePath',
+            'suggestion': 'Create a baseline first by taking a screenshot and saving it to this path, or use a different baseline_path',
+            'baseline_path': baselinePath
           };
         }
 

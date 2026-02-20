@@ -142,7 +142,10 @@ extension _SmartWaitHandlers on FlutterMcpServer {
     final timeoutMs = args['timeout_ms'] as int? ?? 10000;
 
     if (urlPattern == null) {
-      return {'success': false, 'error': 'url_pattern is required'};
+      return {
+        'success': false, 
+        'error': 'url_pattern parameter is required. Provide a regex pattern to match the URL.'
+      };
     }
 
     final client = _getClient(args);

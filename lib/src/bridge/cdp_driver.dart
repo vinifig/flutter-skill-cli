@@ -791,35 +791,92 @@ class CdpDriver implements AppDriver {
   Future<Map<String, dynamic>> getCheckboxState(String key) async {
     final result = await _evalJs('''
       (() => {
-        const el = document.getElementById('$key') || document.querySelector('[data-testid="$key"]');
-        if (!el) return null;
-        if (el.type === 'checkbox') return { checked: el.checked };
+        let el = document.getElementById('$key') || 
+                 document.querySelector('[data-testid="$key"]') ||
+                 document.querySelector('[name="$key"]') ||
+                 document.querySelector('$key');
+        
+        // If selector didn't work, try text content search for checkboxes
+        if (!el) {
+          const checkboxes = document.querySelectorAll('input[type="checkbox"], [role="checkbox"]');
+          for (const cb of checkboxes) {
+            const label = cb.closest('label') || document.querySelector('label[for="' + cb.id + '"]');
+            const text = (label ? label.textContent : cb.getAttribute('aria-label') || '').trim();
+            if (text.toLowerCase().includes('$key'.toLowerCase()) || cb.value === '$key') {
+              el = cb;
+              break;
+            }
+          }
+        }
+        
+        if (!el) return JSON.stringify({ success: false, error: "Element not found" });
+        
+        if (el.type === 'checkbox') {
+          return JSON.stringify({ success: true, checked: el.checked });
+        }
+        
         const cb = el.querySelector('input[type="checkbox"]');
-        if (cb) return { checked: cb.checked };
-        return { checked: el.getAttribute('aria-checked') === 'true' };
+        if (cb) {
+          return JSON.stringify({ success: true, checked: cb.checked });
+        }
+        
+        // Check aria-checked attribute
+        const ariaChecked = el.getAttribute('aria-checked');
+        return JSON.stringify({ success: true, checked: ariaChecked === 'true' });
       })()
     ''');
+    
     final value = result['result']?['value'];
-    if (value == null) return {"success": false, "error": "Element not found"};
     if (value is String) {
-      final parsed = jsonDecode(value) as Map<String, dynamic>;
-      return {"success": true, ...parsed};
+      try { return jsonDecode(value) as Map<String, dynamic>; } catch (_) {}
     }
-    return {"success": true, "checked": false};
+    if (value is Map) return value as Map<String, dynamic>;
+    if (value == null) return {"success": false, "error": "Element not found"};
+    return {"success": false, "error": "Unexpected result format"};
   }
 
   /// Get slider value.
   Future<Map<String, dynamic>> getSliderValue(String key) async {
     final result = await _evalJs('''
       (() => {
-        const el = document.getElementById('$key') || document.querySelector('[data-testid="$key"]');
-        if (!el) return JSON.stringify({ success: false, error: "not found" });
-        return JSON.stringify({ success: true, value: parseFloat(el.value || 0), min: parseFloat(el.min || 0), max: parseFloat(el.max || 100) });
+        let el = document.getElementById('$key') || 
+                 document.querySelector('[data-testid="$key"]') ||
+                 document.querySelector('[name="$key"]') ||
+                 document.querySelector('$key');
+        
+        // If selector didn't work, try to find sliders by type or role
+        if (!el) {
+          const sliders = document.querySelectorAll('input[type="range"], [role="slider"]');
+          for (const slider of sliders) {
+            const label = slider.closest('label') || document.querySelector('label[for="' + slider.id + '"]');
+            const text = (label ? label.textContent : slider.getAttribute('aria-label') || '').trim();
+            if (text.toLowerCase().includes('$key'.toLowerCase()) || slider.name === '$key') {
+              el = slider;
+              break;
+            }
+          }
+        }
+        
+        if (!el) {
+          return JSON.stringify({ success: false, error: "Element not found" });
+        }
+        
+        return JSON.stringify({ 
+          success: true, 
+          value: parseFloat(el.value || el.getAttribute('aria-valuenow') || 0), 
+          min: parseFloat(el.min || el.getAttribute('aria-valuemin') || 0), 
+          max: parseFloat(el.max || el.getAttribute('aria-valuemax') || 100) 
+        });
       })()
     ''');
-    final value = result['result']?['value'] as String?;
+    
+    final value = result['result']?['value'];
+    if (value is String) {
+      try { return jsonDecode(value) as Map<String, dynamic>; } catch (_) {}
+    }
+    if (value is Map) return value as Map<String, dynamic>;
     if (value == null) return {"success": false, "error": "Element not found"};
-    return jsonDecode(value) as Map<String, dynamic>;
+    return {"success": false, "error": "Unexpected result format"};
   }
 
   /// Get page state (title, url, scroll, viewport).
@@ -1067,6 +1124,90 @@ class CdpDriver implements AppDriver {
     final v = result['result']?['value'] as String?;
     if (v == null) return {"success": false};
     return jsonDecode(v) as Map<String, dynamic>;
+  }
+
+  /// Highlight an element on the page.
+  Future<Map<String, dynamic>> highlightElement(String selector, 
+      {String color = 'red', int duration = 3000}) async {
+    final result = await _evalJs('''
+      (() => {
+        let el = document.querySelector('$selector');
+        
+        // If CSS selector fails, try by ID, name, or text content
+        if (!el) {
+          el = document.getElementById('$selector') || 
+               document.querySelector('[name="$selector"]') ||
+               document.querySelector('[data-testid="$selector"]');
+        }
+        
+        // Last resort: find by text content
+        if (!el) {
+          const allElements = document.querySelectorAll('*');
+          for (const elem of allElements) {
+            if (elem.textContent && elem.textContent.trim() === '$selector') {
+              el = elem;
+              break;
+            }
+          }
+        }
+        
+        if (!el) {
+          return JSON.stringify({ success: false, error: 'Element not found' });
+        }
+        
+        // Create highlight overlay
+        const highlight = document.createElement('div');
+        highlight.id = '__fs_highlight_' + Math.random().toString(36).substr(2, 9);
+        const rect = el.getBoundingClientRect();
+        
+        highlight.style.cssText = \`
+          position: fixed;
+          top: \${rect.top}px;
+          left: \${rect.left}px;
+          width: \${rect.width}px;
+          height: \${rect.height}px;
+          border: 3px solid $color;
+          background: rgba(255, 0, 0, 0.1);
+          pointer-events: none;
+          z-index: 9999;
+          box-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+          animation: pulse 0.5s infinite alternate;
+        \`;
+        
+        // Add pulse animation
+        if (!document.getElementById('__fs_highlight_style')) {
+          const style = document.createElement('style');
+          style.id = '__fs_highlight_style';
+          style.textContent = \`
+            @keyframes pulse {
+              0% { opacity: 0.3; }
+              100% { opacity: 0.8; }
+            }
+          \`;
+          document.head.appendChild(style);
+        }
+        
+        document.body.appendChild(highlight);
+        
+        // Auto-remove after duration
+        setTimeout(() => {
+          if (highlight.parentNode) {
+            highlight.parentNode.removeChild(highlight);
+          }
+        }, $duration);
+        
+        return JSON.stringify({ success: true, element_found: true, duration: $duration });
+      })()
+    ''');
+    
+    final value = result['result']?['value'];
+    if (value is String) {
+      try {
+        return jsonDecode(value) as Map<String, dynamic>;
+      } catch (_) {}
+    }
+    if (value is Map) return value as Map<String, dynamic>;
+    return {"success": false, "error": "Eval failed"};
   }
 
   // ── Internal helpers ──
@@ -1411,28 +1552,34 @@ function _dqAll(sel, root) {
     final result = await _evalJs('''
       (() => {
         const el = ${_jsFindElement(selector, text: text, ref: ref)};
-        if (!el) return null;
+        if (!el) return JSON.stringify(null);
         const rect = el.getBoundingClientRect();
-        return {
+        return JSON.stringify({
           x: rect.left,
           y: rect.top,
           w: rect.width,
           h: rect.height,
           cx: rect.left + rect.width / 2,
           cy: rect.top + rect.height / 2
-        };
+        });
       })()
     ''');
 
     final value = result['result']?['value'];
-    if (value is Map) {
+    Map<String, dynamic>? parsed;
+    if (value is String && value != 'null') {
+      try { parsed = jsonDecode(value) as Map<String, dynamic>; } catch (_) {}
+    } else if (value is Map) {
+      parsed = value as Map<String, dynamic>;
+    }
+    if (parsed != null) {
       return {
-        'x': (value['x'] as num).toDouble(),
-        'y': (value['y'] as num).toDouble(),
-        'w': (value['w'] as num).toDouble(),
-        'h': (value['h'] as num).toDouble(),
-        'cx': (value['cx'] as num).toDouble(),
-        'cy': (value['cy'] as num).toDouble(),
+        'x': (parsed['x'] as num).toDouble(),
+        'y': (parsed['y'] as num).toDouble(),
+        'w': (parsed['w'] as num).toDouble(),
+        'h': (parsed['h'] as num).toDouble(),
+        'cx': (parsed['cx'] as num).toDouble(),
+        'cy': (parsed['cy'] as num).toDouble(),
       };
     }
     return null;

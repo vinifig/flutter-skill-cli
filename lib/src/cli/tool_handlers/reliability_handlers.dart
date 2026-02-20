@@ -23,7 +23,10 @@ extension _ReliabilityHandlers on FlutterMcpServer {
     final delayMs = args['delay_ms'] as int? ?? 1000;
 
     if (action == null) {
-      return {'success': false, 'error': 'action is required'};
+      return {
+        'success': false, 
+        'error': 'action parameter is required. Specify the tool name to retry.'
+      };
     }
 
     dynamic lastError;

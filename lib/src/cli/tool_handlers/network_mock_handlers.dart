@@ -94,7 +94,10 @@ extension _NetworkMockHandlers on FlutterMcpServer {
 
     final urlPattern = args['url_pattern'] as String?;
     if (urlPattern == null) {
-      return {'success': false, 'error': 'url_pattern is required'};
+      return {
+        'success': false, 
+        'error': 'url_pattern parameter is required. Provide a URL pattern to mock (e.g., "*api/users*").'
+      };
     }
 
     final rule = _MockRule(
@@ -204,7 +207,10 @@ extension _NetworkMockHandlers on FlutterMcpServer {
 
     final recordingId = args['recording_id'] as String?;
     if (recordingId == null) {
-      return {'success': false, 'error': 'recording_id is required'};
+      return {
+        'success': false, 
+        'error': 'recording_id parameter is required. Provide the ID from a previous network recording.'
+      };
     }
 
     final recording = _mockState.recordings[recordingId];
