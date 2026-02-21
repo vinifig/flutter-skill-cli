@@ -317,8 +317,9 @@ Future<void> runMonkey(List<String> args) async {
           });
           final currentUrl = locResult['result']?['value']?.toString() ?? '';
           if (currentUrl.isNotEmpty) {
-            final currentHost = Uri.tryParse(currentUrl)?.host ?? '';
-            final startHost = Uri.tryParse(url)?.host ?? '';
+            final currentHost =
+                _rootDomain(Uri.tryParse(currentUrl)?.host ?? '');
+            final startHost = _rootDomain(Uri.tryParse(url)?.host ?? '');
             if (currentHost.isNotEmpty &&
                 startHost.isNotEmpty &&
                 currentHost != startHost) {
@@ -351,14 +352,16 @@ Future<void> runMonkey(List<String> args) async {
         final currentUrl = data['url'] as String? ?? '';
         final innerHtmlLen = data['innerHtmlLen'] as int? ?? 0;
 
-        // Don't flag about:blank or chrome:// as white screens
+        // Don't flag special URLs or navigations as white screens
         final isSpecialUrl = currentUrl.startsWith('about:') ||
             currentUrl.startsWith('chrome://') ||
-            currentUrl.startsWith('chrome-error://');
+            currentUrl.startsWith('chrome-error://') ||
+            currentUrl.startsWith('data:') ||
+            currentUrl.isEmpty;
 
-        if (!isSpecialUrl && innerHtmlLen < 100) {
-          // Retry after 1.5s to avoid false positives during navigation
-          await Future.delayed(const Duration(milliseconds: 1500));
+        if (!isSpecialUrl && innerHtmlLen < 50) {
+          // Retry after 2.5s to avoid false positives during SPA navigation
+          await Future.delayed(const Duration(milliseconds: 2500));
           final retry = await cdp.sendCommand('Runtime.evaluate', {
             'expression': 'document.body ? document.body.innerHTML.length : 0',
             'returnByValue': true,
@@ -543,3 +546,10 @@ String _escHtml(String s) => s
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;');
+
+/// Extract root domain (e.g. "www.amazon.com" → "amazon.com")
+String _rootDomain(String host) {
+  final parts = host.split('.');
+  if (parts.length <= 2) return host;
+  return parts.sublist(parts.length - 2).join('.');
+}
