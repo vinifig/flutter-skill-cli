@@ -401,6 +401,17 @@ extension CdpBrowserMethods on CdpDriver {
     return {"success": true, "offline": true};
   }
 
+  /// Go back online — restore normal network conditions.
+  Future<Map<String, dynamic>> goOnline() async {
+    await _call('Network.emulateNetworkConditions', {
+      'offline': false,
+      'latency': 0,
+      'downloadThroughput': -1,
+      'uploadThroughput': -1,
+    });
+    return {"success": true, "offline": false};
+  }
+
   /// Clear browser data.
   Future<Map<String, dynamic>> clearBrowserData() async {
     await _call('Network.clearBrowserCookies');

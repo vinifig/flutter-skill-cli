@@ -52,6 +52,7 @@ extension _ToolDefinitions on FlutterMcpServer {
       'block_urls',
       'throttle_network',
       'go_offline',
+      'go_online',
       'clear_browser_data',
       'accessibility_audit',
       'a11y_full_audit',
@@ -940,7 +941,12 @@ After starting, point the web SDK at ws://127.0.0.1:<port>.""",
       },
       {
         "name": "go_offline",
-        "description": "Simulate offline mode (no network)",
+        "description": "Simulate offline mode (no network). Use go_online to restore.",
+        "inputSchema": {"type": "object", "properties": {}}
+      },
+      {
+        "name": "go_online",
+        "description": "Restore normal network conditions after go_offline.",
         "inputSchema": {"type": "object", "properties": {}}
       },
       {
@@ -1765,10 +1771,11 @@ By default, saves screenshot to a temporary file and returns file path. Optional
       },
       {
         "name": "screenshot_element",
-        "description": "Take a screenshot of a specific element",
+        "description": "Take a screenshot of a specific element by CSS selector, key, or text content",
         "inputSchema": {
           "type": "object",
           "properties": {
+            "selector": {"type": "string", "description": "CSS selector (e.g. 'h1', '.my-class', '#my-id')"},
             "key": {"type": "string", "description": "Element key"},
             "text": {"type": "string", "description": "Text to find"},
           },

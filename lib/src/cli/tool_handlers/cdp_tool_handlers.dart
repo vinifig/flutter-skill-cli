@@ -514,6 +514,9 @@ extension _CdpToolHandlers on FlutterMcpServer {
       case 'go_offline':
         return await cdp.goOffline();
 
+      case 'go_online':
+        return await cdp.goOnline();
+
       case 'clear_browser_data':
         return await cdp.clearBrowserData();
 
