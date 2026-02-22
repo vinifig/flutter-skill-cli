@@ -1,3 +1,37 @@
+## 0.9.0
+
+**iOS native automation + React Native support + bridge reliability**
+
+### New Features
+- **6 native P0 tools**: `native_long_press`, `native_gesture`, `native_press_key`, `native_key_combo`, `native_button`, `native_list_simulators`
+- **Video recording**: `native_video_start` / `native_video_stop` — H.264 MP4 via simctl recordVideo
+- **Frame capture**: `native_capture_frames` — burst JPEG at configurable FPS
+- **Hardware buttons**: `apple_pay` and `side` button support via HID injection
+- **fs-ios-bridge**: Native ObjC HID injector (74KB) using SimulatorKit private APIs — ~1ms latency vs ~1s for osascript
+- **React Native iOS**: Full bridge + native tool support verified (41/42 pass)
+
+### Bug Fixes
+- **Bridge mode null safety**: drag coordinate support, edge_swipe defaults, assert_text nullable key
+- **execute_batch**: accepts both `actions` and `commands` param names
+- **native_gesture/key_combo**: flexible param types (List and String)
+- **get_widget_properties**: improved error message for missing key
+- **get_text_value**: nullable key support
+
+### Test Results
+| Platform | Pass | Total | Rate |
+|----------|------|-------|------|
+| Web CDP | 128 | 128 | 100% |
+| iOS Native | 28 | 29 | 97% |
+| iOS Multi-App | 62 | 62 | 100% |
+| iOS Cross-Stack | 28 | 28 | 100% |
+| iOS Bridge (Flutter) | 62 | 62 | 100% |
+| React Native iOS | 41 | 42 | 98% |
+
+### Stats
+- **253** MCP tool definitions / **176** in tool registry
+- **10** platforms supported
+- **fs-ios-bridge**: tap, long-press, swipe, key, button, gesture, screenshot, key-combo, text, list
+
 ## 0.8.9
 
 **Heavy DOM site stability + CI fixes**
