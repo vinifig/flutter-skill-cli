@@ -235,9 +235,70 @@ class _Point {
 
 class IosSimulatorDriver extends NativeDriver {
   String? _cachedUdid;
+  String? _cachedBridgePath;
 
   @override
   NativePlatform get platform => NativePlatform.iosSimulator;
+
+  /// Find the fs-ios-bridge binary (built from native/ios-hid/)
+  Future<String?> _getBridgePath() async {
+    if (_cachedBridgePath != null) return _cachedBridgePath;
+
+    // Check common locations
+    final candidates = [
+      // Relative to the running executable
+      '${File(Platform.resolvedExecutable).parent.path}/fs-ios-bridge',
+      // In the source tree
+      '${File(Platform.resolvedExecutable).parent.parent.path}/native/ios-hid/fs-ios-bridge',
+      // Installed globally
+      '/usr/local/bin/fs-ios-bridge',
+      // In PATH
+    ];
+
+    for (final path in candidates) {
+      if (await File(path).exists()) {
+        _cachedBridgePath = path;
+        return path;
+      }
+    }
+
+    // Try PATH
+    try {
+      final result = await Process.run('which', ['fs-ios-bridge']);
+      if (result.exitCode == 0) {
+        _cachedBridgePath = (result.stdout as String).trim();
+        return _cachedBridgePath;
+      }
+    } catch (_) {}
+
+    return null;
+  }
+
+  /// Run fs-ios-bridge command and parse JSON output
+  Future<Map<String, dynamic>?> _runBridge(List<String> args) async {
+    final bridgePath = await _getBridgePath();
+    if (bridgePath == null) return null;
+
+    final udid = await _getBootedSimulatorUdid();
+    final fullArgs = [...args, '--udid', udid];
+
+    final result = await Process.run(bridgePath, fullArgs).timeout(
+      const Duration(seconds: 15),
+      onTimeout: () => ProcessResult(0, 1, '', 'Timeout'),
+    );
+
+    if (result.exitCode != 0) return null;
+
+    try {
+      return jsonDecode((result.stdout as String).trim())
+          as Map<String, dynamic>;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Check if HID bridge is available (preferred over osascript)
+  Future<bool> _hasBridge() async => (await _getBridgePath()) != null;
 
   /// Get the UDID of the first booted simulator
   Future<String> _getBootedSimulatorUdid() async {
@@ -297,6 +358,18 @@ class IosSimulatorDriver extends NativeDriver {
 
   @override
   Future<NativeResult> tap(double x, double y) async {
+    // Use HID bridge if available (faster, more reliable)
+    if (await _hasBridge()) {
+      final result = await _runBridge(['tap', '$x', '$y']);
+      if (result != null) {
+        return NativeResult(
+          success: result['success'] == true,
+          message: result['message'] as String? ?? result['error'] as String?,
+        );
+      }
+    }
+
+    // Fallback: osascript approach
     // Map device pixel coordinates to screen coordinates for hit-testing
     final screenCoords = await _mapToScreenCoordinates(x, y);
     if (screenCoords == null) {
@@ -496,6 +569,26 @@ end tell
     double endY, {
     int durationMs = 300,
   }) async {
+    // Use HID bridge if available
+    if (await _hasBridge()) {
+      final result = await _runBridge([
+        'swipe',
+        '$startX',
+        '$startY',
+        '$endX',
+        '$endY',
+        '--duration',
+        '$durationMs',
+      ]);
+      if (result != null) {
+        return NativeResult(
+          success: result['success'] == true,
+          message: result['message'] as String? ?? result['error'] as String?,
+        );
+      }
+    }
+
+    // Fallback: osascript approach
     // Determine scroll direction from the swipe vector
     final deltaY = endY - startY;
 
@@ -931,6 +1024,18 @@ JSON.stringify(tree);
   @override
   Future<NativeResult> longPress(double x, double y,
       {int durationMs = 1000}) async {
+    // Use HID bridge if available (faster, more reliable)
+    if (await _hasBridge()) {
+      final br = await _runBridge(
+          ['long-press', '$x', '$y', '--duration', '$durationMs']);
+      if (br != null) {
+        return NativeResult(
+          success: br['success'] == true,
+          message: br['message'] as String? ?? br['error'] as String?,
+        );
+      }
+    }
+    // Fallback: osascript
     final screenCoords = await _mapToScreenCoordinates(x, y);
     if (screenCoords == null) {
       return NativeResult(
@@ -1037,7 +1142,17 @@ end tell
 
   @override
   Future<NativeResult> gesture(String gestureName) async {
-    // For scroll gestures, use AX scroll actions
+    // Use HID bridge if available
+    if (await _hasBridge()) {
+      final br = await _runBridge(['gesture', gestureName]);
+      if (br != null) {
+        return NativeResult(
+          success: br['success'] == true,
+          message: br['message'] as String? ?? br['error'] as String?,
+        );
+      }
+    }
+    // Fallback: For scroll gestures, use AX scroll actions
     if (gestureName.startsWith('scroll_')) {
       String scrollAction;
       switch (gestureName) {
@@ -1197,7 +1312,17 @@ end tell
 
   @override
   Future<NativeResult> pressKey(String key) async {
-    // Map key names to osascript key codes or keystrokes
+    // Use HID bridge if available
+    if (await _hasBridge()) {
+      final br = await _runBridge(['key', key]);
+      if (br != null) {
+        return NativeResult(
+          success: br['success'] == true,
+          message: br['message'] as String? ?? br['error'] as String?,
+        );
+      }
+    }
+    // Fallback: Map key names to osascript key codes or keystrokes
     String script;
     switch (key.toLowerCase()) {
       case 'enter':
@@ -1282,7 +1407,17 @@ end tell
 
   @override
   Future<NativeResult> keyCombo(String keys) async {
-    // Parse "cmd+a", "ctrl+shift+z", etc.
+    // Use HID bridge if available
+    if (await _hasBridge()) {
+      final br = await _runBridge(['key-combo', keys]);
+      if (br != null) {
+        return NativeResult(
+          success: br['success'] == true,
+          message: br['message'] as String? ?? br['error'] as String?,
+        );
+      }
+    }
+    // Fallback: Parse "cmd+a", "ctrl+shift+z", etc.
     final parts = keys.toLowerCase().split('+').map((s) => s.trim()).toList();
     if (parts.length < 2) {
       return NativeResult(
@@ -1378,6 +1513,17 @@ end tell
 
   @override
   Future<NativeResult> hardwareButton(String button) async {
+    // Use HID bridge if available
+    if (await _hasBridge()) {
+      final br = await _runBridge(['button', button]);
+      if (br != null) {
+        return NativeResult(
+          success: br['success'] == true,
+          message: br['message'] as String? ?? br['error'] as String?,
+        );
+      }
+    }
+    // Fallback: osascript/simctl
     final udid = await _getBootedSimulatorUdid();
 
     switch (button.toLowerCase()) {
