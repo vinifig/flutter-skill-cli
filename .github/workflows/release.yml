@@ -545,8 +545,22 @@ jobs:
       - name: Authenticate with MCP Registry
         run: mcp-publisher login github-oidc
 
-      - name: Publish to MCP Registry
+      - name: Publish to MCP Registry (CLI)
+        id: mcp-cli
+        continue-on-error: true
         run: mcp-publisher publish server.json
+
+      - name: Publish to MCP Registry (Action fallback)
+        if: steps.mcp-cli.outcome == 'failure'
+        uses: OtherVibes/mcp-publish-action@v1
+        with:
+          name: io.github.ai-dashboad/flutter-skill
+          description: "AI-powered E2E testing for 10 platforms. 253 MCP tools. Zero config. Test Flutter, React Native, iOS, Android, Web, Electron, Tauri, KMP, .NET MAUI from natural language."
+          version: ${{ needs.prepare.outputs.version }}
+          registry_type: npm
+          identifier: flutter-skill
+          transport_type: stdio
+          website_url: https://github.com/ai-dashboad/flutter-skill
 
   # Post release announcement
   # Note: Twitter/X API free tier no longer supports posting (402 Payment Required).
