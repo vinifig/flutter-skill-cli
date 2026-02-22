@@ -332,6 +332,60 @@ extension _NativeHandlers on FlutterMcpServer {
       return result.toJson();
     }
 
+    if (name == 'native_video_start') {
+      final driver = await _getNativeDriver(args);
+      if (driver is! IosSimulatorDriver) {
+        return {
+          "success": false,
+          "error": "native_video_start requires iOS Simulator"
+        };
+      }
+      final path = args['path'] as String?;
+      final result = await driver.startVideoRecording(path: path).timeout(
+            const Duration(seconds: 10),
+            onTimeout: () => NativeResult(
+                success: false, message: 'native_video_start timed out'),
+          );
+      return result.toJson();
+    }
+
+    if (name == 'native_video_stop') {
+      final driver = await _getNativeDriver(args);
+      if (driver is! IosSimulatorDriver) {
+        return {
+          "success": false,
+          "error": "native_video_stop requires iOS Simulator"
+        };
+      }
+      final result = await driver.stopVideoRecording().timeout(
+            const Duration(seconds: 15),
+            onTimeout: () => NativeResult(
+                success: false, message: 'native_video_stop timed out'),
+          );
+      return result.toJson();
+    }
+
+    if (name == 'native_capture_frames') {
+      final driver = await _getNativeDriver(args);
+      if (driver is! IosSimulatorDriver) {
+        return {
+          "success": false,
+          "error": "native_capture_frames requires iOS Simulator"
+        };
+      }
+      final fps = args['fps'] as int? ?? 5;
+      final durationMs = args['duration_ms'] as int? ?? 3000;
+      final quality = args['quality'] as int? ?? 80;
+      final result = await driver
+          .captureFrames(fps: fps, durationMs: durationMs, quality: quality)
+          .timeout(
+            Duration(milliseconds: durationMs + 10000),
+            onTimeout: () => NativeResult(
+                success: false, message: 'native_capture_frames timed out'),
+          );
+      return result.toJson();
+    }
+
     if (name == 'native_list_simulators') {
       final platform = args['platform'] as String? ?? 'all';
       final devices = await NativeDriver.listDevices(platform: platform);

@@ -100,6 +100,9 @@ class ToolRegistry {
     'native_press_key',
     'native_key_combo',
     'native_button',
+    'native_video_start',
+    'native_video_stop',
+    'native_capture_frames',
     'native_list_simulators',
     'auth_biometric',
     'auth_deeplink',
@@ -2116,6 +2119,64 @@ This captures the ENTIRE device screen, not just the Flutter app content.""",
             "button": {"type": "string", "description": "Button name"},
           },
           "required": ["button"],
+        },
+      },
+      {
+        "name": "native_video_start",
+        "description":
+            "Start recording the iOS Simulator screen to an MP4 video file using H.264 codec. Use native_video_stop to finish.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "device_id": {
+              "type": "string",
+              "description": "Device identifier ('ios' for auto-detect)",
+            },
+            "path": {
+              "type": "string",
+              "description": "Output file path (default: auto-generated in temp dir)",
+            },
+          },
+        },
+      },
+      {
+        "name": "native_video_stop",
+        "description":
+            "Stop recording the iOS Simulator screen and return the MP4 file path and size.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "device_id": {
+              "type": "string",
+              "description": "Device identifier ('ios' for auto-detect)",
+            },
+          },
+        },
+      },
+      {
+        "name": "native_capture_frames",
+        "description":
+            "Capture a burst of screenshot frames from the iOS Simulator at a target FPS. Returns JPEG frame paths for GIF creation or visual comparison.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "device_id": {
+              "type": "string",
+              "description": "Device identifier ('ios' for auto-detect)",
+            },
+            "fps": {
+              "type": "integer",
+              "description": "Target frames per second (default: 5, max: 15)",
+            },
+            "duration_ms": {
+              "type": "integer",
+              "description": "Capture duration in milliseconds (default: 3000)",
+            },
+            "quality": {
+              "type": "integer",
+              "description": "JPEG quality 1-100 (default: 80)",
+            },
+          },
         },
       },
       {

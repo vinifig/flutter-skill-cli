@@ -1619,9 +1619,152 @@ end tell
               r.exitCode == 0 ? 'Opened app switcher' : 'App switcher failed',
         );
 
+      case 'apple_pay':
+      case 'apple-pay':
+      case 'applepay':
+        if (await _hasBridge()) {
+          final br = await _runBridge(['button', 'apple-pay']);
+          if (br != null) {
+            return NativeResult(
+              success: br['success'] == true,
+              message: br['message'] as String? ?? br['error'] as String?,
+            );
+          }
+        }
+        return NativeResult(
+            success: false,
+            message: 'Apple Pay button requires fs-ios-bridge');
+
+      case 'side':
+      case 'side-button':
+      case 'side_button':
+        if (await _hasBridge()) {
+          final br = await _runBridge(['button', 'side']);
+          if (br != null) {
+            return NativeResult(
+              success: br['success'] == true,
+              message: br['message'] as String? ?? br['error'] as String?,
+            );
+          }
+        }
+        return NativeResult(
+            success: false,
+            message: 'Side button requires fs-ios-bridge');
+
       default:
         return NativeResult(success: false, message: 'Unknown button: $button');
     }
+  }
+
+  // ===========================================================================
+  // Video Recording (via simctl)
+  // ===========================================================================
+
+  Process? _videoProcess;
+  String? _videoPath;
+
+  /// Start recording the simulator screen to an MP4 file.
+  Future<NativeResult> startVideoRecording({String? path}) async {
+    if (_videoProcess != null) {
+      return NativeResult(
+          success: false, message: 'Video recording already in progress');
+    }
+
+    final udid = await _getBootedSimulatorUdid();
+    _videoPath = path ??
+        '${Directory.systemTemp.path}/fs_video_${DateTime.now().millisecondsSinceEpoch}.mp4';
+
+    try {
+      _videoProcess = await Process.start(
+        'xcrun',
+        ['simctl', 'io', udid, 'recordVideo', '--codec=h264', _videoPath!],
+      );
+      // Give it a moment to start
+      await Future.delayed(const Duration(milliseconds: 500));
+      return NativeResult(
+        success: true,
+        message: 'Video recording started',
+        metadata: {'path': _videoPath},
+      );
+    } catch (e) {
+      _videoProcess = null;
+      return NativeResult(success: false, message: 'Failed to start: $e');
+    }
+  }
+
+  /// Stop recording and return the video file path.
+  Future<NativeResult> stopVideoRecording() async {
+    if (_videoProcess == null) {
+      return NativeResult(
+          success: false, message: 'No video recording in progress');
+    }
+
+    // Send SIGINT to gracefully stop (simctl finalizes the MP4)
+    _videoProcess!.kill(ProcessSignal.sigint);
+    try {
+      await _videoProcess!.exitCode.timeout(const Duration(seconds: 10));
+    } catch (_) {
+      _videoProcess!.kill();
+    }
+    _videoProcess = null;
+
+    final path = _videoPath!;
+    _videoPath = null;
+
+    final file = File(path);
+    if (await file.exists()) {
+      final size = await file.length();
+      return NativeResult(
+        success: true,
+        message: 'Video saved',
+        metadata: {'path': path, 'size_bytes': size},
+      );
+    }
+    return NativeResult(success: false, message: 'Video file not found: $path');
+  }
+
+  /// Capture a burst of screenshots as JPEG frames (lightweight streaming).
+  /// Returns paths to captured frames.
+  Future<NativeResult> captureFrames({
+    int fps = 5,
+    int durationMs = 3000,
+    int quality = 80,
+  }) async {
+    final udid = await _getBootedSimulatorUdid();
+    final interval = Duration(milliseconds: 1000 ~/ fps);
+    final frames = <String>[];
+    final stopwatch = Stopwatch()..start();
+
+    while (stopwatch.elapsedMilliseconds < durationMs) {
+      final framePath =
+          '${Directory.systemTemp.path}/fs_frame_${frames.length}.jpg';
+      final r = await Process.run('xcrun', [
+        'simctl',
+        'io',
+        udid,
+        'screenshot',
+        '--type=jpeg',
+        framePath,
+      ]);
+      if (r.exitCode == 0) frames.add(framePath);
+
+      final elapsed = stopwatch.elapsed;
+      final nextFrame = interval * (frames.length);
+      if (nextFrame > elapsed) {
+        await Future.delayed(nextFrame - elapsed);
+      }
+    }
+
+    return NativeResult(
+      success: true,
+      message: 'Captured ${frames.length} frames at ${fps}fps',
+      metadata: {
+        'frames': frames,
+        'count': frames.length,
+        'fps': fps,
+        'duration_ms': stopwatch.elapsedMilliseconds,
+      },
+    );
   }
 }
 

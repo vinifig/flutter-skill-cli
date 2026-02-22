@@ -105,6 +105,9 @@ extension _ToolDefinitions on FlutterMcpServer {
       'native_press_key',
       'native_key_combo',
       'native_button',
+      'native_video_start',
+      'native_video_stop',
+      'native_capture_frames',
       'native_list_simulators',
       'auth_biometric',
       'auth_deeplink',
@@ -2309,6 +2312,102 @@ home, lock, power, siri, volume_up, volume_down, app_switch
             },
           },
           "required": ["button"],
+        },
+      },
+      {
+        "name": "native_video_start",
+        "description": """Start recording the iOS Simulator screen to an MP4 video file.
+
+[USE WHEN]
+• Recording a test session or demo for documentation
+• Capturing a bug reproduction as video evidence
+• Creating visual test reports
+
+[RETURNS]
+• path: file path where video is being recorded
+• Use native_video_stop to finish recording and get the final file
+
+[NOTES]
+• Uses simctl recordVideo with H.264 codec
+• Recording continues until native_video_stop is called
+• Only one recording at a time per simulator""",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "device_id": {
+              "type": "string",
+              "description": "Device identifier ('ios' for auto-detect)",
+            },
+            "path": {
+              "type": "string",
+              "description":
+                  "Output file path (default: auto-generated in temp dir)",
+            },
+          },
+        },
+      },
+      {
+        "name": "native_video_stop",
+        "description": """Stop recording the iOS Simulator screen and save the MP4 file.
+
+[USE WHEN]
+• Finishing a recording started with native_video_start
+• The video is finalized and ready to share/analyze
+
+[RETURNS]
+• path: final video file path
+• size_bytes: file size""",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "device_id": {
+              "type": "string",
+              "description": "Device identifier ('ios' for auto-detect)",
+            },
+          },
+        },
+      },
+      {
+        "name": "native_capture_frames",
+        "description": """Capture a burst of screenshot frames from the iOS Simulator.
+
+[USE WHEN]
+• Creating a lightweight visual recording without full video
+• Capturing animation sequences frame-by-frame
+• Generating frames for GIF creation or visual comparison
+• Streaming simulator output at a specific frame rate
+
+[RETURNS]
+• frames: array of file paths to captured JPEG frames
+• count: number of frames captured
+• fps: actual frames per second achieved
+• duration_ms: total capture duration
+
+[NOTES]
+• Uses simctl screenshot in rapid succession
+• Each frame is a JPEG file in temp directory
+• Practical FPS depends on simctl screenshot speed (~5-15fps)""",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "device_id": {
+              "type": "string",
+              "description": "Device identifier ('ios' for auto-detect)",
+            },
+            "fps": {
+              "type": "integer",
+              "description": "Target frames per second (default: 5, max: 15)",
+            },
+            "duration_ms": {
+              "type": "integer",
+              "description":
+                  "Capture duration in milliseconds (default: 3000)",
+            },
+            "quality": {
+              "type": "integer",
+              "description": "JPEG quality 1-100 (default: 80)",
+            },
+          },
         },
       },
       {
