@@ -163,7 +163,7 @@ extension _NativeHandlers on FlutterMcpServer {
           "success": false,
           "error":
               "Could not read accessibility tree — check macOS Accessibility permissions for Terminal/IDE, "
-              "or connect via bridge SDK (scan_and_connect) for bridge-based inspection"
+                  "or connect via bridge SDK (scan_and_connect) for bridge-based inspection"
         };
       }
 
@@ -294,7 +294,8 @@ extension _NativeHandlers on FlutterMcpServer {
           },
         };
       }
-      final gesture = (args['gesture'] ?? args['type'] ?? args['name']) as String;
+      final gesture =
+          (args['gesture'] ?? args['type'] ?? args['name']) as String;
       final result = await driver.gesture(gesture).timeout(
             const Duration(seconds: 15),
             onTimeout: () => NativeResult(

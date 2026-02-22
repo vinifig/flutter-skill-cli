@@ -672,7 +672,8 @@ class FlutterMcpServer {
   /// Execute a batch of actions in sequence
   Future<Map<String, dynamic>> _executeBatch(
       Map<String, dynamic> args, FlutterSkillClient client) async {
-    final actions = (args['actions'] ?? args['commands'] ?? []) as List<dynamic>;
+    final actions =
+        (args['actions'] ?? args['commands'] ?? []) as List<dynamic>;
     final stopOnFailure = args['stop_on_failure'] ?? true;
 
     final results = <Map<String, dynamic>>[];

@@ -180,7 +180,8 @@ extension _BfInspection on FlutterMcpServer {
           final result = await client.callMethod('inspect', {});
           result['source'] = 'bridge_inspect';
           result['framework'] = client.frameworkName;
-          result['hint'] = 'This is the component/accessibility tree from the ${client.frameworkName} bridge SDK. '
+          result['hint'] =
+              'This is the component/accessibility tree from the ${client.frameworkName} bridge SDK. '
               'For Flutter apps, get_widget_tree returns the full widget tree via VM Service.';
           return result;
         }
@@ -197,7 +198,10 @@ extension _BfInspection on FlutterMcpServer {
         final fc = _asFlutterClient(client!, 'get_widget_properties');
         final wpKey = (args['key'] ?? args['element'] ?? '') as String;
         if (wpKey.isEmpty) {
-          return {"success": false, "error": "key or element parameter required"};
+          return {
+            "success": false,
+            "error": "key or element parameter required"
+          };
         }
         return await fc.getWidgetProperties(wpKey);
       case 'get_text_content':

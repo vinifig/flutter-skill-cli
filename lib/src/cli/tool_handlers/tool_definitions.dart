@@ -941,7 +941,8 @@ After starting, point the web SDK at ws://127.0.0.1:<port>.""",
       },
       {
         "name": "go_offline",
-        "description": "Simulate offline mode (no network). Use go_online to restore.",
+        "description":
+            "Simulate offline mode (no network). Use go_online to restore.",
         "inputSchema": {"type": "object", "properties": {}}
       },
       {
@@ -1771,11 +1772,15 @@ By default, saves screenshot to a temporary file and returns file path. Optional
       },
       {
         "name": "screenshot_element",
-        "description": "Take a screenshot of a specific element by CSS selector, key, or text content",
+        "description":
+            "Take a screenshot of a specific element by CSS selector, key, or text content",
         "inputSchema": {
           "type": "object",
           "properties": {
-            "selector": {"type": "string", "description": "CSS selector (e.g. 'h1', '.my-class', '#my-id')"},
+            "selector": {
+              "type": "string",
+              "description": "CSS selector (e.g. 'h1', '.my-class', '#my-id')"
+            },
             "key": {"type": "string", "description": "Element key"},
             "text": {"type": "string", "description": "Text to find"},
           },
@@ -2323,7 +2328,8 @@ home, lock, power, siri, volume_up, volume_down, app_switch
       },
       {
         "name": "native_video_start",
-        "description": """Start recording the iOS Simulator screen to an MP4 video file.
+        "description":
+            """Start recording the iOS Simulator screen to an MP4 video file.
 
 [USE WHEN]
 • Recording a test session or demo for documentation
@@ -2355,7 +2361,8 @@ home, lock, power, siri, volume_up, volume_down, app_switch
       },
       {
         "name": "native_video_stop",
-        "description": """Stop recording the iOS Simulator screen and save the MP4 file.
+        "description":
+            """Stop recording the iOS Simulator screen and save the MP4 file.
 
 [USE WHEN]
 • Finishing a recording started with native_video_start
@@ -2376,7 +2383,8 @@ home, lock, power, siri, volume_up, volume_down, app_switch
       },
       {
         "name": "native_capture_frames",
-        "description": """Capture a burst of screenshot frames from the iOS Simulator.
+        "description":
+            """Capture a burst of screenshot frames from the iOS Simulator.
 
 [USE WHEN]
 • Creating a lightweight visual recording without full video
@@ -2407,8 +2415,7 @@ home, lock, power, siri, volume_up, volume_down, app_switch
             },
             "duration_ms": {
               "type": "integer",
-              "description":
-                  "Capture duration in milliseconds (default: 3000)",
+              "description": "Capture duration in milliseconds (default: 3000)",
             },
             "quality": {
               "type": "integer",

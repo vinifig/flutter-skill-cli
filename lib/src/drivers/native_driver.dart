@@ -1632,8 +1632,7 @@ end tell
           }
         }
         return NativeResult(
-            success: false,
-            message: 'Apple Pay button requires fs-ios-bridge');
+            success: false, message: 'Apple Pay button requires fs-ios-bridge');
 
       case 'side':
       case 'side-button':
@@ -1648,8 +1647,7 @@ end tell
           }
         }
         return NativeResult(
-            success: false,
-            message: 'Side button requires fs-ios-bridge');
+            success: false, message: 'Side button requires fs-ios-bridge');
 
       default:
         return NativeResult(success: false, message: 'Unknown button: $button');

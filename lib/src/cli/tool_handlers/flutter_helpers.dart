@@ -313,7 +313,8 @@ extension _FlutterHelpers on FlutterMcpServer {
   Future<Map<String, dynamic>> _assertText(
       Map<String, dynamic> args, FlutterSkillClient client) async {
     final key = args['key'] as String? ?? args['element'] as String? ?? '';
-    final expected = args['expected'] as String? ?? args['text'] as String? ?? '';
+    final expected =
+        args['expected'] as String? ?? args['text'] as String? ?? '';
     final useContains = args['contains'] ?? false;
 
     final actual = await client.getTextValue(key.isEmpty ? null : key);

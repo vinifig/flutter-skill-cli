@@ -941,7 +941,8 @@ After starting, point the web SDK at ws://127.0.0.1:<port>.""",
       },
       {
         "name": "go_offline",
-        "description": "Simulate offline mode (no network). Use go_online to restore.",
+        "description":
+            "Simulate offline mode (no network). Use go_online to restore.",
         "inputSchema": {"type": "object", "properties": {}}
       },
       {
@@ -1779,11 +1780,15 @@ By default, saves screenshot to a temporary file and returns file path. Optional
       },
       {
         "name": "screenshot_element",
-        "description": "Take a screenshot of a specific element by CSS selector, key, or text content",
+        "description":
+            "Take a screenshot of a specific element by CSS selector, key, or text content",
         "inputSchema": {
           "type": "object",
           "properties": {
-            "selector": {"type": "string", "description": "CSS selector (e.g. 'h1', '.my-class', '#my-id')"},
+            "selector": {
+              "type": "string",
+              "description": "CSS selector (e.g. 'h1', '.my-class', '#my-id')"
+            },
             "key": {"type": "string", "description": "Element key"},
             "text": {"type": "string", "description": "Text content to find"}
           }
@@ -2141,7 +2146,8 @@ This captures the ENTIRE device screen, not just the Flutter app content.""",
             },
             "path": {
               "type": "string",
-              "description": "Output file path (default: auto-generated in temp dir)",
+              "description":
+                  "Output file path (default: auto-generated in temp dir)",
             },
           },
         },
