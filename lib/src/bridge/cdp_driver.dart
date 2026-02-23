@@ -1774,6 +1774,13 @@ class CdpDriver implements AppDriver {
 
   Future<Map<String, dynamic>> _call(String method,
       [Map<String, dynamic>? params]) async {
+    // If disconnected but reconnecting, wait up to 30s for reconnection
+    if ((_ws == null || !_connected) && _reconnecting) {
+      for (int i = 0; i < 60; i++) {
+        await Future.delayed(const Duration(milliseconds: 500));
+        if (_connected && _ws != null) break;
+      }
+    }
     if (_ws == null || !_connected) {
       throw Exception('Not connected via CDP');
     }
@@ -2057,9 +2064,56 @@ function _dqAll(sel, root) {
     }
   }
 
+  /// Whether auto-reconnect is in progress.
+  bool _reconnecting = false;
+
+  /// Max auto-reconnect attempts.
+  static const int _maxReconnectAttempts = 5;
+
   void _onDisconnect() {
     _connected = false;
     _failAllPending('Connection lost');
+    // Trigger auto-reconnect (non-blocking)
+    _autoReconnect();
+  }
+
+  /// Auto-reconnect to CDP when connection drops (e.g. CfT restart).
+  Future<void> _autoReconnect() async {
+    if (_reconnecting) return;
+    _reconnecting = true;
+    try {
+      for (int attempt = 1; attempt <= _maxReconnectAttempts; attempt++) {
+        // Exponential backoff: 1s, 2s, 4s, 8s, 16s
+        await Future.delayed(Duration(seconds: 1 << (attempt - 1)));
+        try {
+          final wsUrl = await _discoverTarget();
+          if (wsUrl == null) continue;
+
+          _ws = await WebSocket.connect(wsUrl)
+              .timeout(const Duration(seconds: 10));
+          _connected = true;
+
+          _ws!.listen(
+            _onMessage,
+            onDone: _onDisconnect,
+            onError: (_) => _onDisconnect(),
+            cancelOnError: false,
+          );
+
+          // Re-enable required CDP domains
+          await Future.wait([
+            _call('Page.enable'),
+            _call('DOM.enable'),
+            _call('Runtime.enable'),
+          ]);
+          return; // Success
+        } catch (_) {
+          // Retry
+        }
+      }
+    } finally {
+      _reconnecting = false;
+    }
   }
 
   void _failAllPending(String reason) {
