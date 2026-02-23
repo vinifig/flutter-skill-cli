@@ -394,6 +394,29 @@ extension _CdpToolHandlers on FlutterMcpServer {
         await cdp.typeText(text);
         return {"success": true, "text": text};
 
+      case 'paste_text':
+        final text = args['text'] as String? ?? '';
+        await cdp.pasteText(text);
+        return {"success": true, "length": text.length};
+
+      case 'fill_rich_text':
+        return await cdp.fillRichText(
+          selector: args['selector'] as String?,
+          html: args['html'] as String?,
+          text: args['text'] as String?,
+          append: args['append'] == true,
+        );
+
+      case 'solve_captcha':
+        final apiKey = args['api_key'] as String? ?? '';
+        if (apiKey.isEmpty) return {"success": false, "message": "api_key is required"};
+        return await cdp.solveCaptcha(
+          apiKey: apiKey,
+          siteKey: args['site_key'] as String?,
+          pageUrl: args['page_url'] as String?,
+          type: args['type'] as String?,
+        );
+
       case 'hover':
         return await cdp.hover(
             key: args['key'], text: args['text'], ref: args['ref']);

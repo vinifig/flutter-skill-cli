@@ -297,8 +297,16 @@ class CdpDriver implements AppDriver {
       {bool includePositions = true}) async {
     final result = await _evalJs('''
       (() => {
-        const selectors = 'a, button, input, select, textarea, [role="button"], [role="link"], [role="checkbox"], [role="radio"], [role="tab"], [onclick], [tabindex]';
-        const elements = Array.from(document.querySelectorAll(selectors));
+        const selectors = 'a, button, input, select, textarea, [role="button"], [role="link"], [role="checkbox"], [role="radio"], [role="tab"], [onclick], [tabindex], [contenteditable="true"]';
+        // Recursive query that traverses Shadow DOM
+        function deepQueryAll(root, sel) {
+          const results = Array.from(root.querySelectorAll(sel));
+          root.querySelectorAll('*').forEach(el => {
+            if (el.shadowRoot) results.push(...deepQueryAll(el.shadowRoot, sel));
+          });
+          return results;
+        }
+        const elements = deepQueryAll(document, selectors);
         return elements.filter(el => {
           const style = window.getComputedStyle(el);
           return style.display !== 'none' && style.visibility !== 'hidden' && el.offsetParent !== null;
@@ -397,8 +405,15 @@ class CdpDriver implements AppDriver {
   Future<Map<String, dynamic>> getInteractiveElementsStructured() async {
     final result = await _evalJs('''
       (() => {
-        const selectors = 'a, button, input, select, textarea, [role="button"], [role="link"], [role="checkbox"], [role="radio"], [role="tab"], [onclick], [tabindex]';
-        const elements = Array.from(document.querySelectorAll(selectors));
+        const selectors = 'a, button, input, select, textarea, [role="button"], [role="link"], [role="checkbox"], [role="radio"], [role="tab"], [onclick], [tabindex], [contenteditable="true"]';
+        function deepQueryAll(root, sel) {
+          const results = Array.from(root.querySelectorAll(sel));
+          root.querySelectorAll('*').forEach(el => {
+            if (el.shadowRoot) results.push(...deepQueryAll(el.shadowRoot, sel));
+          });
+          return results;
+        }
+        const elements = deepQueryAll(document, selectors);
         const visible = elements.filter(el => {
           const style = window.getComputedStyle(el);
           return style.display !== 'none' && style.visibility !== 'hidden' && el.offsetParent !== null;
@@ -1125,6 +1140,254 @@ class CdpDriver implements AppDriver {
     return jsonDecode(v) as Map<String, dynamic>;
   }
 
+  /// Paste text instantly via CDP Input.insertText (clipboard-style).
+  /// Much faster than typeText for long content.
+  Future<void> pasteText(String text) async {
+    await _call('Input.insertText', {'text': text});
+  }
+
+  /// Fill a rich text editor (contenteditable, Draft.js, ProseMirror, Tiptap, Medium, etc.).
+  /// Finds the editor element, focuses it, clears content, and injects HTML or plain text.
+  /// [selector] - CSS selector for the editor element (e.g. '[contenteditable="true"]', '.ProseMirror', '.tiptap')
+  /// [html] - HTML content to inject (preferred for rich editors)
+  /// [text] - Plain text to inject (fallback)
+  /// [append] - If true, append instead of replacing content
+  Future<Map<String, dynamic>> fillRichText({
+    String? selector,
+    String? html,
+    String? text,
+    bool append = false,
+  }) async {
+    final content = html ?? text ?? '';
+    final isHtml = html != null;
+    final sel = selector ?? '[contenteditable="true"]';
+    final escapedContent =
+        content.replaceAll('\\', '\\\\').replaceAll('`', '\\`').replaceAll('\$', '\\\$');
+
+    final result = await _evalJs('''
+      (() => {
+        // Try multiple selectors for common rich text editors
+        const selectors = ['$sel', '.ProseMirror', '.tiptap', '[contenteditable="true"]', '.ql-editor', '.DraftEditor-root [contenteditable="true"]', '.graf--p'];
+        let el = null;
+        for (const s of selectors) {
+          el = document.querySelector(s);
+          if (el) break;
+        }
+        if (!el) return JSON.stringify({success: false, message: 'Rich text editor not found', triedSelectors: selectors});
+
+        el.focus();
+
+        if (!${append}) {
+          el.innerHTML = '';
+        }
+
+        if (${isHtml}) {
+          el.innerHTML ${append ? '+' : ''}= `$escapedContent`;
+        } else {
+          el.innerText ${append ? '+' : ''}= `$escapedContent`;
+        }
+
+        // Dispatch events for framework detection (React, Vue, Draft.js, Tiptap, ProseMirror)
+        el.dispatchEvent(new Event('input', {bubbles: true}));
+        el.dispatchEvent(new Event('change', {bubbles: true}));
+        // For ProseMirror/Tiptap — trigger a DOM mutation so the framework picks up changes
+        el.dispatchEvent(new Event('keyup', {bubbles: true}));
+        // For Draft.js — trigger beforeinput
+        try { el.dispatchEvent(new InputEvent('beforeinput', {bubbles: true, inputType: 'insertText'})); } catch(e) {}
+
+        return JSON.stringify({
+          success: true,
+          editor: el.className || el.tagName,
+          contentLength: el.innerHTML.length,
+          selector: '$sel'
+        });
+      })()
+    ''');
+    final v = result['result']?['value'] as String?;
+    if (v == null) return {"success": false, "message": "Eval returned null"};
+    return jsonDecode(v) as Map<String, dynamic>;
+  }
+
+  /// Solve CAPTCHA using 2Captcha/Anti-Captcha service.
+  /// Supports reCAPTCHA v2/v3, hCaptcha, image CAPTCHA.
+  /// [apiKey] - API key for the CAPTCHA solving service
+  /// [service] - 'twocaptcha' or 'anticaptcha' (default: twocaptcha)
+  /// [siteKey] - reCAPTCHA/hCaptcha site key (auto-detected if not provided)
+  /// [pageUrl] - URL of the page (auto-detected if not provided)
+  /// [type] - 'recaptcha_v2', 'recaptcha_v3', 'hcaptcha', 'image' (auto-detected)
+  Future<Map<String, dynamic>> solveCaptcha({
+    required String apiKey,
+    String service = 'twocaptcha',
+    String? siteKey,
+    String? pageUrl,
+    String? type,
+  }) async {
+    // Step 1: Auto-detect CAPTCHA type and site key
+    final detection = await _evalJs('''
+      (() => {
+        const url = window.location.href;
+        // reCAPTCHA v2/v3
+        const recaptchaEl = document.querySelector('.g-recaptcha, [data-sitekey], iframe[src*="recaptcha"]');
+        if (recaptchaEl) {
+          const sk = recaptchaEl.getAttribute('data-sitekey') || 
+            (recaptchaEl.src ? new URL(recaptchaEl.src).searchParams.get('k') : null);
+          const isV3 = recaptchaEl.getAttribute('data-size') === 'invisible' || document.querySelector('script[src*="recaptcha/api.js?render="]') !== null;
+          return JSON.stringify({type: isV3 ? 'recaptcha_v3' : 'recaptcha_v2', siteKey: sk, pageUrl: url});
+        }
+        // hCaptcha
+        const hcaptchaEl = document.querySelector('.h-captcha, [data-sitekey][data-hcaptcha], iframe[src*="hcaptcha"]');
+        if (hcaptchaEl) {
+          const sk = hcaptchaEl.getAttribute('data-sitekey');
+          return JSON.stringify({type: 'hcaptcha', siteKey: sk, pageUrl: url});
+        }
+        // Cloudflare Turnstile
+        const turnstile = document.querySelector('.cf-turnstile, [data-sitekey]');
+        if (turnstile && turnstile.classList.contains('cf-turnstile')) {
+          return JSON.stringify({type: 'turnstile', siteKey: turnstile.getAttribute('data-sitekey'), pageUrl: url});
+        }
+        // Image CAPTCHA
+        const imgCaptcha = document.querySelector('img[src*="captcha"], img[alt*="captcha"], img[class*="captcha"]');
+        if (imgCaptcha) {
+          return JSON.stringify({type: 'image', imgSrc: imgCaptcha.src, pageUrl: url});
+        }
+        return JSON.stringify({type: 'none', pageUrl: url});
+      })()
+    ''');
+
+    final detectionValue = detection['result']?['value'] as String?;
+    if (detectionValue == null) {
+      return {"success": false, "message": "Failed to detect CAPTCHA"};
+    }
+    final detected = jsonDecode(detectionValue) as Map<String, dynamic>;
+    final captchaType = type ?? detected['type'] as String?;
+    final detectedSiteKey = siteKey ?? detected['siteKey'] as String?;
+    final detectedPageUrl = pageUrl ?? detected['pageUrl'] as String?;
+
+    if (captchaType == 'none') {
+      return {"success": true, "message": "No CAPTCHA detected on page"};
+    }
+
+    // Step 2: Submit to solving service
+    final http.Client httpClient = http.Client();
+    try {
+      String taskId;
+
+      if (service == 'twocaptcha') {
+        // 2Captcha API
+        final submitUrl = Uri.parse('http://2captcha.com/in.php');
+        final params = <String, String>{
+          'key': apiKey,
+          'json': '1',
+        };
+
+        if (captchaType == 'recaptcha_v2' || captchaType == 'recaptcha_v3') {
+          params['method'] = 'userrecaptcha';
+          params['googlekey'] = detectedSiteKey ?? '';
+          params['pageurl'] = detectedPageUrl ?? '';
+          if (captchaType == 'recaptcha_v3') {
+            params['version'] = 'v3';
+            params['action'] = 'verify';
+            params['min_score'] = '0.3';
+          }
+        } else if (captchaType == 'hcaptcha') {
+          params['method'] = 'hcaptcha';
+          params['sitekey'] = detectedSiteKey ?? '';
+          params['pageurl'] = detectedPageUrl ?? '';
+        } else if (captchaType == 'turnstile') {
+          params['method'] = 'turnstile';
+          params['sitekey'] = detectedSiteKey ?? '';
+          params['pageurl'] = detectedPageUrl ?? '';
+        } else if (captchaType == 'image') {
+          // For image CAPTCHA, download and send base64
+          final imgSrc = detected['imgSrc'] as String?;
+          if (imgSrc == null) return {"success": false, "message": "No CAPTCHA image found"};
+          final imgResponse = await httpClient.get(Uri.parse(imgSrc));
+          params['method'] = 'base64';
+          params['body'] = base64Encode(imgResponse.bodyBytes);
+        }
+
+        final response = await httpClient.post(submitUrl, body: params);
+        final submitResult = jsonDecode(response.body) as Map<String, dynamic>;
+        if (submitResult['status'] != 1) {
+          return {"success": false, "message": "Submit failed: ${submitResult['request']}"};
+        }
+        taskId = submitResult['request'] as String;
+
+        // Step 3: Poll for result
+        for (int i = 0; i < 60; i++) {
+          await Future.delayed(const Duration(seconds: 5));
+          final pollUrl = Uri.parse('http://2captcha.com/res.php?key=$apiKey&action=get&id=$taskId&json=1');
+          final pollResponse = await httpClient.get(pollUrl);
+          final pollResult = jsonDecode(pollResponse.body) as Map<String, dynamic>;
+          if (pollResult['status'] == 1) {
+            final token = pollResult['request'] as String;
+
+            // Step 4: Inject solution
+            if (captchaType == 'image') {
+              // For image CAPTCHA, fill the input field
+              await _evalJs('''
+                (() => {
+                  const input = document.querySelector('input[name*="captcha"], input[id*="captcha"], input[class*="captcha"]');
+                  if (input) { input.value = '$token'; input.dispatchEvent(new Event('input', {bubbles: true})); }
+                })()
+              ''');
+            } else {
+              // For reCAPTCHA/hCaptcha/Turnstile — inject token into callback
+              await _evalJs('''
+                (() => {
+                  const textarea = document.querySelector('#g-recaptcha-response, [name="g-recaptcha-response"], textarea[name="h-captcha-response"]');
+                  if (textarea) {
+                    textarea.style.display = '';
+                    textarea.value = '$token';
+                    textarea.dispatchEvent(new Event('input', {bubbles: true}));
+                  }
+                  // Call callback if available
+                  if (typeof ___grecaptcha_cfg !== 'undefined') {
+                    const clients = ___grecaptcha_cfg.clients;
+                    if (clients) {
+                      Object.keys(clients).forEach(k => {
+                        const c = clients[k];
+                        // Find callback in nested structure
+                        const findCb = (obj) => {
+                          if (!obj || typeof obj !== 'object') return null;
+                          for (const key of Object.keys(obj)) {
+                            if (typeof obj[key] === 'function') return obj[key];
+                            const found = findCb(obj[key]);
+                            if (found) return found;
+                          }
+                          return null;
+                        };
+                        const cb = findCb(c);
+                        if (cb) cb('$token');
+                      });
+                    }
+                  }
+                  // hCaptcha callback
+                  if (window.hcaptcha) window.hcaptcha.execute();
+                })()
+              ''');
+            }
+
+            return {
+              "success": true,
+              "type": captchaType,
+              "token": token.length > 50 ? '${token.substring(0, 50)}...' : token,
+              "message": "CAPTCHA solved and injected"
+            };
+          }
+          if (pollResult['request'] != 'CAPCHA_NOT_READY') {
+            return {"success": false, "message": "Solve failed: ${pollResult['request']}"};
+          }
+        }
+        return {"success": false, "message": "Timeout waiting for CAPTCHA solution"};
+      } else {
+        return {"success": false, "message": "Service '$service' not supported yet. Use 'twocaptcha'."};
+      }
+    } finally {
+      httpClient.close();
+    }
+  }
+
   /// Highlight an element on the page.
   Future<Map<String, dynamic>> highlightElement(String selector,
       {String color = 'red', int duration = 3000}) async {
@@ -1568,8 +1831,17 @@ function deepQueryAll(selector, root) {
 ''';
 
   Future<Map<String, dynamic>> _evalJs(String expression) async {
+    // Auto-wrap in IIFE to avoid 'const' redeclaration errors across calls.
+    // Skip if already wrapped or is a simple expression (no declarations).
+    final trimmed = expression.trim();
+    final needsWrap = !trimmed.startsWith('(') &&
+        (trimmed.contains('const ') ||
+            trimmed.contains('let ') ||
+            trimmed.contains('class ') ||
+            trimmed.contains('function '));
+    final wrapped = needsWrap ? '(() => { $trimmed })()' : expression;
     return _call('Runtime.evaluate', {
-      'expression': expression,
+      'expression': wrapped,
       'returnByValue': true,
       'awaitPromise': false,
     });

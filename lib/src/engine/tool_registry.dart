@@ -74,6 +74,9 @@ class ToolRegistry {
     'highlight_element',
     'mock_response',
     'highlight_elements',
+    'fill_rich_text',
+    'paste_text',
+    'solve_captcha',
   };
 
   /// Flutter VM Service-only tools.
@@ -605,6 +608,84 @@ After starting, point the web SDK at ws://127.0.0.1:<port>.""",
             "value": {"type": "string"}
           },
           "required": ["key", "value"]
+        }
+      },
+      {
+        "name": "fill_rich_text",
+        "description":
+            "Fill a rich text editor (contenteditable, Draft.js, ProseMirror, Tiptap, Medium, Quill, etc.). Auto-detects editor type and injects content with proper framework event dispatching.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "selector": {
+              "type": "string",
+              "description":
+                  "CSS selector for the editor element (default: auto-detect via [contenteditable], .ProseMirror, .tiptap, .ql-editor, etc.)"
+            },
+            "html": {
+              "type": "string",
+              "description": "HTML content to inject (preferred for rich editors)"
+            },
+            "text": {
+              "type": "string",
+              "description": "Plain text to inject (fallback if no html)"
+            },
+            "append": {
+              "type": "boolean",
+              "description": "Append instead of replacing content (default: false)"
+            }
+          }
+        }
+      },
+      {
+        "name": "paste_text",
+        "description":
+            "Paste text instantly via clipboard simulation (Input.insertText). Orders of magnitude faster than type_text for long content. Focus the target element first.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string",
+              "description": "Text to paste"
+            }
+          },
+          "required": ["text"]
+        }
+      },
+      {
+        "name": "solve_captcha",
+        "description":
+            "Auto-detect and solve CAPTCHA on the current page using 2Captcha service. Supports reCAPTCHA v2/v3, hCaptcha, Cloudflare Turnstile, and image CAPTCHAs. Requires a 2Captcha API key.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "api_key": {
+              "type": "string",
+              "description": "2Captcha API key"
+            },
+            "site_key": {
+              "type": "string",
+              "description":
+                  "reCAPTCHA/hCaptcha site key (auto-detected if not provided)"
+            },
+            "page_url": {
+              "type": "string",
+              "description": "Page URL (auto-detected if not provided)"
+            },
+            "type": {
+              "type": "string",
+              "description":
+                  "CAPTCHA type: recaptcha_v2, recaptcha_v3, hcaptcha, turnstile, image (auto-detected if not provided)",
+              "enum": [
+                "recaptcha_v2",
+                "recaptcha_v3",
+                "hcaptcha",
+                "turnstile",
+                "image"
+              ]
+            }
+          },
+          "required": ["api_key"]
         }
       },
       {
