@@ -487,16 +487,50 @@ class CdpDriver implements AppDriver {
     return r;
   }
   
+  // ===== Detect page-level context =====
+  const framework = (() => {
+    if (window.__NEXT_DATA__) return 'nextjs';
+    if (window.__NUXT__) return 'nuxt';
+    if (document.querySelector('[ng-version]')) return 'angular';
+    if (document.querySelector('[data-reactroot]') || document.querySelector('#__next')) return 'react';
+    if (document.querySelector('[data-v-]')) return 'vue';
+    return 'unknown';
+  })();
+  
+  // Detect editor type
+  const editorType = (() => {
+    if (document.querySelector('.CodeMirror')) return 'codemirror';
+    if (document.querySelector('.cm-editor')) return 'codemirror6';
+    if (document.querySelector('.DraftEditor-root')) return 'draft-js';
+    if (document.querySelector('.tiptap.ProseMirror')) return 'tiptap';
+    if (document.querySelector('.ProseMirror')) return 'prosemirror';
+    if (document.querySelector('.ql-editor')) return 'quill';
+    if (document.querySelector('[contenteditable="true"]')) return 'contenteditable';
+    return 'none';
+  })();
+  
+  // Recommend best input method based on framework + editor
+  const inputMethod = (() => {
+    if (editorType === 'codemirror' || editorType === 'codemirror6') return 'api:CodeMirror.setValue()';
+    if (editorType === 'draft-js') return 'clipboard:paste-event';
+    if (editorType === 'tiptap' || editorType === 'prosemirror') return 'html:innerHTML+input-event';
+    if (editorType === 'quill') return 'api:quill.clipboard.dangerouslyPasteHTML()';
+    if (framework === 'react') return 'cdp:Input.insertText';
+    return 'cdp:Input.insertText';
+  })();
+  
   const interactiveSel = 'a,button,input,select,textarea,[role="button"],[role="link"],[role="textbox"],[role="searchbox"],[role="combobox"],[role="checkbox"],[role="radio"],[role="switch"],[role="tab"],[role="menuitem"],[role="option"],[role="slider"],[contenteditable="true"]';
-  const landmarkSel = 'h1,h2,h3,h4,h5,h6,nav,main,header,footer,[role="heading"],[role="navigation"],[role="main"],[role="banner"],[role="complementary"],[role="dialog"],[role="alert"],[role="status"],img[alt],label';
+  const landmarkSel = 'h1,h2,h3,h4,h5,h6,nav,main,header,footer,[role="heading"],[role="navigation"],[role="main"],[role="banner"],[role="complementary"],[role="dialog"],[role="alert"],[role="status"],img[alt],label,[class*="error"],[class*="warning"],[aria-invalid]';
   
   const allEls = dqAll(interactiveSel + ',' + landmarkSel);
   const vw = window.innerWidth;
   const vh = window.innerHeight;
-  let ref = 0;
+  let refN = 0;
   const lines = [];
   const refs = {};
   let interactiveCount = 0;
+  const requiredEmpty = [];
+  const errors = [];
   
   for (const el of allEls) {
     const r = el.getBoundingClientRect();
@@ -516,18 +550,65 @@ class CdpDriver implements AppDriver {
     
     const isInteractive = /^(link|button|textbox|searchbox|combobox|checkbox|radio|switch|tab|menuitem|option|slider)$/.test(role) || el.hasAttribute('contenteditable');
     
-    ref++;
-    const refId = 'e' + ref;
+    refN++;
+    const refId = 'e' + refN;
     if (isInteractive) interactiveCount++;
     
-    // State flags
+    // ===== Enhanced state detection =====
     const states = [];
     if (el.disabled) states.push('disabled');
     if (el.checked) states.push('checked');
     if (el.getAttribute('aria-expanded') === 'true') states.push('expanded');
     if (el.getAttribute('aria-selected') === 'true') states.push('selected');
-    if (el.required) states.push('required');
+    if (el.required || el.getAttribute('aria-required') === 'true') states.push('required');
     if (document.activeElement === el) states.push('focused');
+    if (el.getAttribute('aria-invalid') === 'true') states.push('invalid');
+    if (el.readOnly) states.push('readonly');
+    
+    // Empty check for required fields
+    const isEmpty = (tag === 'input' || tag === 'textarea' || tag === 'select') && !value.trim();
+    const isEmptyEditable = el.hasAttribute('contenteditable') && !el.textContent?.trim();
+    if ((el.required || el.getAttribute('aria-required') === 'true') && (isEmpty || isEmptyEditable)) {
+      states.push('empty');
+      requiredEmpty.push(displayName || role + '#' + refId);
+    }
+    
+    // ===== Validation info =====
+    let validation = '';
+    if (el.validity && !el.validity.valid && value) {
+      if (el.validity.tooShort) validation = ' minlen=' + el.minLength;
+      if (el.validity.tooLong) validation = ' maxlen=' + el.maxLength;
+      if (el.validity.patternMismatch) validation = ' pattern=' + el.pattern;
+      if (el.validity.typeMismatch) validation = ' invalid-format';
+    }
+    if (el.minLength > 0) validation += ' minlen=' + el.minLength;
+    if (el.maxLength > 0 && el.maxLength < 10000) validation += ' maxlen=' + el.maxLength;
+    
+    // ===== Error message detection =====
+    if (el.classList?.contains('error') || el.getAttribute('aria-invalid') === 'true' ||
+        (el.className && /error|warning|invalid/i.test(el.className))) {
+      const errText = el.textContent?.trim();
+      if (errText && errText.length < 100) errors.push(errText);
+    }
+    // Check aria-errormessage
+    const errMsgId = el.getAttribute('aria-errormessage') || el.getAttribute('aria-describedby');
+    if (errMsgId) {
+      const errEl = document.getElementById(errMsgId);
+      if (errEl?.textContent?.trim()) errors.push(errEl.textContent.trim());
+    }
+    
+    // ===== Select/dropdown options =====
+    let optionsStr = '';
+    if (tag === 'select') {
+      const opts = Array.from(el.options || []).map(o => o.text?.trim()).filter(Boolean).slice(0, 10);
+      if (opts.length) optionsStr = ' options=[' + opts.join(',') + ']';
+    }
+    
+    // ===== Disabled button reason =====
+    let disabledReason = '';
+    if (el.disabled && role === 'button' && requiredEmpty.length > 0) {
+      disabledReason = ' reason="missing:' + requiredEmpty.join(',') + '"';
+    }
     
     const stateStr = states.length ? ' [' + states.join(',') + ']' : '';
     const valueStr = value && type !== 'password' ? ' value="' + value.substring(0, 30) + '"' : '';
@@ -537,20 +618,36 @@ class CdpDriver implements AppDriver {
     // Viewport indicator
     const inView = r.top >= -10 && r.bottom <= vh + 10;
     const offscreen = !inView && (r.bottom < -100 || r.top > vh + 100) ? ' (offscreen)' : '';
+    // Beyond viewport width (important for dialog buttons)
+    const beyondVW = r.left > vw ? ' (beyond-viewport-x:' + Math.round(r.left) + ')' : '';
     
     refs[refId] = displayName;
-    lines.push(role + ' "' + displayName + '"' + typeStr + valueStr + refStr + stateStr + offscreen);
+    lines.push(role + ' "' + displayName + '"' + typeStr + valueStr + optionsStr + refStr + stateStr + validation + disabledReason + offscreen + beyondVW);
   }
   
   const elapsed = Math.round(performance.now() - t0);
   const snapshot = lines.join('\n');
+  
+  // ===== Form summary =====
+  const formMeta = {
+    framework: framework,
+    editorType: editorType,
+    inputMethod: inputMethod,
+    requiredEmpty: requiredEmpty,
+    errors: errors,
+    viewport: vw + 'x' + vh,
+  };
+  
   return JSON.stringify({
     snapshot: snapshot,
     interactiveCount: interactiveCount,
-    totalElements: ref,
+    totalElements: refN,
     tokenEstimate: Math.round(snapshot.length / 4),
     elapsedMs: elapsed,
-    hint: 'Use ref IDs with act(): act(ref: "e1", action: "click"), act(ref: "e2", action: "fill", value: "text")',
+    formMeta: formMeta,
+    hint: requiredEmpty.length > 0
+      ? 'BLOCKED: Required empty fields: [' + requiredEmpty.join(', ') + ']. Fill these before submit. Use ' + inputMethod + ' for input.'
+      : 'Ready to submit. Use act(ref, action) to interact.',
     refs: refs
   });
 })()
