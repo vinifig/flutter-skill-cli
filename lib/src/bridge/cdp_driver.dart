@@ -74,6 +74,10 @@ class CdpDriver implements AppDriver {
   bool get isConnected => _connected;
 
   @override
+  /// Whether connect() found an existing tab matching the target URL
+  /// (skipped navigation to avoid duplicate tabs).
+  bool connectedToExistingTab = false;
+
   Future<void> connect() async {
     if (_launchChrome) {
       // Auto-assign random port if 0
@@ -82,9 +86,16 @@ class CdpDriver implements AppDriver {
         _port = server.port;
         await server.close();
       }
-      await _launchChromeProcess();
-      // Poll for CDP readiness instead of fixed delay
-      await _waitForCdpReady();
+
+      // Check if Chrome is already running on this port before launching
+      final alreadyRunning = await _isCdpPortAlive();
+      if (alreadyRunning) {
+        // Chrome already running — don't launch again (would open duplicate tab)
+      } else {
+        await _launchChromeProcess();
+        // Poll for CDP readiness instead of fixed delay
+        await _waitForCdpReady();
+      }
     }
 
     // Discover tabs via CDP JSON endpoint
@@ -111,24 +122,54 @@ class CdpDriver implements AppDriver {
       _call('Runtime.enable'),
     ]);
 
+    // Check if _discoverTarget already found a tab with our exact URL.
+    // If so, skip navigation to avoid reloading/duplicating.
+    final currentUrl = await _getCurrentUrl();
+    final alreadyOnTarget = currentUrl == _url ||
+        (currentUrl != null && _url.isNotEmpty && currentUrl.startsWith(_url));
+
     // Navigate to URL and wait for load event.
-    // When connecting to an existing instance (launchChrome=false),
-    // skip navigation if URL is about:blank or matches the CDP port
-    // (the target already has content loaded).
-    // Skip navigation if: no URL, about:blank, or URL points to the CDP
-    // debug port itself (user likely just wants to connect to existing tabs).
     final skipNav = _url.isEmpty ||
         _url == 'about:blank' ||
         _url.contains('localhost:$_port') ||
-        _url.contains('127.0.0.1:$_port');
+        _url.contains('127.0.0.1:$_port') ||
+        alreadyOnTarget;
     if (!skipNav) {
       await _call('Page.navigate', {'url': _url});
-      // Wait for DOMContentLoaded or timeout (much faster than fixed 2s delay)
       try {
         await _waitForLoad();
       } catch (_) {
         // Timeout is acceptable — page may be slow but still usable
       }
+    } else if (alreadyOnTarget) {
+      connectedToExistingTab = true;
+    }
+  }
+
+  /// Check if CDP port is already responding
+  Future<bool> _isCdpPortAlive() async {
+    try {
+      final client = HttpClient()..connectionTimeout = const Duration(seconds: 2);
+      final request = await client.getUrl(Uri.parse('http://127.0.0.1:$_port/json/version'));
+      final response = await request.close();
+      await response.drain<void>();
+      client.close();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Get the current page URL via Runtime.evaluate
+  Future<String?> _getCurrentUrl() async {
+    try {
+      final result = await _call('Runtime.evaluate', {
+        'expression': 'location.href',
+        'returnByValue': true,
+      });
+      return result['result']?['value'] as String?;
+    } catch (_) {
+      return null;
     }
   }
 
