@@ -130,7 +130,17 @@ async fn handle_call(pool: &Arc<ConnectionPool>, body: &str) -> Value {
         }
         "screenshot" => {
             let q = args["quality"].as_u64().unwrap_or(80) as u8;
-            ops::screenshot(&conn, q).await.map(|b| json!({"base64": b}))
+            let clip = if args.get("clip").is_some() {
+                Some((
+                    args["clip"]["x"].as_f64().unwrap_or(0.0),
+                    args["clip"]["y"].as_f64().unwrap_or(0.0),
+                    args["clip"]["width"].as_f64().unwrap_or(800.0),
+                    args["clip"]["height"].as_f64().unwrap_or(600.0),
+                ))
+            } else {
+                None
+            };
+            ops::screenshot(&conn, q, clip).await.map(|b| json!({"base64": b}))
         }
         "snapshot" => ops::snapshot(&conn)
             .await

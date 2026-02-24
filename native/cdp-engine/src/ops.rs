@@ -59,21 +59,23 @@ pub async fn evaluate(conn: &Arc<CdpConnection>, expression: &str) -> Result<Val
 }
 
 /// Take a screenshot. Returns base64 JPEG data.
-pub async fn screenshot(conn: &Arc<CdpConnection>, quality: u8) -> Result<String, String> {
-    // Clip to 1280x720 viewport for speed — AI doesn't need full resolution
-    let result = conn
-        .call(
-            "Page.captureScreenshot",
-            json!({
-                "format": "jpeg",
-                "quality": quality,
-                "optimizeForSpeed": true,
-                "captureBeyondViewport": false,
-                "fromSurface": true,
-                "clip": {"x": 0, "y": 0, "width": 1280, "height": 720, "scale": 1},
-            }),
-        )
-        .await?;
+pub async fn screenshot(
+    conn: &Arc<CdpConnection>,
+    quality: u8,
+    clip: Option<(f64, f64, f64, f64)>,
+) -> Result<String, String> {
+    let mut params = json!({
+        "format": "jpeg",
+        "quality": quality,
+        "optimizeForSpeed": true,
+        "captureBeyondViewport": false,
+        "fromSurface": true,
+    });
+    // Use caller-specified clip, or default 800x600 (best speed/info balance)
+    let (x, y, w, h) = clip.unwrap_or((0.0, 0.0, 800.0, 600.0));
+    params["clip"] = json!({"x": x, "y": y, "width": w, "height": h, "scale": 1});
+
+    let result = conn.call("Page.captureScreenshot", params).await?;
 
     result["data"]
         .as_str()

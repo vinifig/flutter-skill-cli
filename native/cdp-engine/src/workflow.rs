@@ -218,7 +218,7 @@ async fn execute_step(
         ),
         Step::Screenshot { quality } => (
             "screenshot".into(),
-            match ops::screenshot(conn, *quality).await {
+            match ops::screenshot(conn, *quality, None).await {
                 Ok(b64) => json!({"base64": b64}),
                 Err(e) => json!({"error": e}),
             },
