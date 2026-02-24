@@ -106,7 +106,8 @@ class CdpDriver implements AppDriver {
       try {
         final client = HttpClient()..connectionTimeout = const Duration(seconds: 2);
         final encodedUrl = Uri.encodeComponent(_url);
-        final request = await client.getUrl(Uri.parse('http://127.0.0.1:$_port/json/new?$encodedUrl'));
+        // Chrome 145+ requires PUT for /json/new
+        final request = await client.openUrl('PUT', Uri.parse('http://127.0.0.1:$_port/json/new?$encodedUrl'));
         final response = await request.close();
         final body = await response.transform(utf8.decoder).join();
         client.close();
