@@ -16,6 +16,7 @@ import 'package:flutter_skill/src/cli/plan.dart';
 import 'package:flutter_skill/src/cli/security.dart';
 import 'package:flutter_skill/src/cli/diff.dart';
 import 'package:flutter_skill/src/cli/quickstart.dart';
+import 'package:flutter_skill/src/cli/client.dart';
 
 void main(List<String> args) async {
   if (args.isEmpty) {
@@ -31,6 +32,21 @@ void main(List<String> args) async {
     print('  act          Perform actions (tap, enter_text, scroll)');
     print('  screenshot   Take a screenshot of the running app');
     print('  serve <url>  Zero-config WebMCP server — any site → AI tools');
+    print('');
+    print('Client commands (connect to running serve):');
+    print('  nav <url>      Navigate to URL');
+    print('  snap           Accessibility tree snapshot');
+    print('  screenshot     Take screenshot');
+    print('  tap <text>     Tap element by text, ref, or coordinates');
+    print('  type <text>    Type text via keyboard');
+    print('  key <key>      Press keyboard key');
+    print('  eval <js>      Evaluate JavaScript');
+    print('  title          Get page title');
+    print('  text           Get visible text');
+    print('  hover <text>   Hover over element');
+    print('  upload <sel> <file>  Upload file');
+    print('  tools          List available tools');
+    print('  call <tool> [json]   Call any tool directly');
     print('  explore <url> AI Test Agent — auto-explore and test any web app');
     print('  monkey <url>  Monkey testing — random fuzz testing for web apps');
     print('  plan <url>    AI Test Plan Generator — auto-generate test cases');
@@ -165,6 +181,29 @@ void main(List<String> args) async {
       break;
     case 'security':
       await runSecurity(commandArgs);
+      break;
+    // Client commands — connect to running serve instance
+    case 'nav':
+    case 'navigate':
+    case 'go':
+    case 'snap':
+    case 'snapshot':
+    case 'screenshot':
+    case 'ss':
+    case 'tap':
+    case 'type':
+    case 'key':
+    case 'press':
+    case 'eval':
+    case 'js':
+    case 'title':
+    case 'text':
+    case 'hover':
+    case 'upload':
+    case 'tools':
+    case 'call':
+    case 'wait':
+      await runClient(command, commandArgs);
       break;
     default:
       print('Unknown command: $command');

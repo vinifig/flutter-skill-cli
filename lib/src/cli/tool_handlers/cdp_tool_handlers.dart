@@ -396,7 +396,12 @@ extension _CdpToolHandlers on FlutterMcpServer {
 
       case 'press_key':
         final key = args['key'] as String? ?? 'Enter';
-        final modifiers = (args['modifiers'] as List<dynamic>?)?.cast<String>();
+        final rawMod = args['modifiers'];
+        final modifiers = rawMod is List
+            ? rawMod.cast<String>()
+            : rawMod is String
+                ? rawMod.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList()
+                : null;
         await cdp.pressKey(key, modifiers: modifiers);
         return {"success": true, "key": key};
 

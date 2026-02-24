@@ -752,6 +752,7 @@ List<Map<String, dynamic>> _builtInCdpToolDefs() => [
   {'name': 'press_key', 'description': 'Press a keyboard key (Enter, Tab, Escape, etc.)',
    'inputSchema': {'type': 'object', 'properties': {
      'key': {'type': 'string', 'description': 'Key name (Enter, Tab, Escape, Backspace, ArrowDown, etc.)'},
+     'modifiers': {'type': 'string', 'description': 'Comma-separated modifiers: Alt, Control, Meta, Shift'},
    }, 'required': ['key']}},
   {'name': 'select_option', 'description': 'Select an option from a <select> dropdown',
    'inputSchema': {'type': 'object', 'properties': {
@@ -877,7 +878,13 @@ Future<Map<String, dynamic>?> _handleBuiltInCdpTool(
 
     case 'press_key':
       final key = args['key'] as String? ?? '';
-      await cdp.pressKey(key);
+      final rawMod = args['modifiers'];
+      final modifiers = rawMod is List
+          ? rawMod.cast<String>()
+          : rawMod is String
+              ? rawMod.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList()
+              : null;
+      await cdp.pressKey(key, modifiers: modifiers);
       return {'success': true, 'key': key};
 
     case 'hover':
