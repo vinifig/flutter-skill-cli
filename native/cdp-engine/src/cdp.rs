@@ -23,7 +23,19 @@ pub struct CdpConnection {
 impl CdpConnection {
     /// Connect to a CDP WebSocket URL.
     pub async fn connect(ws_url: &str) -> Result<Arc<Self>, String> {
-        let (ws, _) = connect_async(ws_url)
+        // Build request with Origin header to pass Chrome's CORS check
+        let request = tokio_tungstenite::tungstenite::http::Request::builder()
+            .uri(ws_url)
+            .header("Origin", "http://127.0.0.1")
+            .header("Host", "127.0.0.1")
+            .header("Connection", "Upgrade")
+            .header("Upgrade", "websocket")
+            .header("Sec-WebSocket-Version", "13")
+            .header("Sec-WebSocket-Key", tokio_tungstenite::tungstenite::handshake::client::generate_key())
+            .body(())
+            .map_err(|e| format!("Request build failed: {e}"))?;
+
+        let (ws, _) = connect_async(request)
             .await
             .map_err(|e| format!("WebSocket connect failed: {e}"))?;
 

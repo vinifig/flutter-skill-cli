@@ -122,21 +122,36 @@ async fn handle_call(pool: &Arc<ConnectionPool>, body: &str) -> Value {
     let result = match name {
         "navigate" => {
             let url = args["url"].as_str().unwrap_or("");
-            let nav_result = ops::navigate(&conn, url).await;
-            // Reconnect after navigate — cross-origin nav breaks WebSocket
-            if nav_result.is_ok() && !tab_id.is_empty() {
-                // Wait for new page to be ready (reconnect + poll readyState)
-                for attempt in 0..20 {
-                    tokio::time::sleep(std::time::Duration::from_millis(250)).await;
-                    if let Ok(new_conn) = pool.reconnect(tab_id).await {
-                        if let Ok(state) = ops::evaluate(&new_conn, "document.readyState").await {
+            if tab_id.is_empty() {
+                return json!({"error": "tab required for navigate"});
+            }
+            
+            // 1. Always reconnect first (old connection may be dead from prior cross-origin nav)
+            let fresh_conn = match pool.reconnect(tab_id).await {
+                Ok(c) => c,
+                Err(e) => return json!({"error": format!("reconnect failed: {e}")}),
+            };
+            
+            // 2. Navigate on fresh connection
+            let nav_result = ops::navigate(&fresh_conn, url).await;
+            
+            // 3. Reconnect again + poll readyState (cross-origin nav kills the connection)
+            for _attempt in 0..16 {
+                tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+                match pool.reconnect(tab_id).await {
+                    Ok(new_conn) => {
+                        let check = tokio::time::timeout(
+                            std::time::Duration::from_secs(1),
+                            ops::evaluate(&new_conn, "document.readyState"),
+                        ).await;
+                        if let Ok(Ok(state)) = check {
                             let s = state.as_str().unwrap_or("");
                             if s == "interactive" || s == "complete" {
                                 break;
                             }
                         }
                     }
-                    if attempt > 12 { break; } // 3s max
+                    Err(_) => {}
                 }
             }
             nav_result

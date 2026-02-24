@@ -2004,6 +2004,7 @@ class CdpDriver implements AppDriver {
 
     final chromeArgs = [
       '--remote-debugging-port=$_port',
+      '--remote-allow-origins=*',
       '--no-first-run',
       '--no-default-browser-check',
       '--user-data-dir=${profileDir.path}',

@@ -9,19 +9,30 @@ use std::sync::Arc;
 
 /// Navigate to a URL. Returns the final URL.
 pub async fn navigate(conn: &Arc<CdpConnection>, url: &str) -> Result<Value, String> {
-    // Check current URL first — skip if already there
-    let current = conn
-        .call(
-            "Runtime.evaluate",
-            json!({"expression": "location.href", "returnByValue": true}),
-        )
-        .await?;
-    let current_url = current["value"].as_str().unwrap_or("");
-    if current_url == url {
-        return Ok(json!({"navigated": false, "url": url, "reason": "already_there"}));
+    // Check current URL — skip if already there. Use timeout to detect dead connections.
+    let check = tokio::time::timeout(
+        std::time::Duration::from_secs(2),
+        conn.call("Runtime.evaluate", json!({"expression": "location.href", "returnByValue": true})),
+    ).await;
+    
+    if let Ok(Ok(current)) = check {
+        let current_url = current["value"].as_str().unwrap_or("");
+        if current_url == url {
+            return Ok(json!({"navigated": false, "url": url, "reason": "already_there"}));
+        }
     }
+    // If check timed out, connection may be dead — proceed anyway, server will reconnect
 
-    conn.call("Page.navigate", json!({"url": url})).await?;
+    let nav = tokio::time::timeout(
+        std::time::Duration::from_secs(3),
+        conn.call("Page.navigate", json!({"url": url})),
+    ).await;
+
+    if let Err(_) = nav {
+        // Navigate call itself timed out — connection is dead
+        return Ok(json!({"navigated": true, "url": url, "reconnect_needed": true}));
+    }
+    nav.unwrap()?;
 
     // Brief wait for navigation to start
     tokio::time::sleep(std::time::Duration::from_millis(100)).await;
