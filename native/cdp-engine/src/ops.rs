@@ -195,390 +195,194 @@ pub async fn tap_text(conn: &Arc<CdpConnection>, text: &str) -> Result<Value, St
     tap(conn, x, y).await
 }
 
-/// Upload a file to an input element — universal approach.
+/// Upload a file to a file input — universal, optimized for <500ms.
 ///
-/// Strategy 1 (most reliable, ~200ms): File chooser interception via CDP mouse click.
-///   Produces fully native File objects that work with ALL frameworks and APIs.
-///   Enables Page.setInterceptFileChooserDialog, clicks input/label, handles chooser.
+/// `selector`: CSS selector for `<input type=file>` (auto-discovers if empty/`auto`)
+/// `file_path`: local file path
+/// `trigger`: optional CSS selector for button/element that opens file dialog
+///            (for sites without standard file inputs, e.g. Medium, Reddit)
 ///
-/// Strategy 2 (fallback, ~200ms): File chooser via JS el.click().
-///   For sites where CDP mouse events don't trigger the file dialog.
+/// Flow:
+///   1. Enable Page.setInterceptFileChooserDialog
+///   2. Find and click the file input (unhide if hidden) or trigger element
+///   3. Intercept the file chooser → DOM.setFileInputFiles
+///   4. Dispatch framework events (React/Vue/Angular/native)
+///   5. Restore original styles, disable interception
 ///
-/// Strategy 3 (fast fallback, ~5ms): CDP setFileInputFiles + framework event dispatch.
-///   Fast but produces File objects that may not work with all framework internals
-///   (e.g., some async validators, FormData uploads via fetch, or custom FileReader chains).
+/// If file chooser fails (300ms timeout), falls back to direct setFileInputFiles + events.
 pub async fn upload_file(
     conn: &Arc<CdpConnection>,
     selector: &str,
     file_path: &Path,
 ) -> Result<Value, String> {
+    upload_file_ext(conn, selector, file_path, None).await
+}
+
+/// Extended upload with optional trigger element.
+pub async fn upload_file_ext(
+    conn: &Arc<CdpConnection>,
+    selector: &str,
+    file_path: &Path,
+    trigger: Option<&str>,
+) -> Result<Value, String> {
     let path_str = file_path.to_str().ok_or("Invalid file path")?;
-    let escaped_sel = selector.replace('\\', "\\\\").replace('\'', "\\'");
+    let start = std::time::Instant::now();
 
-    // ── Strategy 1: File chooser interception (JS .click() on unhidden input) ──
-    // Most reliable: unhide hidden inputs, JS click triggers file chooser, Chrome intercepts it.
-    match upload_file_chooser(conn, selector, file_path, true).await {
-        Ok(v) => return Ok(v),
-        Err(_) => {}
+    // Auto-discover file input if selector is empty or "auto"
+    let sel = if selector.is_empty() || selector == "auto" {
+        let found = evaluate(conn,
+            "(() => { \
+                const el = document.querySelector('input[type=file]'); \
+                if (el) { return el.id ? '#' + el.id : (el.name ? 'input[name=\"' + el.name + '\"]' : 'input[type=file]'); } \
+                function scan(root) { \
+                    for (const n of root.querySelectorAll('*')) { \
+                        if (n.shadowRoot) { \
+                            const f = n.shadowRoot.querySelector('input[type=file]'); \
+                            if (f) return 'input[type=file]'; \
+                            const r = scan(n.shadowRoot); if (r) return r; \
+                        } \
+                    } return null; \
+                } \
+                return scan(document) || ''; \
+            })()"
+        ).await.unwrap_or(json!(""));
+        sel_from_value(&found)
+    } else {
+        selector.to_string()
+    };
+
+    if sel.is_empty() && trigger.is_none() {
+        return Err("No file input found and no trigger specified".into());
     }
 
-    // ── Strategy 2: File chooser interception (CDP mouse click on label/parent) ──
-    match upload_file_chooser(conn, selector, file_path, false).await {
-        Ok(v) => return Ok(v),
-        Err(_) => {}
-    }
+    let escaped_sel = sel.replace('\\', "\\\\").replace('\'', "\\'");
 
-    // ── Strategy 3: setFileInputFiles + framework event dispatch ──
-    if set_files_cdp(conn, selector, file_path).await.is_ok() {
-        let verify_js = format!(
+    // ── Enable file chooser interception ──
+    let _ = conn.call("Page.setInterceptFileChooserDialog", json!({"enabled": true})).await;
+    let mut rx = conn.on_event("Page.fileChooserOpened");
+
+    // ── Click to trigger file dialog ──
+    if let Some(trig) = trigger {
+        // Use trigger element (button, link, avatar area, etc.)
+        let escaped_trig = trig.replace('\\', "\\\\").replace('\'', "\\'");
+        let _ = evaluate(conn, &format!(
+            r#"(() => {{
+                const el = document.querySelector('{escaped_trig}');
+                if (el) {{ el.click(); return 'clicked'; }}
+                return 'not_found';
+            }})()"#
+        )).await;
+    } else {
+        // Unhide file input and JS click it
+        let _ = evaluate(conn, &format!(
             r#"(() => {{
                 function dq(s,r) {{ let e=r.querySelector(s); if(e) return e; for(const n of r.querySelectorAll('*')) {{ if(n.shadowRoot) {{ e=dq(s,n.shadowRoot); if(e) return e; }} }} return null; }}
                 const el = dq('{escaped_sel}', document);
-                if (!el || !el.files || el.files.length === 0) return {{ok:false}};
-                return {{ok:true, count:el.files.length, name:el.files[0].name}};
-            }})()"#
-        );
-        let verify = evaluate(conn, &verify_js).await.unwrap_or(json!({"ok":false}));
-
-        if verify["ok"].as_bool() == Some(true) {
-            // Dispatch full framework-aware event chain
-            let dispatch_js = format!(
-                r#"(() => {{
-                    function dq(s,r) {{ let e=r.querySelector(s); if(e) return e; for(const n of r.querySelectorAll('*')) {{ if(n.shadowRoot) {{ e=dq(s,n.shadowRoot); if(e) return e; }} }} return null; }}
-                    const el = dq('{escaped_sel}', document);
-                    if (!el) return 'not_found';
-
-                    // Native events
-                    el.dispatchEvent(new Event('input', {{bubbles:true, cancelable:true}}));
-                    el.dispatchEvent(new Event('change', {{bubbles:true, cancelable:true}}));
-
-                    // React 17+ (__reactProps)
-                    const rp = Object.keys(el).find(k => k.startsWith('__reactProps'));
-                    if (rp && el[rp] && typeof el[rp].onChange === 'function') {{
-                        try {{ el[rp].onChange({{target:el, currentTarget:el, type:'change'}}); }} catch(e) {{}}
-                        return 'react';
-                    }}
-                    // React 16 (__reactEvents)
-                    const re = Object.keys(el).find(k => k.startsWith('__reactEvents'));
-                    if (re && el[re] && typeof el[re].onChange === 'function') {{
-                        try {{ el[re].onChange({{target:el, currentTarget:el, type:'change'}}); }} catch(e) {{}}
-                        return 'react16';
-                    }}
-                    // Vue 2
-                    if (el.__vue_) {{
-                        try {{ el.__vue__.$emit('change', el.files); el.__vue__.$emit('input', el.files); }} catch(e) {{}}
-                        return 'vue2';
-                    }}
-                    // Vue 3
-                    if (el.__vueParentComponent) {{
-                        try {{ el.dispatchEvent(new Event('update:modelValue', {{bubbles:true}})); }} catch(e) {{}}
-                        return 'vue3';
-                    }}
-                    return 'native';
-                }})()"#
-            );
-            let method = evaluate(conn, &dispatch_js).await.unwrap_or(json!("unknown"));
-
-            return Ok(json!({
-                "success": true,
-                "files": verify["count"],
-                "method": method,
-                "path": path_str,
-                "strategy": 3,
-            }));
-        }
-    }
-
-    Err("All upload strategies failed".into())
-}
-
-/// Set files via CDP DOM.setFileInputFiles (supplements DataTransfer).
-async fn set_files_cdp(
-    conn: &Arc<CdpConnection>,
-    selector: &str,
-    file_path: &Path,
-) -> Result<(), String> {
-    let path_str = file_path.to_str().ok_or("Invalid path")?;
-    let doc = conn.call("DOM.getDocument", json!({})).await?;
-    let root_id = doc["root"]["nodeId"].as_u64().unwrap_or(0);
-
-    // Try direct querySelector first
-    let qr = conn
-        .call(
-            "DOM.querySelector",
-            json!({"nodeId": root_id, "selector": selector}),
-        )
-        .await;
-    if let Ok(ref result) = qr {
-        if let Some(node_id) = result["nodeId"].as_u64() {
-            if node_id != 0 {
-                let _ = conn
-                    .call(
-                        "DOM.setFileInputFiles",
-                        json!({"nodeId": node_id, "files": [path_str]}),
-                    )
-                    .await;
-                return Ok(());
-            }
-        }
-    }
-
-    // Shadow DOM fallback: find via JS and get backendNodeId
-    let escaped = selector.replace('\\', "\\\\").replace('\'', "\\'");
-    let js_result = evaluate(
-        conn,
-        &format!(
-            r#"(() => {{
-                function dq(s,r) {{ let e=r.querySelector(s); if(e) return e; for(const n of r.querySelectorAll('*')) {{ if(n.shadowRoot) {{ e=dq(s,n.shadowRoot); if(e) return e; }} }} return null; }}
-                const el = dq('{escaped}', document);
-                return el ? true : false;
-            }})()"#
-        ),
-    )
-    .await;
-
-    if js_result == Ok(serde_json::Value::Bool(true)) {
-        // Use Runtime to get the element as a remote object, then resolve to node
-        let obj = conn
-            .call(
-                "Runtime.evaluate",
-                json!({
-                    "expression": format!(
-                        "(() => {{ function dq(s,r) {{ let e=r.querySelector(s); if(e) return e; for(const n of r.querySelectorAll('*')) {{ if(n.shadowRoot) {{ e=dq(s,n.shadowRoot); if(e) return e; }} }} return null; }} return dq('{escaped}', document); }})()"
-                    ),
-                    "returnByValue": false,
-                }),
-            )
-            .await?;
-
-        if let Some(object_id) = obj["result"]["objectId"].as_str() {
-            let node = conn
-                .call(
-                    "DOM.describeNode",
-                    json!({"objectId": object_id}),
-                )
-                .await?;
-            if let Some(backend_id) = node["node"]["backendNodeId"].as_u64() {
-                let _ = conn
-                    .call(
-                        "DOM.setFileInputFiles",
-                        json!({"backendNodeId": backend_id, "files": [path_str]}),
-                    )
-                    .await;
-            }
-        }
-    }
-
-    Ok(())
-}
-
-/// File chooser interception: enable intercept, click to trigger dialog, handle with file path.
-/// `use_js_click`: true = use el.click() (JS), false = use CDP Input.dispatchMouseEvent.
-async fn upload_file_chooser(
-    conn: &Arc<CdpConnection>,
-    selector: &str,
-    file_path: &Path,
-    use_js_click: bool,
-) -> Result<Value, String> {
-    let path_str = file_path.to_str().ok_or("Invalid path")?;
-    let escaped_sel = selector.replace('\\', "\\\\").replace('\'', "\\'");
-
-    // Enable file chooser interception
-    conn.call(
-        "Page.setInterceptFileChooserDialog",
-        json!({"enabled": true}),
-    )
-    .await?;
-
-    // Subscribe to event BEFORE triggering click
-    let mut rx = conn.on_event("Page.fileChooserOpened");
-
-    if use_js_click {
-        // Strategy: JS click — temporarily make hidden inputs visible for click
-        let _ = evaluate(
-            conn,
-            &format!(
-                r#"(() => {{
-                    function dq(s,r) {{ let e=r.querySelector(s); if(e) return e; for(const n of r.querySelectorAll('*')) {{ if(n.shadowRoot) {{ e=dq(s,n.shadowRoot); if(e) return e; }} }} return null; }}
-                    const el = dq('{escaped_sel}', document);
-                    if (!el) return 'not_found';
-                    const cs = getComputedStyle(el);
-                    const wasHidden = cs.display === 'none' || cs.visibility === 'hidden' || el.offsetWidth === 0;
-                    if (wasHidden) {{
-                        el.style.cssText = 'display:block !important; visibility:visible !important; position:fixed !important; top:-9999px !important; left:-9999px !important; width:1px !important; height:1px !important; opacity:0.01 !important;';
-                    }}
-                    el.click();
-                    if (wasHidden) {{
-                        setTimeout(() => {{ el.style.cssText = ''; }}, 100);
-                    }}
-                    return wasHidden ? 'clicked_unhidden' : 'clicked';
-                }})()"#
-            ),
-        )
-        .await;
-    } else {
-        // Strategy: CDP mouse events
-        // Make the file input itself clickable: unhide, position on screen, highest z-index
-        let _ = evaluate(
-            conn,
-            &format!(
-                r#"(() => {{
-                    function dq(s,r) {{ let e=r.querySelector(s); if(e) return e; for(const n of r.querySelectorAll('*')) {{ if(n.shadowRoot) {{ e=dq(s,n.shadowRoot); if(e) return e; }} }} return null; }}
-                    const el = dq('{escaped_sel}', document);
-                    if (!el) return;
+                if (!el) return 'not_found';
+                const cs = getComputedStyle(el);
+                if (cs.display === 'none' || cs.visibility === 'hidden' || el.offsetWidth === 0) {{
                     el.dataset.fsOrig = el.getAttribute('style') || '';
-                    el.style.cssText = 'display:block !important; visibility:visible !important; position:fixed !important; top:10px !important; left:10px !important; width:50px !important; height:50px !important; opacity:0.01 !important; z-index:2147483647 !important; pointer-events:all !important;';
-                }})()"#
-            ),
-        ).await;
-        let coords = evaluate(
-            conn,
-            &format!(
-                r#"
-            (() => {{
-                function dq(sel, root) {{
-                    let el = root.querySelector(sel);
-                    if (el) return el;
-                    for (const n of root.querySelectorAll('*')) {{
-                        if (n.shadowRoot) {{ el = dq(sel, n.shadowRoot); if (el) return el; }}
-                    }}
-                    return null;
+                    el.style.cssText = 'display:block !important; visibility:visible !important; position:fixed !important; top:-9999px !important; left:-9999px !important; width:1px !important; height:1px !important; opacity:0.01 !important;';
                 }}
-                const input = dq('{escaped_sel}', document);
-                if (!input) return null;
-
-                // Priority 0: the input itself (we may have unhidden it above)
-                const ir = input.getBoundingClientRect();
-                if (ir.width > 0 && ir.height > 0)
-                    return {{x: ir.x + ir.width/2, y: ir.y + ir.height/2}};
-
-                // Priority 1: wrapping <label> with visible children (masks, overlays)
-                let label = input.closest('label');
-                if (!label) {{
-                    let p = input.parentElement;
-                    while (p) {{ if (p.tagName === 'LABEL') {{ label = p; break; }} p = p.parentElement; }}
-                }}
-                if (label) {{
-                    const children = label.querySelectorAll('*');
-                    let best = null, bestArea = 0;
-                    for (const child of children) {{
-                        const r = child.getBoundingClientRect();
-                        const area = r.width * r.height;
-                        if (area > bestArea && r.width > 10 && r.height > 10 && r.y >= 0) {{
-                            best = {{x: r.x + r.width/2, y: r.y + r.height/2}}; bestArea = area;
-                        }}
-                    }}
-                    if (best) return best;
-                    const lr = label.getBoundingClientRect();
-                    if (lr.width > 0 && lr.height > 0)
-                        return {{x: lr.x + lr.width/2, y: lr.y + lr.height/2}};
-                }}
-
-                // Priority 2: visible parent
-                let target = input.parentElement;
-                while (target && (target.offsetWidth === 0 || target.offsetHeight === 0))
-                    target = target.parentElement;
-                if (!target) return null;
-                const r = target.getBoundingClientRect();
-                return {{x: r.x + r.width/2, y: r.y + r.height/2}};
-            }})()
-            "#
-            ),
-        )
-        .await?;
-
-        if coords.is_null() {
-            conn.remove_listeners("Page.fileChooserOpened");
-            let _ = conn.call("Page.setInterceptFileChooserDialog", json!({"enabled": false})).await;
-            return Err("No visible click target for file input".into());
-        }
-
-        let x = coords["x"].as_f64().unwrap();
-        let y = coords["y"].as_f64().unwrap();
-
-        // Hover first (reveals hidden overlays on some sites like Zhihu)
-        let _ = conn.call("Input.dispatchMouseEvent", json!({"type": "mouseMoved", "x": x, "y": y})).await;
-        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
-
-        // Click the (possibly unhidden) input directly
-        let _ = conn.pipeline(vec![
-            ("Input.dispatchMouseEvent", json!({"type": "mousePressed", "x": x, "y": y, "button": "left", "clickCount": 1})),
-            ("Input.dispatchMouseEvent", json!({"type": "mouseReleased", "x": x, "y": y, "button": "left", "clickCount": 1})),
-        ]).await;
+                el.click();
+                return 'clicked';
+            }})()"#
+        )).await;
     }
 
-    // Wait for file chooser event (2s timeout)
+    // ── Wait for file chooser (100ms fast timeout — chooser fires instantly if it works) ──
     let event = tokio::select! {
-        Some(e) = rx.recv() => {
-            eprintln!("[upload] fileChooserOpened received (js_click={})", use_js_click);
-            Some(e)
-        },
-        _ = tokio::time::sleep(std::time::Duration::from_secs(2)) => {
-            eprintln!("[upload] fileChooser timeout (js_click={})", use_js_click);
-            None
-        },
+        Some(e) = rx.recv() => Some(e),
+        _ = tokio::time::sleep(std::time::Duration::from_millis(100)) => None,
     };
-
-    // Restore original style if we modified the input
-    let _ = evaluate(conn, &format!(
-        r#"(() => {{
-            function dq(s,r) {{ let e=r.querySelector(s); if(e) return e; for(const n of r.querySelectorAll('*')) {{ if(n.shadowRoot) {{ e=dq(s,n.shadowRoot); if(e) return e; }} }} return null; }}
-            const el = dq('{escaped_sel}', document);
-            if (el && el.dataset.fsOrig !== undefined) {{
-                el.setAttribute('style', el.dataset.fsOrig);
-                delete el.dataset.fsOrig;
-            }}
-        }})()"#
-    )).await;
 
     conn.remove_listeners("Page.fileChooserOpened");
 
-    if event.is_none() {
+    // ── Restore original styles ──
+    if !sel.is_empty() {
+        let _ = evaluate(conn, &format!(
+            r#"(() => {{
+                function dq(s,r) {{ let e=r.querySelector(s); if(e) return e; for(const n of r.querySelectorAll('*')) {{ if(n.shadowRoot) {{ e=dq(s,n.shadowRoot); if(e) return e; }} }} return null; }}
+                const el = dq('{escaped_sel}', document);
+                if (el && el.dataset.fsOrig !== undefined) {{
+                    el.setAttribute('style', el.dataset.fsOrig);
+                    delete el.dataset.fsOrig;
+                }}
+            }})()"#
+        )).await;
+    }
+
+    if let Some(evt) = event {
+        // ── File chooser triggered — set files via backendNodeId ──
+        if let Some(bid) = evt.get("backendNodeId").and_then(|v| v.as_u64()) {
+            let _ = conn.call("DOM.setFileInputFiles", json!({"backendNodeId": bid, "files": [path_str]})).await;
+        } else if !sel.is_empty() {
+            let _ = set_files_by_selector(conn, &escaped_sel, path_str).await;
+        }
         let _ = conn.call("Page.setInterceptFileChooserDialog", json!({"enabled": false})).await;
-        return Err(format!("File chooser not triggered (js_click={})", use_js_click));
+        dispatch_file_events(conn, &escaped_sel).await;
+        return Ok(json!({
+            "success": true, "method": "fileChooser",
+            "path": path_str, "duration_ms": start.elapsed().as_millis() as u64,
+        }));
     }
 
-    let evt = event.unwrap();
-
-    // Handle file chooser: set files. Try multiple methods for reliability.
-    let mut files_set = false;
-
-    // Method 1: Use backendNodeId from event
-    if let Some(backend_id) = evt.get("backendNodeId").and_then(|v| v.as_u64()) {
-        if conn.call("DOM.setFileInputFiles", json!({"backendNodeId": backend_id, "files": [path_str]})).await.is_ok() {
-            files_set = true;
-        }
-    }
-
-    // Method 2: Resolve element via Runtime.evaluate + DOM.describeNode (most reliable)
-    if !files_set {
-        let obj = conn.call("Runtime.evaluate", json!({
-            "expression": format!(
-                "(() => {{ function dq(s,r) {{ let e=r.querySelector(s); if(e) return e; for(const n of r.querySelectorAll('*')) {{ if(n.shadowRoot) {{ e=dq(s,n.shadowRoot); if(e) return e; }} }} return null; }} return dq('{}', document); }})()",
-                escaped_sel
-            ),
-            "returnByValue": false,
-        })).await;
-        if let Ok(ref result) = obj {
-            if let Some(object_id) = result["result"]["objectId"].as_str() {
-                if let Ok(node) = conn.call("DOM.describeNode", json!({"objectId": object_id})).await {
-                    if let Some(bid) = node["node"]["backendNodeId"].as_u64() {
-                        let _ = conn.call("DOM.setFileInputFiles", json!({"backendNodeId": bid, "files": [path_str]})).await;
-                        files_set = true;
-                    }
-                }
-            }
-        }
-    }
-
-    // Method 3: DOM.getDocument + querySelector
-    if !files_set {
-        let _ = set_files_cdp(conn, selector, file_path).await;
-    }
-
+    // ── File chooser not triggered — fallback to direct setFileInputFiles ──
     let _ = conn.call("Page.setInterceptFileChooserDialog", json!({"enabled": false})).await;
 
-    // After file chooser, dispatch events for framework compatibility
+    if sel.is_empty() {
+        return Err("No file input selector for direct fallback".into());
+    }
+
+    // Set files via CDP
+    set_files_by_selector(conn, &escaped_sel, path_str).await?;
+
+    // Verify
+    let verify = evaluate(conn, &format!(
+        r#"(() => {{
+            function dq(s,r) {{ let e=r.querySelector(s); if(e) return e; for(const n of r.querySelectorAll('*')) {{ if(n.shadowRoot) {{ e=dq(s,n.shadowRoot); if(e) return e; }} }} return null; }}
+            const el = dq('{escaped_sel}', document);
+            return el && el.files ? el.files.length : 0;
+        }})()"#
+    )).await.unwrap_or(json!(0));
+
+    let count = verify.as_u64().unwrap_or(0);
+    if count == 0 {
+        return Err("setFileInputFiles failed: files.length = 0".into());
+    }
+
+    dispatch_file_events(conn, &escaped_sel).await;
+
+    Ok(json!({
+        "success": true, "method": "direct", "files": count,
+        "path": path_str, "duration_ms": start.elapsed().as_millis() as u64,
+    }))
+}
+
+fn sel_from_value(v: &Value) -> String {
+    v.as_str().unwrap_or("").to_string()
+}
+
+/// Set files on a file input by selector (tries Runtime.evaluate → DOM.describeNode → setFileInputFiles).
+async fn set_files_by_selector(conn: &Arc<CdpConnection>, escaped_sel: &str, path_str: &str) -> Result<(), String> {
+    let obj = conn.call("Runtime.evaluate", json!({
+        "expression": format!(
+            "(() => {{ function dq(s,r) {{ let e=r.querySelector(s); if(e) return e; for(const n of r.querySelectorAll('*')) {{ if(n.shadowRoot) {{ e=dq(s,n.shadowRoot); if(e) return e; }} }} return null; }} return dq('{escaped_sel}', document); }})()"
+        ),
+        "returnByValue": false,
+    })).await.map_err(|e| format!("evaluate: {e}"))?;
+
+    let object_id = obj["result"]["objectId"].as_str().ok_or("No objectId")?;
+    let node = conn.call("DOM.describeNode", json!({"objectId": object_id})).await
+        .map_err(|e| format!("describeNode: {e}"))?;
+    let bid = node["node"]["backendNodeId"].as_u64().ok_or("No backendNodeId")?;
+    conn.call("DOM.setFileInputFiles", json!({"backendNodeId": bid, "files": [path_str]})).await
+        .map_err(|e| format!("setFileInputFiles: {e}"))?;
+    Ok(())
+}
+
+/// Dispatch framework-aware events after file upload.
+async fn dispatch_file_events(conn: &Arc<CdpConnection>, escaped_sel: &str) {
     let _ = evaluate(conn, &format!(
         r#"(() => {{
             function dq(s,r) {{ let e=r.querySelector(s); if(e) return e; for(const n of r.querySelectorAll('*')) {{ if(n.shadowRoot) {{ e=dq(s,n.shadowRoot); if(e) return e; }} }} return null; }}
@@ -589,11 +393,9 @@ async fn upload_file_chooser(
             const rp = Object.keys(el).find(k => k.startsWith('__reactProps'));
             if (rp && el[rp] && typeof el[rp].onChange === 'function')
                 try {{ el[rp].onChange({{target:el, currentTarget:el, type:'change'}}); }} catch(e) {{}}
+            if (el.__vue_) try {{ el.__vue__.$emit('change', el.files); }} catch(e) {{}}
         }})()"#
     )).await;
-
-    let strategy = if use_js_click { 1 } else { 2 };
-    Ok(json!({"success": true, "method": "fileChooser", "path": path_str, "strategy": strategy}))
 }
 
 /// Get the page title.

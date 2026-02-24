@@ -145,12 +145,13 @@ async fn handle_call(pool: &Arc<ConnectionPool>, body: &str) -> Value {
             }
         }
         "upload_file" => {
-            let sel = args["selector"].as_str().unwrap_or("input[type=file]");
+            let sel = args["selector"].as_str().unwrap_or("auto");
             let file = args["file"]
                 .as_str()
                 .or_else(|| args["files"].as_array().and_then(|a| a[0].as_str()))
                 .unwrap_or("");
-            ops::upload_file(&conn, sel, &PathBuf::from(file)).await
+            let trigger = args["trigger"].as_str();
+            ops::upload_file_ext(&conn, sel, &PathBuf::from(file), trigger).await
         }
         "get_title" => ops::get_title(&conn)
             .await
