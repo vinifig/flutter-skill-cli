@@ -2150,28 +2150,58 @@ class CdpDriver implements AppDriver {
         client.close();
 
         final tabs = jsonDecode(body) as List;
-        // Prefer tab already showing the target URL
-        for (final tab in tabs) {
-          if (tab is Map && tab['type'] == 'page' && tab['url'] == _url) {
+        final pageTabs = tabs.where((t) => t is Map && t['type'] == 'page').cast<Map>().toList();
+
+        // 1. Exact URL match
+        for (final tab in pageTabs) {
+          if (tab['url'] == _url) {
+            connectedToExistingTab = true;
             return tab['webSocketDebuggerUrl'] as String?;
           }
         }
-        // Prefer page with actual content (not devtools/about:blank)
-        for (final tab in tabs) {
-          if (tab is Map &&
-              tab['type'] == 'page' &&
-              tab['url'] is String &&
-              !tab['url'].toString().startsWith('devtools://') &&
-              !tab['url'].toString().startsWith('chrome://') &&
-              tab['url'] != 'about:blank') {
+        // 2. Same-origin match (e.g. URL with different query params)
+        if (_url.isNotEmpty) {
+          final targetUri = Uri.tryParse(_url);
+          if (targetUri != null) {
+            final targetOrigin = '${targetUri.scheme}://${targetUri.host}';
+            final targetPath = targetUri.path;
+            for (final tab in pageTabs) {
+              final tabUrl = tab['url']?.toString() ?? '';
+              final tabUri = Uri.tryParse(tabUrl);
+              if (tabUri != null) {
+                final tabOrigin = '${tabUri.scheme}://${tabUri.host}';
+                // Same origin + same path = very likely the same page
+                if (tabOrigin == targetOrigin && tabUri.path == targetPath) {
+                  connectedToExistingTab = true;
+                  return tab['webSocketDebuggerUrl'] as String?;
+                }
+              }
+            }
+            // 3. Same-origin only (different path — will navigate within same tab)
+            for (final tab in pageTabs) {
+              final tabUrl = tab['url']?.toString() ?? '';
+              final tabUri = Uri.tryParse(tabUrl);
+              if (tabUri != null) {
+                final tabOrigin = '${tabUri.scheme}://${tabUri.host}';
+                if (tabOrigin == targetOrigin) {
+                  return tab['webSocketDebuggerUrl'] as String?;
+                }
+              }
+            }
+          }
+        }
+        // 4. Prefer page with actual content (not devtools/about:blank)
+        for (final tab in pageTabs) {
+          final tabUrl = tab['url']?.toString() ?? '';
+          if (!tabUrl.startsWith('devtools://') &&
+              !tabUrl.startsWith('chrome://') &&
+              tabUrl != 'about:blank') {
             return tab['webSocketDebuggerUrl'] as String?;
           }
         }
-        // Fall back to first page tab
-        for (final tab in tabs) {
-          if (tab is Map && tab['type'] == 'page') {
-            return tab['webSocketDebuggerUrl'] as String?;
-          }
+        // 5. Fall back to first page tab
+        if (pageTabs.isNotEmpty) {
+          return pageTabs.first['webSocketDebuggerUrl'] as String?;
         }
       } catch (_) {
         await Future.delayed(const Duration(milliseconds: 500));
