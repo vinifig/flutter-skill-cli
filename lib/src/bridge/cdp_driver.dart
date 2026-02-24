@@ -1883,33 +1883,20 @@ class CdpDriver implements AppDriver {
   /// Download and install Chrome for Testing.
   ///
   /// Returns the path to the installed binary, or throws on failure.
-  /// Pinned CfT version. 145.0.7632.117 breaks --remote-debugging-port.
-  static const _pinnedCftVersion = '145.0.7632.77';
-
   static Future<String> installChromeForTesting() async {
     final client = http.Client();
     try {
-      // Fetch known-good version info
+      // Fetch latest stable version info
       final resp = await client.get(Uri.parse(
         'https://googlechromelabs.github.io/chrome-for-testing/'
-        'known-good-versions-with-downloads.json',
+        'last-known-good-versions-with-downloads.json',
       ));
       if (resp.statusCode != 200) {
         throw Exception('Failed to fetch Chrome for Testing versions');
       }
       final data = jsonDecode(resp.body) as Map<String, dynamic>;
-      final versions = data['versions'] as List;
-      // Find our pinned version
-      final pinned = versions.firstWhere(
-        (v) => v['version'] == _pinnedCftVersion,
-        orElse: () => null,
-      );
-      if (pinned == null) {
-        throw Exception(
-            'Pinned CfT version $_pinnedCftVersion not found. '
-            'Update _pinnedCftVersion in cdp_driver.dart.');
-      }
-      final downloads = pinned['downloads']['chrome'] as List;
+      final stable = data['channels']['Stable'] as Map<String, dynamic>;
+      final downloads = stable['downloads']['chrome'] as List;
       final platform = _cftPlatform;
       final entry = downloads.firstWhere(
         (d) => d['platform'] == platform,
@@ -2032,6 +2019,14 @@ class CdpDriver implements AppDriver {
 
     for (final chromePath in chromePaths) {
       try {
+        // macOS: remove quarantine attribute before launch — prevents
+        // --remote-debugging-port from silently failing on some versions.
+        if (Platform.isMacOS && chromePath.contains('.app/')) {
+          final appBundle = chromePath.substring(
+              0, chromePath.indexOf('.app/') + '.app/'.length - 1);
+          await Process.run('xattr', ['-cr', appBundle]);
+        }
+
         _chromeProcess = await Process.start(chromePath, chromeArgs);
 
         // Wait briefly and check if the process is still alive.
