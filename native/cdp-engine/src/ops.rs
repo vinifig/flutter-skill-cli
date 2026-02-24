@@ -60,6 +60,7 @@ pub async fn evaluate(conn: &Arc<CdpConnection>, expression: &str) -> Result<Val
 
 /// Take a screenshot. Returns base64 JPEG data.
 pub async fn screenshot(conn: &Arc<CdpConnection>, quality: u8) -> Result<String, String> {
+    // Clip to 1280x720 viewport for speed — AI doesn't need full resolution
     let result = conn
         .call(
             "Page.captureScreenshot",
@@ -67,6 +68,9 @@ pub async fn screenshot(conn: &Arc<CdpConnection>, quality: u8) -> Result<String
                 "format": "jpeg",
                 "quality": quality,
                 "optimizeForSpeed": true,
+                "captureBeyondViewport": false,
+                "fromSurface": true,
+                "clip": {"x": 0, "y": 0, "width": 1280, "height": 720, "scale": 1},
             }),
         )
         .await?;
@@ -77,51 +81,38 @@ pub async fn screenshot(conn: &Arc<CdpConnection>, quality: u8) -> Result<String
         .ok_or_else(|| "No screenshot data".into())
 }
 
-/// Get page text snapshot (accessibility-like).
+/// Get page text snapshot — optimized JS DOM walk with depth limit.
 pub async fn snapshot(conn: &Arc<CdpConnection>) -> Result<String, String> {
-    let js = r#"
-        (() => {
-            const lines = [];
-            const walk = (node, depth) => {
-                if (node.nodeType === 3) {
-                    const t = node.textContent.trim();
-                    if (t) lines.push(t);
-                    return;
-                }
-                if (node.nodeType !== 1) return;
-                const el = node;
-                const tag = el.tagName.toLowerCase();
-                const style = getComputedStyle(el);
-                if (style.display === 'none' || style.visibility === 'hidden') return;
-                
-                if (tag === 'input' || tag === 'select' || tag === 'textarea') {
-                    const type = el.type || tag;
-                    const val = el.value || el.placeholder || '';
-                    lines.push(`[${type}] ${val}`);
-                    return;
-                }
-                if (tag === 'a') lines.push('[link] ');
-                if (tag === 'button') lines.push('[button] ');
-                if (tag === 'img') { lines.push(`[img] ${el.alt || ''}`); return; }
-                
-                for (const child of el.childNodes) walk(child, depth + 1);
-            };
-            walk(document.body, 0);
-            return lines.join('\n');
-        })()
-    "#;
+    // Single optimized evaluate — walks visible DOM with depth limit for speed.
+    // Skips hidden elements, extracts interactive elements with type annotations.
+    let js = r#"(() => {
+        const l = [], MAX = 500;
+        let c = 0;
+        const w = (n, d) => {
+            if (c >= MAX || d > 30) return;
+            if (n.nodeType === 3) { const t = n.textContent.trim(); if (t && t.length < 500) { l.push(t); c++; } return; }
+            if (n.nodeType !== 1) return;
+            const el = n, t = el.tagName;
+            if (t === 'SCRIPT' || t === 'STYLE' || t === 'NOSCRIPT' || t === 'SVG') return;
+            if (el.offsetWidth === 0 && el.offsetHeight === 0 && t !== 'INPUT') return;
+            if (t === 'INPUT' || t === 'SELECT' || t === 'TEXTAREA') { l.push(`[${el.type||t.toLowerCase()}] ${el.value||el.placeholder||''}`); c++; return; }
+            if (t === 'A' && el.textContent.trim()) { l.push(`[link] ${el.textContent.trim().substring(0,80)}`); c++; return; }
+            if (t === 'BUTTON') { l.push(`[button] ${el.textContent.trim().substring(0,60)}`); c++; return; }
+            if (t === 'IMG') { l.push(`[img] ${el.alt||''}`); c++; return; }
+            if (t === 'H1'||t === 'H2'||t === 'H3'||t === 'H4') { l.push(`[heading] ${el.textContent.trim().substring(0,100)}`); c++; return; }
+            for (const ch of el.childNodes) w(ch, d+1);
+        };
+        w(document.body, 0);
+        return l.join('\n');
+    })()"#;
     evaluate(conn, js).await.map(|v| v.as_str().unwrap_or("").to_string())
 }
 
 /// Tap/click at coordinates.
 pub async fn tap(conn: &Arc<CdpConnection>, x: f64, y: f64) -> Result<Value, String> {
-    // Pipeline: mouseMoved + mousePressed + mouseReleased
+    // Pipeline: mousePressed + mouseReleased (skip mouseMoved for speed)
     let results = conn
         .pipeline(vec![
-            (
-                "Input.dispatchMouseEvent",
-                json!({"type": "mouseMoved", "x": x, "y": y}),
-            ),
             (
                 "Input.dispatchMouseEvent",
                 json!({"type": "mousePressed", "x": x, "y": y, "button": "left", "clickCount": 1}),
