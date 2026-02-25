@@ -146,12 +146,25 @@ class CdpDriver implements AppDriver {
     final alreadyOnTarget = currentUrl == _url ||
         (currentUrl != null && _url.isNotEmpty && currentUrl.startsWith(_url));
 
+    // Also check root domain match (e.g. passport.csdn.net redirected to csdn.net)
+    final sameRootDomain = !alreadyOnTarget && currentUrl != null && _url.isNotEmpty && (() {
+      final targetHost = Uri.tryParse(_url)?.host ?? '';
+      final currentHost = Uri.tryParse(currentUrl)?.host ?? '';
+      if (targetHost.isEmpty || currentHost.isEmpty) return false;
+      final tp = targetHost.split('.');
+      final cp = currentHost.split('.');
+      final tr = tp.length >= 2 ? tp.sublist(tp.length - 2).join('.') : targetHost;
+      final cr = cp.length >= 2 ? cp.sublist(cp.length - 2).join('.') : currentHost;
+      return tr == cr;
+    })();
+
     // Navigate to URL and wait for load event.
     final skipNav = _url.isEmpty ||
         _url == 'about:blank' ||
         _url.contains('localhost:$_port') ||
         _url.contains('127.0.0.1:$_port') ||
-        alreadyOnTarget;
+        alreadyOnTarget ||
+        (connectedToExistingTab && sameRootDomain);
     if (!skipNav) {
       await _call('Page.navigate', {'url': _url});
       try {
@@ -2354,6 +2367,28 @@ class CdpDriver implements AppDriver {
             final tabUri = Uri.tryParse(tab['url']?.toString() ?? '');
             if (tabUri != null && tabUri.host == targetHost) {
               return tab['webSocketDebuggerUrl'] as String?;
+            }
+          }
+        }
+
+        // 1b. Same root domain match (e.g. passport.csdn.net → csdn.net)
+        //     Handles login redirects where subdomain changes after auth.
+        if (targetHost.isNotEmpty) {
+          final targetParts = targetHost.split('.');
+          final targetRoot = targetParts.length >= 2
+              ? targetParts.sublist(targetParts.length - 2).join('.')
+              : targetHost;
+          for (final tab in pageTabs) {
+            final tabUri = Uri.tryParse(tab['url']?.toString() ?? '');
+            if (tabUri != null) {
+              final tabParts = tabUri.host.split('.');
+              final tabRoot = tabParts.length >= 2
+                  ? tabParts.sublist(tabParts.length - 2).join('.')
+                  : tabUri.host;
+              if (tabRoot == targetRoot) {
+                connectedToExistingTab = true;
+                return tab['webSocketDebuggerUrl'] as String?;
+              }
             }
           }
         }
