@@ -111,6 +111,8 @@ class ToolRegistry {
     'native_list_simulators',
     'auth_biometric',
     'auth_deeplink',
+    'qr_login_start',
+    'qr_login_wait',
   };
 
   /// Get the full list of built-in tool definitions as JSON maps.
@@ -2878,6 +2880,71 @@ Detailed diagnostic report with:
             "device": {"type": "string", "description": "Device identifier"}
           },
           "required": ["url"]
+        }
+      },
+
+      // ======================== QR Code Login ========================
+      {
+        "name": "qr_login_start",
+        "description":
+            "Detect and screenshot a QR code on the current page for remote scanning. Returns base64 image + initial page state for login detection. Workflow: 1) Call this to get QR image, 2) Send image to user (e.g. via Telegram/chat), 3) User scans with phone, 4) Call qr_login_wait to detect success. Works with WeChat, CSDN, Zhihu, DingTalk, Alipay, and any QR-based login.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "selector": {
+              "type": "string",
+              "description":
+                  "CSS selector for QR code element (auto-detects if omitted)"
+            },
+            "full_page": {
+              "type": "boolean",
+              "description":
+                  "Take full page screenshot instead of cropping QR (default: false)"
+            }
+          }
+        }
+      },
+      {
+        "name": "qr_login_wait",
+        "description":
+            "Poll until QR code login succeeds. Detects: URL change, cookie change, QR element disappearing, or success text appearing. Default timeout: 120s.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "initial_url": {
+              "type": "string",
+              "description":
+                  "URL before scanning (from qr_login_start response)"
+            },
+            "initial_cookie_length": {
+              "type": "integer",
+              "description":
+                  "Cookie length before scanning (from qr_login_start response)"
+            },
+            "timeout_ms": {
+              "type": "integer",
+              "description": "Timeout in milliseconds (default: 120000)"
+            },
+            "poll_ms": {
+              "type": "integer",
+              "description": "Poll interval in milliseconds (default: 1000)"
+            },
+            "success_url_pattern": {
+              "type": "string",
+              "description":
+                  "Regex pattern for successful redirect URL (optional)"
+            },
+            "success_text": {
+              "type": "string",
+              "description":
+                  "Text that appears on page after successful login (optional)"
+            },
+            "qr_selector": {
+              "type": "string",
+              "description":
+                  "CSS selector for QR element — login detected when it disappears (optional)"
+            }
+          }
         }
       },
 
