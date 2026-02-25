@@ -255,6 +255,7 @@ class CdpDriver implements AppDriver {
         button: 'left', clickCount: 1);
     await _dispatchMouseEvent('mouseReleased', cx, cy,
         button: 'left', clickCount: 1);
+    await _ensureFocusAtPoint(cx, cy);
 
     return {
       'success': true,
@@ -1069,6 +1070,7 @@ class CdpDriver implements AppDriver {
         button: 'left', clickCount: 1);
     await _dispatchMouseEvent('mouseReleased', x, y,
         button: 'left', clickCount: 1);
+    await _ensureFocusAtPoint(x, y);
   }
 
   /// Long press an element.
@@ -2377,6 +2379,33 @@ function deepQueryAll(selector, root) {
       'returnByValue': true,
       'awaitPromise': false,
     });
+  }
+
+  /// Ensure focus is set on the focusable element at the given point.
+  /// CDP Input.dispatchMouseEvent doesn't always trigger focus in headless Chrome.
+  /// Traverses Shadow DOM boundaries to find the actual element.
+  Future<void> _ensureFocusAtPoint(double x, double y) async {
+    await _evalJs('''
+      (() => {
+        // Traverse shadow DOM to find the deepest element at point
+        let el = document.elementFromPoint($x, $y);
+        if (!el) return;
+        // Drill into shadow roots
+        while (el.shadowRoot) {
+          const inner = el.shadowRoot.elementFromPoint($x, $y);
+          if (!inner || inner === el) break;
+          el = inner;
+        }
+        // Walk up to find the nearest focusable element
+        const focusable = el.closest && el.closest('input, textarea, select, [contenteditable="true"], [contenteditable=""]');
+        const target = focusable || el;
+        if (target && target !== document.activeElement &&
+            (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' ||
+             target.tagName === 'SELECT' || target.isContentEditable)) {
+          target.focus();
+        }
+      })()
+    ''');
   }
 
   Future<void> _dispatchMouseEvent(
