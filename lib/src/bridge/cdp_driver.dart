@@ -1503,6 +1503,70 @@ class CdpDriver implements AppDriver {
     });
   }
 
+  /// Keyboard key info for a character (US QWERTY layout).
+  static _KeyInfo _charToKeyInfo(String char) {
+    final c = char.codeUnitAt(0);
+
+    // a-z
+    if (c >= 97 && c <= 122) {
+      return _KeyInfo('Key${char.toUpperCase()}', c - 32, false, char);
+    }
+    // A-Z (shifted)
+    if (c >= 65 && c <= 90) {
+      return _KeyInfo('Key$char', c, true, char.toLowerCase());
+    }
+    // 0-9
+    if (c >= 48 && c <= 57) {
+      return _KeyInfo('Digit$char', c, false, char);
+    }
+
+    // Shifted number keys: !@#$%^&*()
+    const shiftedDigits = <String, List<dynamic>>{
+      '!': ['Digit1', 49], '@': ['Digit2', 50], '#': ['Digit3', 51],
+      '\$': ['Digit4', 52], '%': ['Digit5', 53], '^': ['Digit6', 54],
+      '&': ['Digit7', 55], '*': ['Digit8', 56], '(': ['Digit9', 57],
+      ')': ['Digit0', 48],
+    };
+    if (shiftedDigits.containsKey(char)) {
+      final info = shiftedDigits[char]!;
+      return _KeyInfo(info[0] as String, info[1] as int, true,
+          String.fromCharCode(info[1] as int));
+    }
+
+    // Special keys (unshifted)
+    const specialKeys = <String, List<dynamic>>{
+      ' ': ['Space', 32],
+      '-': ['Minus', 189], '=': ['Equal', 187],
+      '[': ['BracketLeft', 219], ']': ['BracketRight', 221],
+      '\\': ['Backslash', 220], ';': ['Semicolon', 186],
+      "'": ['Quote', 222], '`': ['Backquote', 192],
+      ',': ['Comma', 188], '.': ['Period', 190],
+      '/': ['Slash', 191], '\t': ['Tab', 9],
+    };
+    if (specialKeys.containsKey(char)) {
+      final info = specialKeys[char]!;
+      return _KeyInfo(info[0] as String, info[1] as int, false, char);
+    }
+
+    // Shifted special keys
+    const shiftedSpecial = <String, List<dynamic>>{
+      '_': ['Minus', 189, '-'], '+': ['Equal', 187, '='],
+      '{': ['BracketLeft', 219, '['], '}': ['BracketRight', 221, ']'],
+      '|': ['Backslash', 220, '\\'], ':': ['Semicolon', 186, ';'],
+      '"': ['Quote', 222, "'"], '~': ['Backquote', 192, '`'],
+      '<': ['Comma', 188, ','], '>': ['Period', 190, '.'],
+      '?': ['Slash', 191, '/'],
+    };
+    if (shiftedSpecial.containsKey(char)) {
+      final info = shiftedSpecial[char]!;
+      return _KeyInfo(
+          info[0] as String, info[1] as int, true, info[2] as String);
+    }
+
+    // Fallback: use charCode directly
+    return _KeyInfo('', c, false, char);
+  }
+
   /// Type text character by character (more realistic than enterText).
   Future<void> typeText(String text) async {
     // Check if focused element is contenteditable — use Input.insertText directly
@@ -1527,26 +1591,47 @@ class CdpDriver implements AppDriver {
 
     // For regular inputs/textareas: keyDown(text) + keyUp per character
     for (final char in text.split('')) {
-      final code = char.codeUnitAt(0);
-      final keyCode = code >= 97 && code <= 122 ? code - 32 : code;
-      final codeStr = code >= 65 && code <= 90 || code >= 97 && code <= 122
-          ? 'Key${char.toUpperCase()}'
-          : '';
-      await _call('Input.dispatchKeyEvent', {
-        'type': 'keyDown',
+      if (char == '\n') {
+        // Enter key
+        await _call('Input.dispatchKeyEvent', {
+          'type': 'keyDown',
+          'key': 'Enter',
+          'code': 'Enter',
+          'text': '\r',
+          'unmodifiedText': '\r',
+          'windowsVirtualKeyCode': 13,
+          'nativeVirtualKeyCode': 13,
+        });
+        await _call('Input.dispatchKeyEvent', {
+          'type': 'keyUp',
+          'key': 'Enter',
+          'code': 'Enter',
+          'windowsVirtualKeyCode': 13,
+          'nativeVirtualKeyCode': 13,
+        });
+        continue;
+      }
+
+      final keyInfo = _charToKeyInfo(char);
+      final params = <String, dynamic>{
         'text': char,
         'key': char,
-        'unmodifiedText': char,
-        if (codeStr.isNotEmpty) 'code': codeStr,
-        'windowsVirtualKeyCode': keyCode,
-        'nativeVirtualKeyCode': keyCode,
+        'unmodifiedText': keyInfo.shifted ? keyInfo.unmodified : char,
+        if (keyInfo.code.isNotEmpty) 'code': keyInfo.code,
+        'windowsVirtualKeyCode': keyInfo.keyCode,
+        'nativeVirtualKeyCode': keyInfo.keyCode,
+        if (keyInfo.shifted) 'modifiers': 8, // Shift
+      };
+      await _call('Input.dispatchKeyEvent', {
+        'type': 'keyDown',
+        ...params,
       });
       await _call('Input.dispatchKeyEvent', {
         'type': 'keyUp',
         'key': char,
-        if (codeStr.isNotEmpty) 'code': codeStr,
-        'windowsVirtualKeyCode': keyCode,
-        'nativeVirtualKeyCode': keyCode,
+        if (keyInfo.code.isNotEmpty) 'code': keyInfo.code,
+        'windowsVirtualKeyCode': keyInfo.keyCode,
+        'nativeVirtualKeyCode': keyInfo.keyCode,
       });
     }
 
@@ -2717,4 +2802,14 @@ function _dqAll(sel, root) {
     }
     _pending.clear();
   }
+}
+
+/// Key info for CDP Input.dispatchKeyEvent (US QWERTY layout).
+class _KeyInfo {
+  final String code;
+  final int keyCode;
+  final bool shifted;
+  final String unmodified; // The unshifted character
+
+  const _KeyInfo(this.code, this.keyCode, this.shifted, this.unmodified);
 }
