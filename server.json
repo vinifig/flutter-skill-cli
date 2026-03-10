@@ -6,12 +6,12 @@
     "url": "https://github.com/ai-dashboad/flutter-skill",
     "source": "github"
   },
-  "version": "0.9.6",
+  "version": "0.9.7",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "flutter-skill",
-      "version": "0.9.6",
+      "version": "0.9.7",
       "transport": {
         "type": "stdio"
       },

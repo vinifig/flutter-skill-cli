@@ -1,9 +1,28 @@
+## 0.9.7
+
+**press_key for Flutter VM Service, pytest plugin, HarmonyOS SDK, CI smoke tests**
+
+### Bug Fixes
+- **press_key in Flutter mode**: `press_key` now works when connected via VM Service (not just CDP/bridge). Calls the existing `ext.flutter.flutter_skill.pressKey` extension that was already registered in the target app but never wired from the CLI side. Fixes #21.
+
+### New SDKs
+- **pytest-flutter-skill** (`sdks/python/`): pytest plugin for AI-driven Flutter/web app automation. Provides a `flutter_skill` fixture that starts the MCP server and wraps all tools as Python methods with native pytest assertions (`assert_visible`, `assert_text`, `assert_not_visible`, `find_element`). Closes #14.
+- **HarmonyOS SDK** (`sdks/harmonyos/`): ArkTS bridge SDK (`FlutterSkillAbility.ets`) for HarmonyOS apps. Implements screenshot, tap, enter_text, press_key, scroll, go_back, get_current_route, inspect, get_logs over WebSocket on port 18118. Closes #13.
+
+### CI / Testing
+- **Smoke test job** added to CI: simulates a new user installing from local source via `dart pub global activate`, then verifies `--version`, MCP `initialize`, and `tools/list` work correctly.
+- **Post-release smoke test** added to release workflow: installs from pub.dev and npm after each release (with retry for CDN propagation) and verifies the published package serves JSON-RPC correctly.
+
+---
+
 ## 0.9.6
 
 **Shadow DOM deep pierce for tap/snapshot, serve port reuse fix**
 
 ### Changes
-- TODO: Add your changes here
+- `tap` text search now uses `_dqAll('*')` instead of a hardcoded tag list, so custom elements like Reddit's `faceplate-button` are found by text match
+- Snapshot second pass collects `button/[role=button]/[type=submit]` elements nested inside shadow roots
+- `serve` binds with `shared: true` (SO_REUSEADDR) to avoid TIME_WAIT "Address already in use" crashes on restart
 
 ---
 

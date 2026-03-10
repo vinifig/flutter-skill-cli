@@ -596,3 +596,75 @@ jobs:
           echo "| Homebrew | ✅ |" >> $GITHUB_STEP_SUMMARY
           echo "| Scoop | ✅ |" >> $GITHUB_STEP_SUMMARY
           echo "| GitHub Release | ✅ |" >> $GITHUB_STEP_SUMMARY
+
+  # Post-release smoke test — installs from pub.dev and npm and verifies the
+  # published package actually works from a clean environment.
+  post-release-smoke-test:
+    needs: [prepare, publish-pub-dev, publish-npm, create-release]
+    runs-on: ubuntu-latest
+    continue-on-error: true  # Informational — don't block the release
+    strategy:
+      matrix:
+        channel: [pubdev, npm]
+    steps:
+      - name: Setup Dart
+        uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # pub.dev channel: wait up to 3 minutes for pub.dev CDN propagation, then install
+      - name: Install from pub.dev
+        if: matrix.channel == 'pubdev'
+        run: |
+          VERSION=${{ needs.prepare.outputs.version }}
+          echo "Waiting for pub.dev to propagate v${VERSION}..."
+          for i in $(seq 1 6); do
+            sleep 30
+            if dart pub global activate flutter_skill $VERSION 2>&1 | grep -q "Activated"; then
+              echo "Installed flutter_skill v${VERSION} from pub.dev"
+              break
+            fi
+            echo "Attempt $i/6 — not yet available, retrying..."
+          done
+          dart pub global activate flutter_skill $VERSION  # final attempt (will error if still unavailable)
+          echo "$HOME/.pub-cache/bin" >> $GITHUB_PATH
+
+      # npm channel: wait up to 3 minutes for npm CDN propagation, then install
+      - name: Install from npm
+        if: matrix.channel == 'npm'
+        run: |
+          VERSION=${{ needs.prepare.outputs.version }}
+          echo "Waiting for npm to propagate flutter-skill@${VERSION}..."
+          for i in $(seq 1 6); do
+            sleep 30
+            if npm install -g flutter-skill@$VERSION 2>&1 | grep -q "added"; then
+              echo "Installed flutter-skill@${VERSION} from npm"
+              break
+            fi
+            echo "Attempt $i/6 — not yet available, retrying..."
+          done
+          npm install -g flutter-skill@$VERSION
+
+      - name: Verify version string
+        run: |
+          VERSION=${{ needs.prepare.outputs.version }}
+          OUTPUT=$(flutter_skill --version 2>&1 || flutter-skill --version 2>&1 || true)
+          echo "Output: $OUTPUT"
+          echo "$OUTPUT" | grep -q "$VERSION" \
+            || echo "⚠️ Version mismatch or not found — manual check recommended"
+
+      - name: Smoke — server initialize
+        timeout-minutes: 2
+        run: |
+          CMD=$(command -v flutter_skill || command -v flutter-skill)
+          RESPONSE=$(echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"post-release-smoke","version":"1.0"}}}' \
+            | timeout 15 $CMD server 2>/dev/null || true)
+          echo "Response: $RESPONSE"
+          echo "$RESPONSE" | grep -q '"result"' \
+            && echo "✅ ${{ matrix.channel }} post-release smoke test PASSED" \
+            || echo "❌ ${{ matrix.channel }} post-release smoke test FAILED — check publish logs"

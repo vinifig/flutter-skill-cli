@@ -89,6 +89,52 @@ jobs:
           name: intellij-plugin
           path: intellij-plugin/build/distributions/*.zip
 
+  # Fresh-install smoke test — simulates a new user installing from local source
+  smoke-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Dart
+        uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+
+      - name: Install flutter_skill globally (from repo)
+        run: dart pub global activate --source path .
+
+      - name: Add pub cache bin to PATH
+        run: echo "$HOME/.pub-cache/bin" >> $GITHUB_PATH
+
+      - name: Verify binary exists and prints version
+        run: |
+          flutter_skill --version 2>&1 | tee /tmp/version_out.txt
+          grep -E "[0-9]+\.[0-9]+\.[0-9]+" /tmp/version_out.txt \
+            || (echo "❌ Version string not found in output" && exit 1)
+          echo "✅ version check passed"
+
+      - name: Smoke — server responds to initialize
+        timeout-minutes: 1
+        run: |
+          # Send a JSON-RPC initialize request and expect a valid response
+          RESPONSE=$(echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"smoke-test","version":"1.0"}}}' \
+            | timeout 10 flutter_skill server 2>/dev/null || true)
+          echo "Response: $RESPONSE"
+          echo "$RESPONSE" | grep -q '"result"' \
+            || (echo "❌ No valid JSON-RPC result in server response" && exit 1)
+          echo "✅ server initialize passed"
+
+      - name: Smoke — tools/list returns tools
+        timeout-minutes: 1
+        run: |
+          RESPONSE=$(printf \
+            '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"smoke","version":"1"}}}\n{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}\n' \
+            | timeout 10 flutter_skill server 2>/dev/null || true)
+          echo "Response: $RESPONSE"
+          echo "$RESPONSE" | grep -q '"tools"' \
+            || (echo "❌ tools/list did not return tools array" && exit 1)
+          echo "✅ tools/list passed"
+
   # npm package checks
   npm:
     runs-on: ubuntu-latest
