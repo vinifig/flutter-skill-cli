@@ -426,7 +426,8 @@ extension CdpBrowserMethods on CdpDriver {
   /// Pierces Shadow DOM automatically to find deeply nested file inputs.
   Future<Map<String, dynamic>> uploadFile(
       String selector, List<String> filePaths) async {
-    final escapedSelector = selector.replaceAll('\\', '\\\\').replaceAll("'", "\\'");
+    final escapedSelector =
+        selector.replaceAll('\\', '\\\\').replaceAll("'", "\\'");
 
     // Helper: find element via light DOM or Shadow DOM
     Future<int?> _resolveNodeId() async {
@@ -452,19 +453,22 @@ extension CdpBrowserMethods on CdpDriver {
       final objectId = jsObj['result']?['objectId'] as String?;
       if (objectId == null) return null;
       final desc = await _call('DOM.describeNode', {'objectId': objectId});
-      await _call('Runtime.releaseObject', {'objectId': objectId}).catchError((_) => <String, dynamic>{});
+      await _call('Runtime.releaseObject', {'objectId': objectId})
+          .catchError((_) => <String, dynamic>{});
       return desc['node']?['backendNodeId'] as int?;
     }
 
     Future<void> _setFiles() async {
       final nodeId = await _resolveNodeId();
       if (nodeId != null) {
-        await _call('DOM.setFileInputFiles', {'nodeId': nodeId, 'files': filePaths});
+        await _call(
+            'DOM.setFileInputFiles', {'nodeId': nodeId, 'files': filePaths});
         return;
       }
       final backendNodeId = await _resolveBackendNodeId();
       if (backendNodeId != null) {
-        await _call('DOM.setFileInputFiles', {'backendNodeId': backendNodeId, 'files': filePaths});
+        await _call('DOM.setFileInputFiles',
+            {'backendNodeId': backendNodeId, 'files': filePaths});
       }
     }
 
@@ -510,8 +514,10 @@ extension CdpBrowserMethods on CdpDriver {
         await _dispatchMouseEvent('mouseMoved', cx, cy);
         await Future.delayed(const Duration(milliseconds: 200));
         // Trusted CDP mouse click on the visible parent
-        await _dispatchMouseEvent('mousePressed', cx, cy, button: 'left', clickCount: 1);
-        await _dispatchMouseEvent('mouseReleased', cx, cy, button: 'left', clickCount: 1);
+        await _dispatchMouseEvent('mousePressed', cx, cy,
+            button: 'left', clickCount: 1);
+        await _dispatchMouseEvent('mouseReleased', cx, cy,
+            button: 'left', clickCount: 1);
 
         // Wait for file chooser
         for (int i = 0; i < 20 && !fileChooserFired; i++) {
@@ -531,19 +537,31 @@ extension CdpBrowserMethods on CdpDriver {
           await _setFiles();
         }
         await Future.delayed(const Duration(milliseconds: 300));
-        try { await _call('Page.setInterceptFileChooserDialog', {'enabled': false}); } catch (_) {}
+        try {
+          await _call('Page.setInterceptFileChooserDialog', {'enabled': false});
+        } catch (_) {}
         removeEventListeners('Page.fileChooserOpened');
         // Verify files were actually set
         final fcVerified = await _verifyFilesSet(escapedSelector);
-        return {"success": fcVerified, "files": fcVerified ? filePaths : [], "method": "fileChooser", if (!fcVerified) "error": "File chooser completed but files.length is 0"};
+        return {
+          "success": fcVerified,
+          "files": fcVerified ? filePaths : [],
+          "method": "fileChooser",
+          if (!fcVerified)
+            "error": "File chooser completed but files.length is 0"
+        };
       }
 
       // File chooser didn't fire — disable interception and fall through
-      try { await _call('Page.setInterceptFileChooserDialog', {'enabled': false}); } catch (_) {}
+      try {
+        await _call('Page.setInterceptFileChooserDialog', {'enabled': false});
+      } catch (_) {}
       removeEventListeners('Page.fileChooserOpened');
     } catch (e) {
       // File chooser interception not supported — continue to fallback
-      try { await _call('Page.setInterceptFileChooserDialog', {'enabled': false}); } catch (_) {}
+      try {
+        await _call('Page.setInterceptFileChooserDialog', {'enabled': false});
+      } catch (_) {}
       removeEventListeners('Page.fileChooserOpened');
     }
 
@@ -557,7 +575,13 @@ extension CdpBrowserMethods on CdpDriver {
       // Strategy 3: Try iframe-aware upload
       final iframeResult = await _tryIframeUpload(filePaths);
       if (iframeResult != null) return iframeResult;
-      return {"success": false, "files": [], "method": "direct", "error": "Files not set after setFileInputFiles — input.files.length is 0"};
+      return {
+        "success": false,
+        "files": [],
+        "method": "direct",
+        "error":
+            "Files not set after setFileInputFiles — input.files.length is 0"
+      };
     }
     return {"success": true, "files": filePaths, "method": "direct"};
   }
@@ -566,7 +590,8 @@ extension CdpBrowserMethods on CdpDriver {
   /// `DOM.setFileInputFiles` sets files but does NOT fire DOM events automatically.
   /// For React: also calls the React onChange handler directly via __reactProps$.
   Future<void> _dispatchFileEvents(String selector) async {
-    final escapedSelector = selector.replaceAll('\\', '\\\\').replaceAll("'", "\\'");
+    final escapedSelector =
+        selector.replaceAll('\\', '\\\\').replaceAll("'", "\\'");
     await _call('Runtime.evaluate', {
       'expression': '''
         (() => {
@@ -640,7 +665,8 @@ extension CdpBrowserMethods on CdpDriver {
         })()''',
         'returnByValue': true,
       });
-      final data = jsonDecode(result['result']?['value'] as String? ?? '{}') as Map<String, dynamic>;
+      final data = jsonDecode(result['result']?['value'] as String? ?? '{}')
+          as Map<String, dynamic>;
       if (data['found'] != true) return null;
 
       // Get the iframe's file input backendNodeId
@@ -663,11 +689,13 @@ extension CdpBrowserMethods on CdpDriver {
       if (objectId == null) return null;
 
       final desc = await _call('DOM.describeNode', {'objectId': objectId});
-      await _call('Runtime.releaseObject', {'objectId': objectId}).catchError((_) => <String, dynamic>{});
+      await _call('Runtime.releaseObject', {'objectId': objectId})
+          .catchError((_) => <String, dynamic>{});
       final backendNodeId = desc['node']?['backendNodeId'] as int?;
       if (backendNodeId == null) return null;
 
-      await _call('DOM.setFileInputFiles', {'backendNodeId': backendNodeId, 'files': filePaths});
+      await _call('DOM.setFileInputFiles',
+          {'backendNodeId': backendNodeId, 'files': filePaths});
       await Future.delayed(const Duration(milliseconds: 300));
 
       // Dispatch events in iframe context

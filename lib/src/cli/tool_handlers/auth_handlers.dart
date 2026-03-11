@@ -298,17 +298,18 @@ extension _AuthHandlers on FlutterMcpServer {
           final urlResult = await client.evaluate('window.location.href');
           final currentUrl = urlResult['result']?['value']?.toString() ?? '';
 
-          final cookieResult =
-              await client.evaluate('document.cookie.length');
-          final cookieLen =
-              cookieResult['result']?['value'] ?? 0;
+          final cookieResult = await client.evaluate('document.cookie.length');
+          final cookieLen = cookieResult['result']?['value'] ?? 0;
 
           return {
             'success': true,
             'qr_image': qrBase64,
             'format': 'jpeg',
             'qr_bounds': {
-              'x': x, 'y': y, 'width': w, 'height': h,
+              'x': x,
+              'y': y,
+              'width': w,
+              'height': h,
             },
             'matched_selector': qrRect['selector'] ?? selector,
             'initial_url': currentUrl,
@@ -392,8 +393,7 @@ extension _AuthHandlers on FlutterMcpServer {
         }
 
         // Check 2: Cookie length changed significantly
-        final cookieResult =
-            await client.evaluate('document.cookie.length');
+        final cookieResult = await client.evaluate('document.cookie.length');
         final currentCookieLen =
             (cookieResult['result']?['value'] as int?) ?? 0;
         if (currentCookieLen > initialCookieLen + 20) {
@@ -452,7 +452,8 @@ extension _AuthHandlers on FlutterMcpServer {
       'success': false,
       'method': 'timeout',
       'waited_ms': timeoutMs,
-      'hint': 'QR code may have expired. Call qr_login_start again for a fresh code.',
+      'hint':
+          'QR code may have expired. Call qr_login_start again for a fresh code.',
     };
   }
 }

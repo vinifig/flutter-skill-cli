@@ -36,13 +36,20 @@ extension _CdpToolHandlers on FlutterMcpServer {
             final prefix = isLast ? '└── ' : '├── ';
             final ref = el['ref'] ?? '';
             final text = (el['text'] ?? el['label'] ?? '').toString();
-            final displayText = text.length > 40 ? '${text.substring(0, 37)}...' : text;
+            final displayText =
+                text.length > 40 ? '${text.substring(0, 37)}...' : text;
             final bounds = el['bounds'] as Map<String, dynamic>?;
-            final bStr = bounds != null ? '(${bounds['x']},${bounds['y']} ${bounds['w']}x${bounds['h']})' : '';
-            final valuePart = (el['value'] != null && el['value'].toString().isNotEmpty) ? ' value="${el['value']}"' : '';
+            final bStr = bounds != null
+                ? '(${bounds['x']},${bounds['y']} ${bounds['w']}x${bounds['h']})'
+                : '';
+            final valuePart =
+                (el['value'] != null && el['value'].toString().isNotEmpty)
+                    ? ' value="${el['value']}"'
+                    : '';
             final enabledPart = el['enabled'] == false ? ' DISABLED' : '';
             final actions = (el['actions'] as List?)?.join(',') ?? '';
-            buffer.writeln('$prefix[$ref] "$displayText" $bStr$valuePart$enabledPart {$actions}');
+            buffer.writeln(
+                '$prefix[$ref] "$displayText" $bStr$valuePart$enabledPart {$actions}');
           }
           return {
             'snapshot': buffer.toString(),
@@ -51,7 +58,8 @@ extension _CdpToolHandlers on FlutterMcpServer {
             'elementCount': elements.length,
             'interactiveCount': elements.length,
             'tokenEstimate': buffer.length ~/ 4,
-            'hint': 'Use ref IDs to interact: tap(ref: "button:Login"), enter_text(ref: "input:Email", text: "...")',
+            'hint':
+                'Use ref IDs to interact: tap(ref: "button:Login"), enter_text(ref: "input:Email", text: "...")',
           };
         }
         // Default: Accessibility tree snapshot
@@ -400,7 +408,11 @@ extension _CdpToolHandlers on FlutterMcpServer {
         final modifiers = rawMod is List
             ? rawMod.cast<String>()
             : rawMod is String
-                ? rawMod.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList()
+                ? rawMod
+                    .split(',')
+                    .map((s) => s.trim())
+                    .where((s) => s.isNotEmpty)
+                    .toList()
                 : null;
         await cdp.pressKey(key, modifiers: modifiers);
         return {"success": true, "key": key};
@@ -425,7 +437,8 @@ extension _CdpToolHandlers on FlutterMcpServer {
 
       case 'solve_captcha':
         final apiKey = args['api_key'] as String? ?? '';
-        if (apiKey.isEmpty) return {"success": false, "message": "api_key is required"};
+        if (apiKey.isEmpty)
+          return {"success": false, "message": "api_key is required"};
         return await cdp.solveCaptcha(
           apiKey: apiKey,
           siteKey: args['site_key'] as String?,

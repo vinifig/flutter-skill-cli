@@ -627,7 +627,8 @@ After starting, point the web SDK at ws://127.0.0.1:<port>.""",
             },
             "html": {
               "type": "string",
-              "description": "HTML content to inject (preferred for rich editors)"
+              "description":
+                  "HTML content to inject (preferred for rich editors)"
             },
             "text": {
               "type": "string",
@@ -635,7 +636,8 @@ After starting, point the web SDK at ws://127.0.0.1:<port>.""",
             },
             "append": {
               "type": "boolean",
-              "description": "Append instead of replacing content (default: false)"
+              "description":
+                  "Append instead of replacing content (default: false)"
             }
           }
         }
@@ -647,10 +649,7 @@ After starting, point the web SDK at ws://127.0.0.1:<port>.""",
         "inputSchema": {
           "type": "object",
           "properties": {
-            "text": {
-              "type": "string",
-              "description": "Text to paste"
-            }
+            "text": {"type": "string", "description": "Text to paste"}
           },
           "required": ["text"]
         }
@@ -662,10 +661,7 @@ After starting, point the web SDK at ws://127.0.0.1:<port>.""",
         "inputSchema": {
           "type": "object",
           "properties": {
-            "api_key": {
-              "type": "string",
-              "description": "2Captcha API key"
-            },
+            "api_key": {"type": "string", "description": "2Captcha API key"},
             "site_key": {
               "type": "string",
               "description":
@@ -1503,7 +1499,8 @@ Elements with [ref] can be targeted: tap(ref: "button:Login"), enter_text(ref: "
       // ======================== Act (Composite Action) ========================
       {
         "name": "act",
-        "description": """🎯 COMPOSITE ACTION — One-step element interaction with auto-wait + auto-scroll.
+        "description":
+            """🎯 COMPOSITE ACTION — One-step element interaction with auto-wait + auto-scroll.
 
 Combines element finding, waiting, scrolling into view, and action execution in a single call.
 Like Playwright's locator.click() but works across Shadow DOM.
@@ -1525,7 +1522,8 @@ Auto-waits up to 5s for element to appear. Auto-scrolls into view if off-screen.
             },
             "ref": {
               "type": "string",
-              "description": "Element ref from snapshot (e.g. 'button:Login', 'e1')"
+              "description":
+                  "Element ref from snapshot (e.g. 'button:Login', 'e1')"
             },
             "text": {
               "type": "string",

@@ -127,8 +127,7 @@ Future<void> runClient(String command, List<String> args) async {
       case 'ss':
         final r = await client.call('screenshot', {});
         if (r.containsKey('base64')) {
-          final path =
-              rest.isNotEmpty ? rest[0] : '/tmp/screenshot.jpg';
+          final path = rest.isNotEmpty ? rest[0] : '/tmp/screenshot.jpg';
           File(path).writeAsBytesSync(base64Decode(r['base64']));
           print('saved $path (${File(path).lengthSync()} bytes)');
         } else {
@@ -143,11 +142,9 @@ Future<void> runClient(String command, List<String> args) async {
         }
         Map<String, dynamic> tapArgs;
         if (rest.length >= 2 && _isNumeric(rest[0])) {
-          tapArgs = {
-            'x': double.parse(rest[0]),
-            'y': double.parse(rest[1])
-          };
-        } else if (rest[0].startsWith('e') && _isNumeric(rest[0].substring(1))) {
+          tapArgs = {'x': double.parse(rest[0]), 'y': double.parse(rest[1])};
+        } else if (rest[0].startsWith('e') &&
+            _isNumeric(rest[0].substring(1))) {
           tapArgs = {'ref': rest[0]};
         } else {
           tapArgs = {'text': rest.join(' ')};
@@ -221,8 +218,8 @@ Future<void> runClient(String command, List<String> args) async {
               'Usage: flutter-skill upload <selector|auto> <file_path>');
           exit(1);
         }
-        final r = await client.call(
-            'upload_file', {'selector': rest[0], 'file_path': rest[1]});
+        final r = await client
+            .call('upload_file', {'selector': rest[0], 'file_path': rest[1]});
         _printJson(r);
         break;
 
@@ -269,8 +266,7 @@ Future<void> runClient(String command, List<String> args) async {
   }
 }
 
-bool _isNumeric(String s) =>
-    double.tryParse(s.replaceAll('-', '')) != null;
+bool _isNumeric(String s) => double.tryParse(s.replaceAll('-', '')) != null;
 
 void _printJson(Map<String, dynamic> data) {
   if (data.containsKey('error')) {
