@@ -85,22 +85,33 @@ class CdpDriver implements AppDriver {
   bool connectedToExistingTab = false;
 
   Future<void> connect() async {
-    if (_launchChrome) {
-      // Auto-assign random port if 0
-      if (_port == 0) {
-        final server = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
-        _port = server.port;
-        await server.close();
-      }
+    // Auto-assign random port if 0
+    if (_port == 0) {
+      final server = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+      _port = server.port;
+      await server.close();
+    }
 
-      // Check if Chrome is already running on this port before launching
-      final alreadyRunning = await _isCdpPortAlive();
-      if (alreadyRunning) {
-        // Chrome already running — don't launch again (would open duplicate tab)
-      } else {
+    // Check if CDP debug port is already responding.
+    final cdpAlive = await _isCdpPortAlive();
+    if (!cdpAlive) {
+      if (_launchChrome) {
+        // Explicitly requested to launch Chrome.
         await _launchChromeProcess();
-        // Poll for CDP readiness instead of fixed delay
         await _waitForCdpReady();
+      } else {
+        // launch_chrome: false — but port is not responding.
+        // Smart auto-launch: if Chrome is running without --remote-debugging-port,
+        // start a parallel flutter-skill Chrome profile that has it enabled.
+        // This mirrors chrome://inspect/#remote-debugging — enabling the debug
+        // port without disturbing the user's existing Chrome session.
+        final chromeRunning = await _isChromeRunning();
+        if (chromeRunning) {
+          await _launchChromeProcess();
+          await _waitForCdpReady();
+        }
+        // If Chrome is not running and launch_chrome: false, fall through;
+        // _discoverTarget will fail with a clear error.
       }
     }
 
@@ -127,9 +138,15 @@ class CdpDriver implements AppDriver {
     }
 
     if (wsUrl == null) {
-      throw Exception(
-          'Could not find or create a debuggable tab on port $_port. '
-          'Ensure Chrome is running with --remote-debugging-port=$_port');
+      final chromeRunning = await _isChromeRunning();
+      final hint = chromeRunning
+          ? 'Chrome is running but remote debugging is not enabled. '
+              'flutter-skill tried to auto-launch a debug profile but could not '
+              'connect. Try: connect_cdp(url: "$_url", launch_chrome: true)'
+          : 'Chrome is not running. '
+              'Use connect_cdp(url: "$_url") to auto-launch Chrome with remote '
+              'debugging enabled.';
+      throw Exception(hint);
     }
 
     _ws = await WebSocket.connect(wsUrl).timeout(const Duration(seconds: 10));
@@ -142,11 +159,16 @@ class CdpDriver implements AppDriver {
       cancelOnError: false,
     );
 
-    // Enable required CDP domains in parallel
+    // Enable required CDP domains in parallel.
+    // Each call has an individual timeout so a bad/special tab (e.g. chrome://
+    // pages, crashed renderers) cannot hang the entire connect() forever.
     await Future.wait([
-      _call('Page.enable'),
-      _call('DOM.enable'),
-      _call('Runtime.enable'),
+      _call('Page.enable')
+          .timeout(const Duration(seconds: 10), onTimeout: () => {}),
+      _call('DOM.enable')
+          .timeout(const Duration(seconds: 10), onTimeout: () => {}),
+      _call('Runtime.enable')
+          .timeout(const Duration(seconds: 10), onTimeout: () => {}),
     ]);
 
     // Check if _discoverTarget already found a tab with our exact URL.
@@ -206,6 +228,32 @@ class CdpDriver implements AppDriver {
     } catch (_) {
       return false;
     }
+  }
+
+  /// Check if a Chrome/Chromium process is running (any instance, debug port or not).
+  /// Used to decide whether to auto-launch a flutter-skill Chrome profile when the
+  /// user's Chrome is running without --remote-debugging-port.
+  Future<bool> _isChromeRunning() async {
+    try {
+      ProcessResult result;
+      if (Platform.isMacOS) {
+        result = await Process.run('pgrep', ['-x', 'Google Chrome']);
+        if (result.exitCode == 0) return true;
+        // Also check Chromium
+        result = await Process.run('pgrep', ['-x', 'Chromium']);
+        return result.exitCode == 0;
+      } else if (Platform.isLinux) {
+        result = await Process.run('pgrep', ['-x', 'google-chrome']);
+        if (result.exitCode == 0) return true;
+        result = await Process.run('pgrep', ['-x', 'chromium']);
+        return result.exitCode == 0;
+      } else if (Platform.isWindows) {
+        result = await Process.run(
+            'tasklist', ['/FI', 'IMAGENAME eq chrome.exe', '/NH']);
+        return result.stdout.toString().contains('chrome.exe');
+      }
+    } catch (_) {}
+    return false;
   }
 
   /// Get the current page URL via Runtime.evaluate

@@ -54,7 +54,9 @@ extension _CdpConnectionHandlers2 on FlutterMcpServer {
           "url": url,
           "port": port,
           "session_id": sessionId,
-          "message": "Connected to $url via CDP",
+          "message": "Connected to $url via CDP on port $port",
+          "note": "If Chrome was already running without remote debugging, "
+              "flutter-skill auto-launched a debug-enabled profile alongside it.",
         };
       } catch (e) {
         return {
@@ -65,9 +67,11 @@ extension _CdpConnectionHandlers2 on FlutterMcpServer {
           },
           "suggestions": [
             "Ensure Chrome is installed",
-            "If Chrome is already running, close it or use launch_chrome: false",
-            "Try: connect_cdp(url: '$url', port: $port, launch_chrome: false)",
-            "Start Chrome manually with: google-chrome --remote-debugging-port=$port",
+            "Let flutter-skill auto-launch Chrome: connect_cdp(url: '$url')",
+            "Or point to an existing Chrome with debugging already on: "
+                "connect_cdp(url: '$url', launch_chrome: false)",
+            "Manual launch: google-chrome --remote-debugging-port=$port "
+                "--user-data-dir=/tmp/chrome-debug",
           ],
         };
       }
