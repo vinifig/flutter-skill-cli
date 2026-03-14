@@ -1,3 +1,12 @@
+## 0.9.11
+
+**Auto-enable Chrome remote debugging when connecting via CDP**
+
+### Changes
+- TODO: Add your changes here
+
+---
+
 ## 0.9.10
 
 **UX fixes: fill tool, press_key iOS fallback, go_back count, coordinate hint**

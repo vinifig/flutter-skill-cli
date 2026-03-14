@@ -4,7 +4,7 @@ plugins {
 }
 
 group = "com.flutterskill"
-version = "0.9.10"
+version = "0.9.11"
 
 kotlin {
     androidTarget {
