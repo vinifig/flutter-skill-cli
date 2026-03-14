@@ -2860,13 +2860,14 @@ end tell
           }
         }
 
-        // 2. No same-domain tab found — use about:blank or chrome://newtab
-        //    NEVER navigate an unrelated site's tab to our URL.
+        // 2. No same-domain tab found — reuse about:blank tabs only.
+        //    Do NOT reuse chrome:// tabs (newtab, new-tab-page, etc.):
+        //    Page.enable / DOM.enable hang indefinitely on chrome:// pages,
+        //    causing a 30s timeout.  Let them fall through to null so
+        //    connect() creates a fresh tab via PUT /json/new.
         for (final tab in pageTabs) {
           final tabUrl = tab['url']?.toString() ?? '';
-          if (tabUrl == 'about:blank' ||
-              tabUrl == 'chrome://newtab/' ||
-              tabUrl == 'chrome://new-tab-page/') {
+          if (tabUrl == 'about:blank') {
             return tab['webSocketDebuggerUrl'] as String?;
           }
         }
