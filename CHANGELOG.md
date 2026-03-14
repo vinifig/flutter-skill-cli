@@ -1,3 +1,12 @@
+## 0.9.14
+
+**Fix Page.enable hang on chrome://newtab; auto-enable remote debugging**
+
+### Changes
+- TODO: Add your changes here
+
+---
+
 ## 0.9.13
 
 **Auto-tick chrome remote debugging checkbox; no Chrome restart**
