@@ -1,3 +1,19 @@
+## 0.9.8
+
+**Multi-flavor app detection, fresh-install UX, Docker/Snap build fixes, CI smoke tests**
+
+### Bug Fixes
+- **Multi-flavor app detection** (#24): `scan_and_connect` now accepts `flavor` and `device_id` parameters. When multiple flavors run simultaneously, flutter-skill picks the correct instance instead of connecting randomly.
+- **Fresh-install plugins warning** (#23): Removed the `Plugins directory not found` warning on clean installs — silently skipped instead.
+- **Docker build**: Dockerfile now uses `ghcr.io/cirruslabs/flutter:stable` so `flutter pub get` resolves Flutter SDK dependencies correctly.
+- **Snap build**: Added `git config --global --add safe.directory /opt/flutter` to resolve `detected dubious ownership` error in snapcraft builds.
+
+### CI / Testing
+- Smoke test job added to CI: verifies fresh `flutter pub global activate` install works end-to-end.
+- Post-release smoke test in release workflow: installs from pub.dev and npm after publish and confirms server responds.
+
+---
+
 ## 0.9.7
 
 **press_key for Flutter VM Service, pytest plugin, HarmonyOS SDK, CI smoke tests**
