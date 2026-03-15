@@ -107,7 +107,7 @@ class CdpDriver implements AppDriver {
         if (existingPort != null) {
           _port = existingPort;
           // CDP is already live — fall through to _discoverTarget().
-        } else {
+        } else if (_launchChrome) {
           // Step 2: Try to enable via chrome://inspect/#remote-debugging.
           // Navigate Chrome to that page, tick the checkbox via the
           // macOS Accessibility API, then discover the new port.
@@ -121,6 +121,7 @@ class CdpDriver implements AppDriver {
             await _waitForCdpReady();
           }
         }
+        // launch_chrome: false + no debug port found → fall through to error.
       } else if (_launchChrome) {
         // Chrome is not running — launch a fresh flutter-skill profile.
         await _launchChromeProcess();
