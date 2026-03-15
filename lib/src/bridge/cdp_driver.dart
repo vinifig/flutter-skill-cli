@@ -3,6 +3,7 @@ library;
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:http/http.dart' as http;
 
@@ -44,6 +45,7 @@ class CdpDriver implements AppDriver {
   final Map<String, List<void Function(Map<String, dynamic>)>> _eventListeners =
       {};
   bool _dialogHandlerInstalled = false;
+  bool _isChrome146ConsentPort = false;
   final Map<String, Map<String, dynamic>> _interceptRules = {};
 
   /// Create a CDP driver.
@@ -226,8 +228,11 @@ class CdpDriver implements AppDriver {
     }
   }
 
-  /// Check if CDP port is already responding
+  /// Check if CDP port is already responding.
+  /// Handles both standard CDP (HTTP /json/version) and Chrome 146+'s
+  /// consent-based port (WebSocket /devtools/browser/{uuid} — no HTTP).
   Future<bool> _isCdpPortAlive() async {
+    // Standard CDP: HTTP /json/version
     try {
       final client = HttpClient()
         ..connectionTimeout = const Duration(seconds: 2);
@@ -236,10 +241,27 @@ class CdpDriver implements AppDriver {
       final response = await request.close();
       await response.drain<void>();
       client.close();
+      _isChrome146ConsentPort = false;
       return true;
-    } catch (_) {
-      return false;
-    }
+    } catch (_) {}
+
+    // Chrome 146+ consent port: HTTP returns 404, but WebSocket to
+    // /devtools/browser/{uuid} either connects or hangs (waiting for Allow).
+    // A quick 1s probe: if the socket connects (not refused), port is alive.
+    try {
+      final sock = await Socket.connect(
+        InternetAddress.loopbackIPv4,
+        _port,
+        timeout: const Duration(seconds: 1),
+      );
+      await sock.close();
+      // Port is open. Check if it's a Chrome 146 consent port by probing /json/version.
+      // 404 = Chrome 146 consent port. Connection refused = not alive.
+      _isChrome146ConsentPort = true;
+      return true;
+    } catch (_) {}
+
+    return false;
   }
 
   /// Check if a Chrome/Chromium process is running (any instance, debug port or not).
@@ -2803,7 +2825,141 @@ end tell
     _eventSubscriptions.remove('Page.frameStoppedLoading');
   }
 
+  /// For Chrome 146+'s consent-based port (no HTTP endpoints):
+  /// Connect via WebSocket to the browser-level CDP endpoint, send
+  /// Target.getTargets, find the best matching target, and return its WS URL.
+  ///
+  /// Chrome shows "Allow remote debugging?" dialog on first connection.
+  /// We wait up to [timeout] seconds for the user to click Allow.
+  Future<String?> _discoverTargetViaConsentPort({
+    Duration timeout = const Duration(seconds: 30),
+  }) async {
+    final wsUrl = 'ws://127.0.0.1:$_port/devtools/browser/${_generateUuid()}';
+    WebSocket? ws;
+    try {
+      ws = await WebSocket.connect(wsUrl).timeout(timeout);
+    } catch (_) {
+      return null;
+    }
+
+    try {
+      // Send Target.getTargets
+      const msgId = 1;
+      ws.add(jsonEncode({
+        'id': msgId,
+        'method': 'Target.getTargets',
+        'params': {},
+      }));
+
+      // Wait for response
+      await for (final msg in ws.timeout(const Duration(seconds: 5))) {
+        final data = jsonDecode(msg as String) as Map<String, dynamic>;
+        if (data['id'] == msgId) {
+          final result = data['result'] as Map<String, dynamic>?;
+          final targetInfos = result?['targetInfos'] as List? ?? [];
+          final pages = targetInfos
+              .whereType<Map>()
+              .where((t) => t['type'] == 'page')
+              .toList();
+
+          // Match by URL (same logic as _discoverTarget HTTP path)
+          final targetUri = _url.isNotEmpty ? Uri.tryParse(_url) : null;
+          final targetHost = targetUri?.host ?? '';
+
+          // Exact URL match
+          if (targetHost.isNotEmpty) {
+            for (final t in pages) {
+              if (t['url'] == _url) {
+                connectedToExistingTab = true;
+                return 'ws://127.0.0.1:$_port/devtools/page/${t['targetId']}';
+              }
+            }
+            // Same host match
+            for (final t in pages) {
+              final tabUri = Uri.tryParse(t['url']?.toString() ?? '');
+              if (tabUri != null && tabUri.host == targetHost) {
+                connectedToExistingTab = true;
+                return 'ws://127.0.0.1:$_port/devtools/page/${t['targetId']}';
+              }
+            }
+            // Same root domain
+            final targetParts = targetHost.split('.');
+            final targetRoot = targetParts.length >= 2
+                ? targetParts.sublist(targetParts.length - 2).join('.')
+                : targetHost;
+            for (final t in pages) {
+              final tabUri = Uri.tryParse(t['url']?.toString() ?? '');
+              if (tabUri != null) {
+                final tabParts = tabUri.host.split('.');
+                final tabRoot = tabParts.length >= 2
+                    ? tabParts.sublist(tabParts.length - 2).join('.')
+                    : tabUri.host;
+                if (tabRoot == targetRoot) {
+                  connectedToExistingTab = true;
+                  return 'ws://127.0.0.1:$_port/devtools/page/${t['targetId']}';
+                }
+              }
+            }
+          }
+
+          // Blank tab or first non-chrome tab
+          for (final t in pages) {
+            final tabUrl = t['url']?.toString() ?? '';
+            if (tabUrl == 'about:blank') {
+              return 'ws://127.0.0.1:$_port/devtools/page/${t['targetId']}';
+            }
+          }
+          if (_url.isEmpty && pages.isNotEmpty) {
+            return 'ws://127.0.0.1:$_port/devtools/page/${pages.first['targetId']}';
+          }
+
+          // No match found — create a new tab via Target.createTarget
+          ws.add(jsonEncode({
+            'id': msgId + 1,
+            'method': 'Target.createTarget',
+            'params': {'url': _url.isNotEmpty ? _url : 'about:blank'},
+          }));
+          await for (final msg2 in ws.timeout(const Duration(seconds: 5))) {
+            final d2 = jsonDecode(msg2 as String) as Map<String, dynamic>;
+            if (d2['id'] == msgId + 1) {
+              final targetId = d2['result']?['targetId'] as String?;
+              if (targetId != null) {
+                return 'ws://127.0.0.1:$_port/devtools/page/$targetId';
+              }
+              break;
+            }
+          }
+          break;
+        }
+      }
+    } catch (_) {}
+
+    try {
+      await ws.close();
+    } catch (_) {}
+    return null;
+  }
+
+  /// Generate a random UUID v4.
+  static String _generateUuid() {
+    final r = Random.secure();
+    final bytes = List<int>.generate(16, (_) => r.nextInt(256));
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    String hex(int b) => b.toRadixString(16).padLeft(2, '0');
+    return '${hex(bytes[0])}${hex(bytes[1])}${hex(bytes[2])}${hex(bytes[3])}'
+        '-${hex(bytes[4])}${hex(bytes[5])}'
+        '-${hex(bytes[6])}${hex(bytes[7])}'
+        '-${hex(bytes[8])}${hex(bytes[9])}'
+        '-${hex(bytes[10])}${hex(bytes[11])}${hex(bytes[12])}${hex(bytes[13])}${hex(bytes[14])}${hex(bytes[15])}';
+  }
+
   Future<String?> _discoverTarget() async {
+    // Chrome 146+ consent port: HTTP endpoints not available, use WebSocket CDP.
+    if (_isChrome146ConsentPort) {
+      return _discoverTargetViaConsentPort(timeout: const Duration(seconds: 30));
+    }
+
     // Try multiple times as Chrome may still be starting
     for (var i = 0; i < 10; i++) {
       try {

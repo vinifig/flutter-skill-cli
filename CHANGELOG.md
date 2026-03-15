@@ -1,3 +1,12 @@
+## 0.9.18
+
+**Support Chrome 146 consent-based remote debugging port**
+
+### Changes
+- TODO: Add your changes here
+
+---
+
 ## 0.9.17
 
 **Session-copy profile: preserve user logins when Chrome 145+ blocks default profile debug port**

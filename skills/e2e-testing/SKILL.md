@@ -1,7 +1,7 @@
 ---
 name: e2e-testing
 description: AI-powered E2E testing for any app — Flutter, React Native, iOS, Android, Electron, Tauri, KMP, .NET MAUI. Test 8 platforms with natural language through MCP. No test code needed. Just describe what to test and the agent sees screenshots, taps elements, enters text, scrolls, and verifies UI state automatically.
-version: 0.9.17
+version: 0.9.18
 ---
 
 # AI E2E Testing — 8 Platforms, Zero Test Code
