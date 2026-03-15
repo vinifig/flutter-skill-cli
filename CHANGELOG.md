@@ -1,3 +1,14 @@
+## 0.9.20
+
+**Respect launch_chrome:false — skip session-copy when user Chrome has no debug port**
+
+### Changes
+- When launch_chrome:false, Chrome is running but has no debug port: now fails with a clear error instead of launching a session-copy Chrome
+- Previously Steps 2&3 (enable via chrome://inspect and restart with debug port) ran even with launch_chrome:false, overriding user intent
+- Now Steps 2&3 only run when launch_chrome:true; false means "use existing debug port only"
+
+---
+
 ## 0.9.19
 
 **Fix Chrome 146 consent port: skip Origin header in WebSocket upgrade**
