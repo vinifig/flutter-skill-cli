@@ -37,6 +37,7 @@ extension CdpAppmcpMethods on CdpDriver {
   // ── WebMCP: Discover and call structured page tools ──
 
   /// Discover all tools on the current page from multiple sources:
+  /// 0. Chrome 146+ native WebMCP (navigator.modelContextTesting)
   /// 1. JS-registered tools (window.__flutter_skill_tools__)
   /// 2. data-mcp-tool annotated forms
   /// 3. <link rel="mcp-tools"> manifest
@@ -47,6 +48,22 @@ extension CdpAppmcpMethods on CdpDriver {
       'expression': '''
       (async () => {
         const tools = [];
+        // 0. Chrome 146+ native WebMCP API (navigator.modelContextTesting)
+        if (typeof navigator !== 'undefined' && navigator.modelContextTesting) {
+          try {
+            const webMcpTools = await navigator.modelContextTesting.getTools();
+            webMcpTools.forEach(t => {
+              tools.push({
+                name: t.name,
+                description: t.description || '',
+                params: t.inputSchema && t.inputSchema.properties ? t.inputSchema.properties : {},
+                inputSchema: t.inputSchema || null,
+                annotations: t.annotations || {},
+                source: 'webmcp-native',
+              });
+            });
+          } catch(e) {}
+        }
         // 1. JS-registered tools
         if (window.__flutter_skill_tools__ && Array.isArray(window.__flutter_skill_tools__)) {
           window.__flutter_skill_tools__.forEach(t => {
@@ -153,6 +170,17 @@ extension CdpAppmcpMethods on CdpDriver {
       (async () => {
         const toolName = $escapedName;
         const params = $paramsJson;
+        // 0. Chrome 146+ native WebMCP API (navigator.modelContextTesting)
+        if (typeof navigator !== 'undefined' && navigator.modelContextTesting) {
+          try {
+            const allTools = await navigator.modelContextTesting.getTools();
+            const found = allTools.find(t => t.name === toolName);
+            if (found) {
+              const result = await navigator.modelContextTesting.executeTool(toolName, params);
+              return JSON.stringify({ success: true, result: result, source: 'webmcp-native' });
+            }
+          } catch(e) {}
+        }
         // 1. JS-registered tools
         if (window.__flutter_skill_tools__) {
           const tool = window.__flutter_skill_tools__.find(t => t.name === toolName);
