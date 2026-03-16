@@ -1,3 +1,16 @@
+## 0.9.22
+
+**Support Chrome 146 WebMCP: discover and call navigator.modelContextTesting tools**
+
+### Changes
+- Added Chrome 146+ native WebMCP support to discover_page_tools and call_page_tool
+- discover_page_tools now checks navigator.modelContextTesting.getTools() first (source: webmcp-native)
+- call_page_tool now routes to navigator.modelContextTesting.executeTool() for WebMCP tools
+- Enable via chrome://flags/#enable-webmcp-testing in Chrome 146
+- Compatible with all existing tool discovery sources (js-registered, data-mcp-tool, forms, etc.)
+
+---
+
 ## 0.9.21
 
 **Auto-accept Chrome 146 remote debugging consent dialog**
