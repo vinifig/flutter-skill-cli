@@ -1,3 +1,14 @@
+## 0.9.21
+
+**Auto-accept Chrome 146 remote debugging consent dialog**
+
+### Changes
+- Chrome 146 consent port shows "Allow remote debugging?" dialog on every connection — user had to manually click Allow each time
+- Now auto-clicks the Allow button via macOS Accessibility API (AXSheet + AXButton description="Allow") in parallel with the WebSocket connection
+- Users no longer need to manually confirm remote debugging — connect_cdp works seamlessly
+
+---
+
 ## 0.9.20
 
 **Respect launch_chrome:false — skip session-copy when user Chrome has no debug port**
