@@ -1427,10 +1427,11 @@ Future<Map<String, dynamic>> _handleQrLoginWaitServe(
 /// Check if Chrome is already running on the specified port
 Future<bool> _checkForExistingChrome(int port) async {
   try {
-    final response = await Future.get(
-      'http://127.0.0.1:$port/json',
-      headers: {'Accept': 'application/json'},
-    ).timeout(Duration(milliseconds: 500));
+    final uri = Uri.parse('http://127.0.0.1:$port/json');
+    final client = HttpClient();
+    final request = await client.getUrl(uri);
+    request.headers.set('Accept', 'application/json');
+    final response = await request.close();
     return response.statusCode == 200;
   } catch (e) {
     return false;
