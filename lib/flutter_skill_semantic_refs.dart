@@ -318,6 +318,9 @@ class SemanticRefGenerator {
   /// Backward compatibility: check if ref looks like old format
   static bool isLegacyRef(String ref) {
     // Old format: btn_0, tf_1, sw_2, etc.
+    // NOTE: elem_NNN is NOT a legacy ref — it's a numeric element ID from
+    // get_interactable_elements and must NOT be handled by legacy parsing.
+    if (ref.startsWith('elem_')) return false;
     return RegExp(r'^[a-z]+_\d+$').hasMatch(ref);
   }
 

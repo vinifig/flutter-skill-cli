@@ -291,7 +291,7 @@ Omitting session_id in other tools will use the active session.""",
 connect to app | find running app | auto-connect | connect to running Flutter | find app | detect app | scan for app | discover app
 
 [PRIMARY PURPOSE]
-Automatically scan for and connect to a running Flutter app (scans VM Service ports 50000-50100).
+Automatically scan for and connect to a running Flutter app (scans VM Service ports 48000-65000).
 
 [USE WHEN]
 • App is already running and you want to connect
@@ -314,11 +314,11 @@ Omitting session_id in other tools will use the active session.""",
           "properties": {
             "port_start": {
               "type": "integer",
-              "description": "Start of port range (default: 50000)"
+              "description": "Start of port range (default: 48000)"
             },
             "port_end": {
               "type": "integer",
-              "description": "End of port range (default: 50100)"
+              "description": "End of port range (default: 65000)"
             },
             "project_path": {
               "type": "string",
@@ -335,6 +335,40 @@ Omitting session_id in other tools will use the active session.""",
               "description": "Optional session name for identification"
             },
           },
+        },
+      },
+      {
+        "name": "connect_by_pid",
+        "description": """Connect to a running Flutter app by its process PID.
+
+[USE WHEN]
+• You know the app's PID but not the VM Service URI
+• You got the PID from 'ps aux', Activity Monitor, or launch_app output
+
+[HOW IT WORKS]
+Uses lsof to find which port the process is listening on, then auto-constructs
+and connects to the VM Service URI.
+
+[MULTI-SESSION]
+Returns a session_id that can be used to target this specific app in subsequent tool calls.""",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "pid": {
+              "type": "integer",
+              "description": "Process ID of the running Flutter app"
+            },
+            "session_id": {
+              "type": "string",
+              "description":
+                  "Optional session ID (auto-generated if not provided)"
+            },
+            "name": {
+              "type": "string",
+              "description": "Optional session name for identification"
+            },
+          },
+          "required": ["pid"],
         },
       },
       {

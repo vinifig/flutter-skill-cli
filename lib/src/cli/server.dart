@@ -68,7 +68,7 @@ part 'tool_handlers/bug_report_handlers.dart';
 part 'tool_handlers/fixture_handlers.dart';
 part 'tool_handlers/explore_handlers.dart';
 
-const String currentVersion = '0.9.23';
+const String currentVersion = '0.9.25';
 
 /// Session information for multi-session support
 class SessionInfo {
@@ -833,6 +833,17 @@ class FlutterMcpServer {
     }
 
     return uri;
+  }
+
+  /// Check whether a URI looks like a DTD (Dart Tooling Daemon) URI.
+  /// DTD URIs end with `/ws` but respond to DTD protocol, not VM Service.
+  /// We detect this heuristically: if connecting returns -32601 "Unknown method"
+  /// on getVM, it is a DTD endpoint.
+  bool _looksLikeDtdUri(String error) {
+    final e = error.toLowerCase();
+    return e.contains('-32601') ||
+        e.contains('unknown method') ||
+        e.contains('method not found');
   }
 
   static const Map<String, Map<String, dynamic>> _gesturePresets = {

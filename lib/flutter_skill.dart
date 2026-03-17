@@ -1145,6 +1145,28 @@ class FlutterSkillBinding {
       }
     }
 
+    // Handle elem_NNN numeric IDs from get_interactable_elements
+    if (refId.startsWith('elem_')) {
+      final freshElements = _findInteractiveElements();
+      final match = freshElements.firstWhere(
+        (e) => e['id'] == refId,
+        orElse: () => {},
+      );
+      if (match.isNotEmpty) {
+        final bounds = match['bounds'] as Map<String, dynamic>?;
+        if (bounds != null) {
+          final x = (bounds['x'] as num?)?.toDouble() ?? 0;
+          final y = (bounds['y'] as num?)?.toDouble() ?? 0;
+          final w = (bounds['width'] as num?)?.toDouble() ?? 0;
+          final h = (bounds['height'] as num?)?.toDouble() ?? 0;
+          if (w > 0 && h > 0) {
+            return _findElementAtPosition(Offset(x + w / 2, y + h / 2));
+          }
+        }
+      }
+      return null;
+    }
+
     // Cache miss - do fresh inspect to rebuild cache
     final structured = _findInteractiveElementsStructured();
     final elements = structured['elements'] as List<dynamic>? ?? [];
@@ -1418,15 +1440,19 @@ class FlutterSkillBinding {
         'Use get_widget_tree() to explore the widget hierarchy',
       ]);
 
-      _log('Element not found for tap (key: $key, text: $text)');
+      _log('Element not found for tap (key: $key, text: $text, ref: $refId)');
+      final target = refId != null
+          ? "ref '$refId'"
+          : key != null
+              ? "key '$key'"
+              : "text '$text'";
       return {
         'success': false,
         'error': {
           'code': ErrorCode.elementNotFound,
-          'message':
-              'No element matching ${key != null ? "key '$key'" : "text '$text'"} found in widget tree',
+          'message': 'No element matching $target found in widget tree',
         },
-        'target': {'key': key, 'text': text},
+        'target': {'key': key, 'text': text, if (refId != null) 'ref': refId},
         'suggestions': suggestions,
       };
     }
@@ -1449,6 +1475,27 @@ class FlutterSkillBinding {
 
     final center =
         renderObject.localToGlobal(renderObject.size.center(Offset.zero));
+
+    // Reject off-screen coordinates — element may be from a non-active route
+    final view = WidgetsBinding.instance.platformDispatcher.views.first;
+    final sw = view.physicalSize.width / view.devicePixelRatio;
+    final sh = view.physicalSize.height / view.devicePixelRatio;
+    if (center.dx < -50 || center.dx > sw + 50 ||
+        center.dy < -50 || center.dy > sh + 50) {
+      return {
+        'success': false,
+        'error': {
+          'code': ErrorCode.elementNotVisible,
+          'message':
+              'Element "${text ?? key ?? refId}" is off-screen '
+              '(coords: ${center.dx.round()}, ${center.dy.round()}). '
+              'It may belong to a different route. Navigate to the correct page first.',
+        },
+        'target': {'key': key, 'text': text},
+        'position': {'x': center.dx.round(), 'y': center.dy.round()},
+      };
+    }
+
     _log('Tapping at $center (key: $key, text: $text)');
 
     // Show indicator if enabled
@@ -2217,6 +2264,19 @@ class FlutterSkillBinding {
         if (renderObject is RenderBox && renderObject.hasSize) {
           final offset = renderObject.localToGlobal(Offset.zero);
 
+          // Filter out elements from non-active routes (e.g. previous page still
+          // in Navigator stack). Negative x means the page was pushed left.
+          // Use a generous threshold to still include elements near the edge.
+          final view =
+              WidgetsBinding.instance.platformDispatcher.views.first;
+          final sw = view.physicalSize.width / view.devicePixelRatio;
+          final sh = view.physicalSize.height / view.devicePixelRatio;
+          if (offset.dx < -sw * 0.5 || offset.dx > sw * 1.5 ||
+              offset.dy < -sh * 0.5 || offset.dy > sh * 1.5) {
+            element.visitChildren((child) => visit(child, ancestors));
+            return;
+          }
+
           // Helper function to safely convert double to int, handling Infinity/NaN
           int safeRound(double value) {
             if (!value.isFinite) return 0;
@@ -2426,6 +2486,17 @@ class FlutterSkillBinding {
         if (renderObject is RenderBox && renderObject.hasSize) {
           final offset = renderObject.localToGlobal(Offset.zero);
           final size = renderObject.size;
+
+          // Filter out elements from non-active routes
+          final view =
+              WidgetsBinding.instance.platformDispatcher.views.first;
+          final sw = view.physicalSize.width / view.devicePixelRatio;
+          final sh = view.physicalSize.height / view.devicePixelRatio;
+          if (offset.dx < -sw * 0.5 || offset.dx > sw * 1.5 ||
+              offset.dy < -sh * 0.5 || offset.dy > sh * 1.5) {
+            element.visitChildren(visit);
+            return;
+          }
 
           // Helper function to safely convert double to int
           int safeRound(double value) {
