@@ -477,6 +477,62 @@ They will automatically route through the CDP connection.""",
         },
       },
 
+      // ======================== OpenClaw Browser (port 18800) ========================
+      {
+        "name": "connect_openclaw_browser",
+        "description":
+            """Connect to OpenClaw's built-in Chrome browser (port 18800). No launch needed — instant connection.
+
+[USE WHEN]
+• Running inside OpenClaw and need to automate the browser
+• Faster than connect_cdp — no Chrome launch, instant connection
+
+[AFTER CONNECTING]
+Use snapshot(), act(), navigate(), screenshot(), eval(), etc.""",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string",
+              "description":
+                  "Optional URL to navigate to after connecting. Omit to stay on current page."
+            },
+          },
+        },
+      },
+
+      // ======================== Chrome WebMCP (Chrome 146+) ========================
+      {
+        "name": "connect_webmcp",
+        "description":
+            """Connect via Chrome 146+ native WebMCP protocol. Auto-detects WebMCP, falls back to CDP.
+
+[USE WHEN]
+• Chrome 146+ with chrome://flags/#enable-webmcp-testing enabled
+• Prefer this over connect_cdp when Chrome WebMCP is available
+
+[SETUP]
+1. Chrome 146+ — open chrome://flags/#enable-webmcp-testing → Enabled → Restart""",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string",
+              "description": "URL to navigate to"
+            },
+            "webmcp_port": {
+              "type": "integer",
+              "description": "Chrome WebMCP port (default: auto-detect)"
+            },
+            "fallback_cdp_port": {
+              "type": "integer",
+              "description": "CDP fallback port (default: 18800 for OpenClaw)"
+            },
+          },
+          "required": ["url"],
+        },
+      },
+
       // ======================== HTTP Request ========================
       {
         "name": "http_request",

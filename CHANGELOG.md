@@ -1,3 +1,12 @@
+## 0.9.29
+
+**Fix: add connect_openclaw_browser and connect_webmcp to tool_registry**
+
+### Changes
+- Fix: register `connect_openclaw_browser` and `connect_webmcp` in tool_registry.dart so they appear in tools/list
+
+---
+
 ## 0.9.28
 
 **Add connect_openclaw_browser and connect_webmcp tools; fix OpenClaw plugin binary path**
