@@ -1,3 +1,15 @@
+## 0.9.30
+
+**Fix Gemini/Vertex AI "Duplicate function declaration" error (issue #32)**
+
+### Changes
+- Fix: remove duplicate `get_network_requests` definition — direct root cause of Gemini 400 error
+- Fix: limit tools/list to ~11 connection tools before any connection, preventing Gemini 128-tool limit breach
+- Add: `connectionOnlyTools` set and `geminiToolLimit` constant in ToolRegistry
+- Add: `test/tool_registry_test.dart` — 17 unit tests covering tool filtering behavior
+
+---
+
 ## 0.9.29
 
 **Fix: add connect_openclaw_browser and connect_webmcp to tool_registry**

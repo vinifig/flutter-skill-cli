@@ -21,6 +21,28 @@ class ToolDefinition {
 ///
 /// Extracted from FlutterMcpServer._getToolsList() — pure data, no logic.
 class ToolRegistry {
+  /// Gemini/Vertex AI maximum tool declarations per request.
+  static const geminiToolLimit = 128;
+
+  /// Tools shown before any connection is established.
+  ///
+  /// Kept intentionally small (~11) so the total stays under the Gemini
+  /// 128-function limit even when flutter-skill is combined with other MCP
+  /// servers (e.g. Dart MCP). All other tools become visible after connecting.
+  static const connectionOnlyTools = <String>{
+    'connect_app',
+    'connect_cdp',
+    'connect_openclaw_browser',
+    'connect_webmcp',
+    'scan_and_connect',
+    'launch_app',
+    'list_sessions',
+    'list_running_apps',
+    'get_connection_status',
+    'disconnect',
+    'diagnose_project',
+  };
+
   /// CDP-only tools that don't apply to bridge/Flutter platforms.
   static const cdpOnlyTools = <String>{
     'connect_cdp',
@@ -802,12 +824,6 @@ After starting, point the web SDK at ws://127.0.0.1:<port>.""",
       {
         "name": "get_console_messages",
         "description": "Get browser console log messages",
-        "inputSchema": {"type": "object", "properties": {}}
-      },
-      {
-        "name": "get_network_requests",
-        "description":
-            "Get all network requests made by the page (via Performance API)",
         "inputSchema": {"type": "object", "properties": {}}
       },
       {
@@ -3624,8 +3640,15 @@ can visually compare them. Also returns text snapshots for structural comparison
       });
     }
 
-    // Smart filtering: when connected, only return relevant tools
-    if (!hasConnection) return allTools;
+    // Before any connection: only show connection/discovery tools.
+    // This keeps the total under the Gemini 128-function-declaration limit
+    // when flutter-skill is used alongside other MCP servers (e.g. Dart MCP).
+    // All tools become visible after connect_app / connect_cdp / etc.
+    if (!hasConnection) {
+      return allTools
+          .where((t) => connectionOnlyTools.contains(t['name'] as String))
+          .toList();
+    }
 
     return allTools.where((tool) {
       final name = tool['name'] as String;
