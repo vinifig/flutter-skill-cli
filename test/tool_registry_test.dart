@@ -214,4 +214,58 @@ void main() {
       }
     });
   });
+
+  group('ToolRegistry — idb and notifications/tools/list_changed', () {
+    test('idb_describe is in the full tool list', () {
+      final all = ToolRegistry.getAllToolDefinitions();
+      final names = all.map((t) => t['name'] as String).toSet();
+      expect(names, contains('idb_describe'));
+    });
+
+    test('idb_describe appears before connecting (connectionOnlyTools)', () {
+      expect(ToolRegistry.connectionOnlyTools, contains('idb_describe'));
+      final noConn = ToolRegistry.getFilteredTools(
+        hasCdp: false,
+        hasBridge: false,
+        hasFlutter: false,
+        hasConnection: false,
+      );
+      final names = noConn.map((t) => t['name'] as String).toSet();
+      expect(names, contains('idb_describe'));
+    });
+
+    test('native_list_simulators appears before connecting', () {
+      expect(
+          ToolRegistry.connectionOnlyTools, contains('native_list_simulators'));
+      final noConn = ToolRegistry.getFilteredTools(
+        hasCdp: false,
+        hasBridge: false,
+        hasFlutter: false,
+        hasConnection: false,
+      );
+      final names = noConn.map((t) => t['name'] as String).toSet();
+      expect(names, contains('native_list_simulators'));
+    });
+
+    test('connectionOnlyTools still stays under Gemini 128-tool limit', () {
+      expect(
+        ToolRegistry.connectionOnlyTools.length,
+        lessThanOrEqualTo(ToolRegistry.geminiToolLimit),
+        reason: 'connectionOnlyTools set must never exceed the Gemini limit',
+      );
+    });
+
+    test('native_tap is available in Flutter mode (uses idb as backend)', () {
+      final tools = ToolRegistry.getFilteredTools(
+        hasCdp: false,
+        hasBridge: false,
+        hasFlutter: true,
+        hasConnection: true,
+      );
+      final names = tools.map((t) => t['name'] as String).toSet();
+      expect(names, contains('native_tap'));
+      expect(names, contains('native_swipe'));
+      expect(names, contains('native_input_text'));
+    });
+  });
 }

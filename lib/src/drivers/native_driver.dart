@@ -236,6 +236,9 @@ class _Point {
 class IosSimulatorDriver extends NativeDriver {
   String? _cachedUdid;
   String? _cachedBridgePath;
+  // idb availability and scale factor are detected once and cached.
+  bool? _idbAvailable;
+  double? _cachedLogicalScale;
 
   @override
   NativePlatform get platform => NativePlatform.iosSimulator;
@@ -299,6 +302,84 @@ class IosSimulatorDriver extends NativeDriver {
 
   /// Check if HID bridge is available (preferred over osascript)
   Future<bool> _hasBridge() async => (await _getBridgePath()) != null;
+
+  // ========== idb (iOS Development Bridge) integration ==========
+
+  /// Run an idb command, using python3.13 to work around the Python 3.14
+  /// asyncio regression in the fb-idb package.
+  Future<ProcessResult> _runIdb(List<String> args) async {
+    // Prefer python3.13 which is compatible with fb-idb 1.1.7.
+    // Fall back to the idb binary in case a fixed version is installed.
+    const py313 = '/opt/homebrew/bin/python3.13';
+    final py313Exists = await File(py313).exists();
+    if (py313Exists) {
+      return Process.run(py313, [
+        '-c',
+        'import asyncio; asyncio.set_event_loop(asyncio.new_event_loop()); '
+            'from idb.cli.main import main; main()',
+        '--',
+        ...args,
+      ]).timeout(const Duration(seconds: 10),
+          onTimeout: () => ProcessResult(0, 1, '', 'idb timeout'));
+    }
+    return Process.run('idb', args).timeout(
+      const Duration(seconds: 10),
+      onTimeout: () => ProcessResult(0, 1, '', 'idb timeout'),
+    );
+  }
+
+  /// Returns true if idb is usable on this machine.
+  Future<bool> _hasIdb() async {
+    if (_idbAvailable != null) return _idbAvailable!;
+    try {
+      final result = await _runIdb(['list-targets', '--json']);
+      _idbAvailable = result.exitCode == 0;
+    } catch (_) {
+      _idbAvailable = false;
+    }
+    return _idbAvailable!;
+  }
+
+  /// Get the logical scale factor (pixels per point) for the booted simulator.
+  /// Used to convert device-pixel coordinates to idb logical-point coordinates.
+  Future<double> _getLogicalScale() async {
+    if (_cachedLogicalScale != null) return _cachedLogicalScale!;
+    try {
+      final udid = await _getBootedSimulatorUdid();
+      final result = await _runIdb(['describe', '--udid', udid]);
+      if (result.exitCode == 0) {
+        final out = result.stdout as String;
+        // Parse "Screen: <w> x <h> (logical)" or similar idb output.
+        final match = RegExp(r'(\d+)\s*x\s*(\d+)\s*\(?logical').firstMatch(out);
+        if (match != null) {
+          final logicalWidth = double.parse(match.group(1)!);
+          // Get pixel width from a simctl screenshot (fast, cached result).
+          final shotPath = '${Directory.systemTemp.path}/fs_scale_probe.png';
+          final shot = await Process.run(
+              'xcrun', ['simctl', 'io', udid, 'screenshot', shotPath]);
+          if (shot.exitCode == 0) {
+            // Use `sips` (built-in macOS tool) to read pixel dimensions.
+            final sips = await Process.run('sips', [
+              '-g',
+              'pixelWidth',
+              shotPath,
+            ]);
+            final sipsOut = sips.stdout as String;
+            final pixelMatch =
+                RegExp(r'pixelWidth:\s*(\d+)').firstMatch(sipsOut);
+            if (pixelMatch != null) {
+              final pixelWidth = double.parse(pixelMatch.group(1)!);
+              _cachedLogicalScale = pixelWidth / logicalWidth;
+              return _cachedLogicalScale!;
+            }
+          }
+        }
+      }
+    } catch (_) {}
+    // Safe default: most modern iPhones are @3x.
+    _cachedLogicalScale = 3.0;
+    return _cachedLogicalScale!;
+  }
 
   /// Get the UDID of the first booted simulator
   Future<String> _getBootedSimulatorUdid() async {
@@ -367,6 +448,30 @@ class IosSimulatorDriver extends NativeDriver {
           message: result['message'] as String? ?? result['error'] as String?,
         );
       }
+    }
+
+    // idb is more reliable than the Accessibility API: it uses XCTest under the
+    // hood and requires no coordinate mapping (operates in logical points).
+    if (await _hasIdb()) {
+      final udid = await _getBootedSimulatorUdid();
+      final scale = await _getLogicalScale();
+      final lx = (x / scale).roundToDouble();
+      final ly = (y / scale).roundToDouble();
+      final idbResult =
+          await _runIdb(['ui', 'tap', '$lx', '$ly', '--udid', udid]);
+      if (idbResult.exitCode == 0) {
+        return NativeResult(
+          success: true,
+          message:
+              'Tapped at device (${x.round()}, ${y.round()}) via idb (logical: $lx, $ly)',
+          metadata: {
+            'device_coords': {'x': x, 'y': y},
+            'logical_coords': {'x': lx, 'y': ly},
+            'backend': 'idb',
+          },
+        );
+      }
+      // idb failed — fall through to Accessibility API.
     }
 
     // Fallback: osascript approach
@@ -514,6 +619,19 @@ end tell
   Future<NativeResult> inputText(String text) async {
     final udid = await _getBootedSimulatorUdid();
 
+    // idb text injection is the cleanest approach: no clipboard side-effects
+    // and no "Allow Paste" dialog to dismiss.
+    if (await _hasIdb()) {
+      final idbResult = await _runIdb(['ui', 'text', text, '--udid', udid]);
+      if (idbResult.exitCode == 0) {
+        return NativeResult(
+          success: true,
+          message: 'Entered text via idb: "$text"',
+          metadata: {'backend': 'idb'},
+        );
+      }
+    }
+
     // Copy text to simulator pasteboard
     final process = await Process.start(
       'xcrun',
@@ -584,6 +702,37 @@ end tell
         return NativeResult(
           success: result['success'] == true,
           message: result['message'] as String? ?? result['error'] as String?,
+        );
+      }
+    }
+
+    // idb swipe is more reliable (XCTest-backed, no coordinate mapping needed).
+    if (await _hasIdb()) {
+      final udid = await _getBootedSimulatorUdid();
+      final scale = await _getLogicalScale();
+      final lx1 = (startX / scale).roundToDouble();
+      final ly1 = (startY / scale).roundToDouble();
+      final lx2 = (endX / scale).roundToDouble();
+      final ly2 = (endY / scale).roundToDouble();
+      final duration =
+          (durationMs / 1000.0).toStringAsFixed(2); // idb expects seconds
+      final idbResult = await _runIdb([
+        'ui',
+        'swipe',
+        '$lx1',
+        '$ly1',
+        '$lx2',
+        '$ly2',
+        '--duration',
+        duration,
+        '--udid',
+        udid,
+      ]);
+      if (idbResult.exitCode == 0) {
+        return NativeResult(
+          success: true,
+          message: 'Swiped via idb',
+          metadata: {'backend': 'idb'},
         );
       }
     }
@@ -692,6 +841,36 @@ end tell
     return {
       'xcrun_simctl': await _isCommandAvailable('xcrun'),
       'osascript': await _isCommandAvailable('osascript'),
+      'idb': await _hasIdb(),
+    };
+  }
+
+  /// Return device description and idb availability for the MCP `idb_describe` tool.
+  Future<Map<String, dynamic>> describe() async {
+    final idbOk = await _hasIdb();
+    if (!idbOk) {
+      return {
+        'idb_available': false,
+        'error': 'idb not available. Install with: pip3 install fb-idb\n'
+            'Requires Python 3.13 at /opt/homebrew/bin/python3.13',
+        'fallback':
+            'native_tap/swipe/input_text will use macOS Accessibility API instead.',
+      };
+    }
+
+    final udid = await _getBootedSimulatorUdid();
+    final scale = await _getLogicalScale();
+    final idbResult = await _runIdb(['describe', '--udid', udid]);
+    final rawDescription =
+        idbResult.exitCode == 0 ? (idbResult.stdout as String).trim() : null;
+
+    return {
+      'idb_available': true,
+      'udid': udid,
+      'scale_factor': scale,
+      'description': rawDescription,
+      'note':
+          'native_tap/swipe/input_text automatically use idb when available.',
     };
   }
 

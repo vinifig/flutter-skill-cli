@@ -41,6 +41,8 @@ class ToolRegistry {
     'get_connection_status',
     'disconnect',
     'diagnose_project',
+    'native_list_simulators',
+    'idb_describe',
   };
 
   /// CDP-only tools that don't apply to bridge/Flutter platforms.
@@ -2432,6 +2434,19 @@ This captures the ENTIRE device screen, not just the Flutter app content.""",
               "enum": ["ios", "android", "all"]
             },
           },
+        },
+      },
+
+      // ======================== idb (iOS Development Bridge) ========================
+      {
+        "name": "idb_describe",
+        "description": "Describe the booted iOS Simulator via idb (iOS Development Bridge). "
+            "Returns device model, OS version, logical screen resolution, scale factor, "
+            "and idb availability. Use this to verify idb is working before using "
+            "native_tap / native_swipe / native_input_text (which prefer idb when available).",
+        "inputSchema": {
+          "type": "object",
+          "properties": {},
         },
       },
 

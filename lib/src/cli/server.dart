@@ -68,7 +68,7 @@ part 'tool_handlers/bug_report_handlers.dart';
 part 'tool_handlers/fixture_handlers.dart';
 part 'tool_handlers/explore_handlers.dart';
 
-const String currentVersion = '0.9.33';
+const String currentVersion = '0.9.34';
 
 /// Session information for multi-session support
 class SessionInfo {
@@ -388,7 +388,10 @@ class FlutterMcpServer {
     try {
       if (method == 'initialize') {
         _sendResult(id, {
-          "capabilities": {"tools": {}, "resources": {}},
+          "capabilities": {
+            "tools": {"listChanged": true},
+            "resources": {}
+          },
           "protocolVersion": "2024-11-05",
           "serverInfo": {"name": "flutter-skill", "version": currentVersion},
         });
@@ -406,6 +409,7 @@ class FlutterMcpServer {
                 'launch_chrome': true,
               });
               stderr.writeln('CDP auto-connect: $result');
+              _sendNotification('notifications/tools/list_changed');
             } catch (e) {
               stderr.writeln('CDP auto-connect failed: $e');
             }
@@ -443,6 +447,27 @@ class FlutterMcpServer {
             {"type": "text", "text": jsonEncode(result)},
           ],
         });
+        // Notify MCP clients to refresh tool list after connection state changes.
+        // This allows clients to discover the full automation toolkit after connecting.
+        const _connectionStateTools = {
+          'connect_app',
+          'launch_app',
+          'scan_and_connect',
+          'connect_cdp',
+          'connect_openclaw_browser',
+          'connect_webmcp',
+          'disconnect',
+        };
+        if (_connectionStateTools.contains(name)) {
+          final succeeded = result is Map
+              ? (result['success'] == true ||
+                  result['connected'] == true ||
+                  name == 'disconnect')
+              : false;
+          if (succeeded) {
+            _sendNotification('notifications/tools/list_changed');
+          }
+        }
       }
     } catch (e, stackTrace) {
       if (id != null) {
@@ -1041,6 +1066,14 @@ class FlutterMcpServer {
   /// Scan for VM Services on local ports
 
   // ==================== End Build Error Helpers ====================
+
+  void _sendNotification(String method, [Map<String, dynamic>? params]) {
+    stdout.writeln(jsonEncode({
+      "jsonrpc": "2.0",
+      "method": method,
+      if (params != null && params.isNotEmpty) "params": params,
+    }));
+  }
 
   void _sendResult(dynamic id, dynamic result) {
     if (id == null) return;

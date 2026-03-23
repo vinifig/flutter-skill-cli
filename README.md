@@ -440,7 +440,7 @@ Then batch multiple actions in one call:
 
 ```yaml
 dependencies:
-  flutter_skill: ^0.9.33
+  flutter_skill: ^0.9.34
 ```
 
 ```dart

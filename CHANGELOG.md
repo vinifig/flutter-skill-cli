@@ -1,3 +1,12 @@
+## 0.9.34
+
+**notifications/tools/list_changed support + idb integration for native iOS automation**
+
+### Changes
+- TODO: Add your changes here
+
+---
+
 ## 0.9.33
 
 **fix dart format CI check across all files**

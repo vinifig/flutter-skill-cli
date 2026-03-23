@@ -1,6 +1,6 @@
 {
   "name": "flutter-skill-electron",
-  "version": "0.9.33",
+  "version": "0.9.34",
   "description": "Flutter Skill AI E2E testing bridge for Electron apps",
   "main": "flutter-skill-electron.js",
   "keywords": [

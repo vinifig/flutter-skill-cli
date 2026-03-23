@@ -449,6 +449,19 @@ extension _NativeHandlers on FlutterMcpServer {
       return {"success": true, ...devices};
     }
 
+    if (name == 'idb_describe') {
+      final driver = await NativeDriver.create(null);
+      if (driver is! IosSimulatorDriver) {
+        return {
+          "success": false,
+          "error":
+              "No booted iOS Simulator found. idb requires a running simulator.",
+        };
+      }
+      final info = await driver.describe();
+      return {"success": info['idb_available'] == true, ...info};
+    }
+
     // Auth tools (system commands, no bridge connection required)
 
     return null; // Not handled by this group
