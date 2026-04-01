@@ -57,28 +57,44 @@ Future<void> runAct(List<String> args) async {
       case 'tap':
         if (param1 == null) throw ArgumentError('tap requires a key or text');
         await client.tap(key: param1);
-        print('Tapped "$param1"');
+        if (format == OutputFormat.json) {
+          print(jsonEncode({'success': true, 'action': 'tap', 'target': param1}));
+        } else {
+          print('Tapped "$param1"');
+        }
         break;
 
       case 'enter_text':
         if (param1 == null || param2 == null)
           throw ArgumentError('enter_text requires key and text');
         await client.enterText(param1, param2);
-        print('Entered text "$param2" into "$param1"');
+        if (format == OutputFormat.json) {
+          print(jsonEncode({'success': true, 'action': 'enter_text', 'key': param1, 'text': param2}));
+        } else {
+          print('Entered text "$param2" into "$param1"');
+        }
         break;
 
       case 'scroll_to':
         if (param1 == null)
           throw ArgumentError('scroll_to requires a key or text');
         await client.scrollTo(key: param1);
-        print('Scrolled to "$param1"');
+        if (format == OutputFormat.json) {
+          print(jsonEncode({'success': true, 'action': 'scroll_to', 'target': param1}));
+        } else {
+          print('Scrolled to "$param1"');
+        }
         break;
 
       case 'scroll':
         if (param1 == null)
           throw ArgumentError('scroll requires a key or text to scroll to');
         await client.scrollTo(key: param1);
-        print('Scrolled to "$param1"');
+        if (format == OutputFormat.json) {
+          print(jsonEncode({'success': true, 'action': 'scroll', 'target': param1}));
+        } else {
+          print('Scrolled to "$param1"');
+        }
         break;
 
       case 'screenshot':
@@ -88,12 +104,24 @@ Future<void> runAct(List<String> args) async {
           if (param1 != null) {
             final bytes = base64Decode(image);
             await File(param1).writeAsBytes(bytes);
-            print('Screenshot saved to $param1 (${bytes.length} bytes)');
+            if (format == OutputFormat.json) {
+              print(jsonEncode({'success': true, 'action': 'screenshot', 'path': param1, 'bytes': bytes.length}));
+            } else {
+              print('Screenshot saved to $param1 (${bytes.length} bytes)');
+            }
           } else {
-            print('Screenshot captured (${image.length} base64 chars)');
+            if (format == OutputFormat.json) {
+              print(jsonEncode({'success': true, 'action': 'screenshot', 'base64Length': image.length}));
+            } else {
+              print('Screenshot captured (${image.length} base64 chars)');
+            }
           }
         } else {
-          print('Screenshot failed');
+          if (format == OutputFormat.json) {
+            print(jsonEncode({'success': false, 'error': 'Screenshot failed'}));
+          } else {
+            print('Screenshot failed');
+          }
           exit(1);
         }
         break;
@@ -101,14 +129,22 @@ Future<void> runAct(List<String> args) async {
       case 'get_text':
         if (param1 == null) throw ArgumentError('get_text requires a key');
         final text = await client.getTextValue(param1);
-        print(text ?? '(null)');
+        if (format == OutputFormat.json) {
+          print(jsonEncode({'success': true, 'action': 'get_text', 'key': param1, 'text': text}));
+        } else {
+          print(text ?? '(null)');
+        }
         break;
 
       case 'find_element':
         if (param1 == null)
           throw ArgumentError('find_element requires a key or text');
         final found = await client.waitForElement(key: param1, timeout: 2000);
-        print(found ? 'Found "$param1"' : 'Not found "$param1"');
+        if (format == OutputFormat.json) {
+          print(jsonEncode({'success': found, 'action': 'find_element', 'target': param1, 'found': found}));
+        } else {
+          print(found ? 'Found "$param1"' : 'Not found "$param1"');
+        }
         break;
 
       case 'wait_for_element':
@@ -117,13 +153,21 @@ Future<void> runAct(List<String> args) async {
         final timeout = param2 != null ? int.tryParse(param2) ?? 5000 : 5000;
         final appeared =
             await client.waitForElement(key: param1, timeout: timeout);
-        print(appeared ? 'Found "$param1"' : 'Timeout waiting for "$param1"');
+        if (format == OutputFormat.json) {
+          print(jsonEncode({'success': appeared, 'action': 'wait_for_element', 'target': param1, 'found': appeared}));
+        } else {
+          print(appeared ? 'Found "$param1"' : 'Timeout waiting for "$param1"');
+        }
         if (!appeared) exit(1);
         break;
 
       case 'go_back':
         await client.goBack();
-        print('Navigated back');
+        if (format == OutputFormat.json) {
+          print(jsonEncode({'success': true, 'action': 'go_back'}));
+        } else {
+          print('Navigated back');
+        }
         break;
 
       case 'swipe':
@@ -131,7 +175,11 @@ Future<void> runAct(List<String> args) async {
         final distance =
             param2 != null ? double.tryParse(param2) ?? 300 : 300.0;
         await client.swipe(direction: direction, distance: distance);
-        print('Swiped $direction by $distance');
+        if (format == OutputFormat.json) {
+          print(jsonEncode({'success': true, 'action': 'swipe', 'direction': direction, 'distance': distance}));
+        } else {
+          print('Swiped $direction by $distance');
+        }
         break;
 
       case 'assert_visible':
@@ -140,7 +188,11 @@ Future<void> runAct(List<String> args) async {
         final target = param1;
         final elements = await client.getInteractiveElements();
         if (_findTarget(elements, target)) {
-          print('Assertion Passed: "$target" is visible.');
+          if (format == OutputFormat.json) {
+            print(jsonEncode({'success': true, 'action': 'assert_visible', 'target': target, 'visible': true}));
+          } else {
+            print('Assertion Passed: "$target" is visible.');
+          }
         } else {
           throw Exception('Assertion Failed: "$target" is NOT visible.');
         }
@@ -152,18 +204,30 @@ Future<void> runAct(List<String> args) async {
         final target = param1;
         final elements = await client.getInteractiveElements();
         if (!_findTarget(elements, target)) {
-          print('Assertion Passed: "$target" is gone.');
+          if (format == OutputFormat.json) {
+            print(jsonEncode({'success': true, 'action': 'assert_gone', 'target': target, 'gone': true}));
+          } else {
+            print('Assertion Passed: "$target" is gone.');
+          }
         } else {
           throw Exception('Assertion Failed: "$target" is STILL visible.');
         }
         break;
 
       default:
-        print('Unknown action: $action');
+        if (format == OutputFormat.json) {
+          print(jsonEncode({'success': false, 'error': 'Unknown action: $action'}));
+        } else {
+          print('Unknown action: $action');
+        }
         exit(1);
     }
   } catch (e) {
-    print('Error: $e');
+    if (format == OutputFormat.json) {
+      print(jsonEncode({'success': false, 'error': e.toString()}));
+    } else {
+      print('Error: $e');
+    }
     exit(1);
   } finally {
     await client.disconnect();
@@ -202,7 +266,9 @@ Map<String, dynamic> _buildRpcCall(List<String> actArgs) {
     case 'scroll_to':
       return {
         'method': 'scroll_to',
-        'params': {'key': param1, 'direction': param2 ?? 'down'}
+        'params': {
+          if (param1 != null) 'key': param1,
+        }
       };
     case 'screenshot':
       return {
@@ -294,7 +360,16 @@ Future<void> _actViaServers(
   }
 
   if (format == OutputFormat.json) {
-    print(jsonEncode(results.map((r) => r.toJson()).toList()));
+    if (serverIds.length == 1) {
+      final r = results.first;
+      if (r.success) {
+        print(jsonEncode(r.data ?? {'success': true, 'action': r.action}));
+      } else {
+        print(jsonEncode({'success': false, 'error': r.error}));
+      }
+    } else {
+      print(jsonEncode(results.map((r) => r.toJson()).toList()));
+    }
     return;
   }
 

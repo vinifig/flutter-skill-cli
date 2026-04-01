@@ -58,17 +58,29 @@ Future<void> _inspectViaServers(
   final results = await callServersParallel(serverIds, 'inspect', {});
 
   if (format == OutputFormat.json) {
-    print(jsonEncode(results.map((r) => r.toJson()).toList()));
+    if (serverIds.length == 1) {
+      // Single server: unwrap to match direct-VM schema {"elements": [...]}
+      final r = results.first;
+      if (r.success) {
+        print(jsonEncode(r.data ?? {'elements': []}));
+      } else {
+        print(jsonEncode({'error': r.error}));
+      }
+    } else {
+      print(jsonEncode(results.map((r) => r.toJson()).toList()));
+    }
     return;
   }
 
+  // Human output: always show server prefix for clarity
   for (final r in results) {
     if (!r.success) {
       print('[${r.serverId}] Error: ${r.error}');
       continue;
     }
-    final elements = (r.data!['elements'] as List?) ?? [];
-    print('[${r.serverId}] Interactive Elements (${r.durationMs}ms):');
+    final elements = (r.data?['elements'] as List?) ?? [];
+    final prefix = serverIds.length > 1 ? '[${r.serverId}] ' : '';
+    print('${prefix}Interactive Elements (${r.durationMs}ms):');
     if (elements.isEmpty) {
       print('  (No interactive elements found)');
     } else {

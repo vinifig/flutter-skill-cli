@@ -90,10 +90,12 @@ Future<void> runLaunch(List<String> args) async {
 }
 
 String? _extractUri(String line) {
-  if (!line.contains('ws://')) return null;
-  final uriRegex = RegExp(r'ws://[^\s]+');
-  final match = uriRegex.firstMatch(line);
-  return match?.group(0);
+  // Try ws:// first (most common)
+  final wsMatch = RegExp(r'ws://[^\s]+').firstMatch(line);
+  if (wsMatch != null) return wsMatch.group(0);
+  // Also match http:// VM Service URIs (newer Flutter versions)
+  final httpMatch = RegExp(r'http://127\.0\.0\.1:\d+[^\s]*').firstMatch(line);
+  return httpMatch?.group(0);
 }
 
 void _onUriDiscovered(

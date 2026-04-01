@@ -23,6 +23,7 @@ class SkillServer {
   ServerSocket? _unixServer;
   int? _port;
   final List<Socket> _connections = [];
+  bool _stopped = false;
 
   final _shutdownController = StreamController<void>.broadcast();
 
@@ -79,8 +80,10 @@ class SkillServer {
 
   /// Stop the server and unregister from the registry.
   Future<void> stop() async {
+    if (_stopped) return;
+    _stopped = true;
     for (final conn in List<Socket>.from(_connections)) {
-      await conn.close().catchError((_) => conn);
+      await conn.close().catchError((_) {});
     }
     _connections.clear();
     await _tcpServer?.close();
@@ -235,8 +238,8 @@ class SkillServer {
           return result;
         } catch (_) {
           final success = await driver.swipe(
-            direction: params['direction'] as String? ?? 'down',
-            distance: (params['distance'] as num?)?.toDouble() ?? 300,
+            direction: 'down',
+            distance: 300,
             key: scrollKey,
           );
           return {'success': success};

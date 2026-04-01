@@ -42,6 +42,12 @@ Future<void> runConnect(List<String> args) async {
     exit(1);
   }
 
+  // Validate id early — before any expensive I/O.
+  if (!RegExp(r'^[a-zA-Z0-9_\-]+$').hasMatch(id)) {
+    print('Error: invalid server id "$id". Only letters, numbers, hyphens, and underscores are allowed.');
+    exit(1);
+  }
+
   // Build the WebSocket URI.
   if (uri == null) {
     if (port != null) {
