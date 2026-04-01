@@ -559,21 +559,14 @@ Auto-setup: run  diagnose_project()  to fix automatically.
   }
 
   Future<void> hotRestart() async {
-    if (_service == null || _isolateId == null) {
-      throw Exception('Not connected');
-    }
-    try {
-      await _service!.reloadSources(_isolateId!);
-    } catch (e) {
-      if (!_isConnectionError(e)) rethrow;
-      if (await _reconnect()) {
-        await _service!.reloadSources(_isolateId!);
-        return;
-      }
-      throw Exception('❌ VM Service connection lost and reconnection failed.\n'
-          'URI: $wsUri\n'
-          'Original error: $e');
-    }
+    // The VM Service protocol does not expose a hot-restart RPC that can be
+    // called externally. A real hot restart requires re-running the Dart
+    // program from scratch, which is only possible by invoking `flutter run`
+    // again or using the Flutter tool's stdin protocol.
+    // Throw UnsupportedError so callers can detect this and fall back to
+    // hotReload or surface a warning to the user.
+    throw UnsupportedError('hotRestart is not supported via the VM Service. '
+        'Use hotReload for source updates, or restart the app via flutter run.');
   }
 
   Future<Map<String, dynamic>> getLayoutTree() async {

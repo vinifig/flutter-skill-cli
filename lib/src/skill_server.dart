@@ -24,6 +24,13 @@ class SkillServer {
   int? _port;
   final List<Socket> _connections = [];
 
+  final _shutdownController = StreamController<void>.broadcast();
+
+  /// Stream that emits when the server has been asked to shut down via the
+  /// `shutdown` JSON-RPC method. Callers (e.g. [runConnect]) can listen to
+  /// this stream to perform orderly cleanup.
+  Stream<void> get onShutdownRequested => _shutdownController.stream;
+
   SkillServer({
     required this.id,
     required this.driver,
@@ -79,6 +86,9 @@ class SkillServer {
     await _tcpServer?.close();
     await _unixServer?.close();
     await ServerRegistry.unregister(id);
+    if (!_shutdownController.isClosed) {
+      await _shutdownController.close();
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -195,16 +205,16 @@ class SkillServer {
 
       case 'hot_restart':
         if (driver is FlutterSkillClient) {
-          // Check if hotRestart is available; if not, fall back to hotReload with a warning.
           try {
             await (driver as FlutterSkillClient).hotRestart();
             return {'success': true};
-          } catch (_) {
+          } catch (e) {
+            // hotRestart failed — fall back to hotReload with warning.
             await driver.hotReload();
             return {
               'success': true,
               'warning':
-                  'hotRestart not available; performed hotReload instead'
+                  'hotRestart failed ($e); performed hotReload instead',
             };
           }
         }
@@ -212,16 +222,25 @@ class SkillServer {
         return {
           'success': true,
           'warning':
-              'hotRestart not supported by this driver; performed hotReload'
+              'hotRestart not supported by this driver; performed hotReload',
         };
 
       case 'scroll_to':
-        final success = await driver.swipe(
-          direction: params['direction'] as String? ?? 'down',
-          distance: (params['distance'] as num?)?.toDouble() ?? 300,
-          key: params['key'] as String?,
-        );
-        return {'success': success};
+        final scrollKey = params['key'] as String?;
+        final scrollText = params['text'] as String?;
+        try {
+          // FlutterSkillClient has scrollTo; other drivers fall back to swipe.
+          final fsc = driver as FlutterSkillClient;
+          final result = await fsc.scrollTo(key: scrollKey, text: scrollText);
+          return result;
+        } catch (_) {
+          final success = await driver.swipe(
+            direction: params['direction'] as String? ?? 'down',
+            distance: (params['distance'] as num?)?.toDouble() ?? 300,
+            key: scrollKey,
+          );
+          return {'success': success};
+        }
 
       case 'assert_visible':
         // Check if element is present in interactive elements list.
@@ -229,12 +248,8 @@ class SkillServer {
             params['key'] as String? ?? params['text'] as String?;
         final assertVisibleElements =
             await driver.getInteractiveElements(includePositions: false);
-        final assertVisibleFound = assertVisibleElements.any((e) {
-          if (e is! Map) return false;
-          return e['key'] == assertVisibleKey ||
-              e['text'] == assertVisibleKey ||
-              e['ref'] == assertVisibleKey;
-        });
+        final assertVisibleFound =
+            assertVisibleElements.any((e) => _elementMatches(e, assertVisibleKey));
         if (!assertVisibleFound) {
           throw Exception('Element not found: $assertVisibleKey');
         }
@@ -245,12 +260,8 @@ class SkillServer {
             params['key'] as String? ?? params['text'] as String?;
         final assertGoneElements =
             await driver.getInteractiveElements(includePositions: false);
-        final assertGoneFound = assertGoneElements.any((e) {
-          if (e is! Map) return false;
-          return e['key'] == assertGoneKey ||
-              e['text'] == assertGoneKey ||
-              e['ref'] == assertGoneKey;
-        });
+        final assertGoneFound =
+            assertGoneElements.any((e) => _elementMatches(e, assertGoneKey));
         if (assertGoneFound) {
           throw Exception('Element still present: $assertGoneKey');
         }
@@ -265,13 +276,9 @@ class SkillServer {
         while (DateTime.now().isBefore(deadline)) {
           final waitElements =
               await driver.getInteractiveElements(includePositions: false);
-          final waitFound = waitElements.any((e) {
-            if (e is! Map) return false;
-            return e['key'] == waitKey ||
-                e['text'] == waitKey ||
-                e['ref'] == waitKey;
-          });
-          if (waitFound) return {'success': true};
+          if (waitElements.any((e) => _elementMatches(e, waitKey))) {
+            return {'success': true};
+          }
           await Future<void>.delayed(const Duration(milliseconds: 200));
         }
         throw Exception('Timeout waiting for element: $waitKey');
@@ -292,7 +299,7 @@ class SkillServer {
         final getTextAllElements =
             await driver.getInteractiveElements(includePositions: false);
         final getTextEl = getTextAllElements.whereType<Map>().firstWhere(
-              (e) => e['key'] == getTextKey || e['ref'] == getTextKey,
+              (e) => _elementMatches(e, getTextKey),
               orElse: () => {},
             );
         return {'text': getTextEl['text']?.toString() ?? ''};
@@ -303,10 +310,7 @@ class SkillServer {
         final findElements =
             await driver.getInteractiveElements(includePositions: true);
         final findEl = findElements.whereType<Map>().firstWhere(
-              (e) =>
-                  e['key'] == findKey ||
-                  e['text'] == findKey ||
-                  e['ref'] == findKey,
+              (e) => _elementMatches(e, findKey),
               orElse: () => {},
             );
         if (findEl.isEmpty) throw Exception('Element not found: $findKey');
@@ -322,11 +326,9 @@ class SkillServer {
         return {'success': true};
 
       case 'shutdown':
-        // Schedule stop after the response is sent so the client gets a reply.
-        Future.microtask(() async {
-          await stop();
-          exit(0);
-        });
+        // Signal listeners (e.g. runConnect) to perform orderly shutdown after
+        // the response is delivered to the client.
+        Future.microtask(() => _shutdownController.add(null));
         return {'success': true};
 
       case 'ping':
@@ -341,22 +343,32 @@ class SkillServer {
   // JSON-RPC helpers
   // ---------------------------------------------------------------------------
 
-  void _sendResult(Socket socket, dynamic id, Map<String, dynamic> result) {
+  void _sendResult(Socket socket, dynamic requestId, Map<String, dynamic> result) {
     final response = jsonEncode({
       'jsonrpc': '2.0',
-      'id': id,
+      'id': requestId,
       'result': result,
     });
-    socket.writeln(response);
+    try {
+      socket.writeln(response);
+    } catch (_) {
+      _connections.remove(socket);
+      socket.destroy();
+    }
   }
 
-  void _sendError(Socket socket, dynamic id, int code, String message) {
+  void _sendError(Socket socket, dynamic requestId, int code, String message) {
     final response = jsonEncode({
       'jsonrpc': '2.0',
-      'id': id,
+      'id': requestId,
       'error': {'code': code, 'message': message},
     });
-    socket.writeln(response);
+    try {
+      socket.writeln(response);
+    } catch (_) {
+      _connections.remove(socket);
+      socket.destroy();
+    }
   }
 
   String _vmServiceUri() {
@@ -364,5 +376,15 @@ class SkillServer {
       return (driver as FlutterSkillClient).vmServiceUri;
     }
     return '';
+  }
+
+  // ---------------------------------------------------------------------------
+  // Element matching helper
+  // ---------------------------------------------------------------------------
+
+  /// Returns true if [e] is a Map that matches [query] by key, text, or ref.
+  static bool _elementMatches(dynamic e, String? query) {
+    if (e is! Map || query == null) return false;
+    return e['key'] == query || e['text'] == query || e['ref'] == query;
   }
 }

@@ -51,12 +51,18 @@ class SkillClient {
       // Read lines until we get the response for our request id.
       final completer = Completer<Map<String, dynamic>>();
 
-      socket.cast<List<int>>().transform(utf8.decoder).transform(const LineSplitter()).listen(
+      late StreamSubscription<String> subscription;
+      subscription = socket
+          .cast<List<int>>()
+          .transform(utf8.decoder)
+          .transform(const LineSplitter())
+          .listen(
         (line) {
           if (completer.isCompleted) return;
           try {
             final response = jsonDecode(line) as Map<String, dynamic>;
             if (response['id'] == id) {
+              subscription.cancel();
               if (response.containsKey('error')) {
                 final err = response['error'] as Map<String, dynamic>;
                 completer.completeError(

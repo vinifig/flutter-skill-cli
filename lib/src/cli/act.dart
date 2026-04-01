@@ -219,6 +219,47 @@ Map<String, dynamic> _buildRpcCall(List<String> actArgs) {
       };
     case 'go_back':
       return {'method': 'go_back', 'params': {}};
+    case 'assert_visible':
+      return {
+        'method': 'assert_visible',
+        'params': {
+          if (param1 != null) 'key': param1,
+        }
+      };
+    case 'assert_gone':
+      return {
+        'method': 'assert_gone',
+        'params': {
+          if (param1 != null) 'key': param1,
+        }
+      };
+    case 'wait_for':
+    case 'wait_for_element':
+      return {
+        'method': 'wait_for_element',
+        'params': {
+          if (param1 != null) 'key': param1,
+          if (param2 != null) 'timeout': int.tryParse(param2) ?? 5000,
+        }
+      };
+    case 'get_text':
+      return {
+        'method': 'get_text',
+        'params': {
+          if (param1 != null) 'key': param1,
+        }
+      };
+    case 'find_element':
+      return {
+        'method': 'find_element',
+        'params': {
+          if (param1 != null) 'key': param1,
+        }
+      };
+    case 'hot_reload':
+      return {'method': 'hot_reload', 'params': {}};
+    case 'hot_restart':
+      return {'method': 'hot_restart', 'params': {}};
     default:
       return {'method': action, 'params': {}};
   }
@@ -241,8 +282,12 @@ Future<void> _actViaServers(
       if (r.success) {
         final image = r.data?['image'] as String?;
         if (image != null) {
+          // For multiple servers, suffix the filename with the server ID.
+          final serverPath = serverIds.length > 1
+              ? _deriveServerPath(path, r.serverId)
+              : path;
           final bytes = base64Decode(image);
-          await File(path).writeAsBytes(bytes);
+          await File(serverPath).writeAsBytes(bytes);
         }
       }
     }
@@ -263,6 +308,16 @@ Future<void> _actViaServers(
 
   // Exit with error code if any server failed.
   if (results.any((r) => !r.success)) exit(1);
+}
+
+/// Derive a per-server output path by inserting the server ID before the
+/// file extension. For example:
+///   _deriveServerPath('screenshots/login.png', 'app-a')
+///   → 'screenshots/login_app-a.png'
+String _deriveServerPath(String path, String serverId) {
+  final dot = path.lastIndexOf('.');
+  if (dot == -1) return '${path}_$serverId';
+  return '${path.substring(0, dot)}_$serverId${path.substring(dot)}';
 }
 
 // ---------------------------------------------------------------------------

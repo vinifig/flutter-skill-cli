@@ -64,11 +64,25 @@ class ServerRegistry {
   ///
   /// Throws [ArgumentError] if the entry id contains characters that could
   /// be used for path traversal attacks.
+  ///
+  /// Throws [StateError] if a server with the same id is already running
+  /// (i.e. its PID is still alive). Stop the existing server first with
+  /// `flutter_skill server stop --id=<id>` before registering a new one.
   static Future<void> register(ServerEntry entry) async {
     if (!RegExp(r'^[a-zA-Z0-9_\-]+$').hasMatch(entry.id)) {
       throw ArgumentError(
           'Invalid server id "${entry.id}". Only letters, numbers, hyphens, and underscores are allowed.');
     }
+
+    // Prevent silent overwrites: check whether a live server already owns
+    // this id before writing a new entry.
+    final existing = await get(entry.id);
+    if (existing != null && await _isPidAlive(existing.pid)) {
+      throw StateError(
+          'A server with id "${entry.id}" is already running on port ${existing.port} '
+          '(PID ${existing.pid}). Stop it first: flutter_skill server stop --id=${entry.id}');
+    }
+
     await _registryDir.create(recursive: true);
     await _entryFile(entry.id)
         .writeAsString(jsonEncode(entry.toJson()), flush: true);

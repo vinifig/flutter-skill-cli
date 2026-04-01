@@ -57,16 +57,14 @@ Future<void> runConnect(List<String> args) async {
     }
   }
 
-  // Normalise http:// → ws://
+  // Normalise http:// → ws:// and https:// → wss://.
+  // Always use the /ws path regardless of any existing path component.
   if (uri.startsWith('http://')) {
-    uri = uri.replaceFirst('http://', 'ws://');
-    if (!uri.endsWith('/ws')) uri = '$uri/ws';
-  }
-
-  // Normalise https:// → wss://
-  if (uri.startsWith('https://')) {
-    uri = uri.replaceFirst('https://', 'wss://');
-    if (!uri.endsWith('/ws')) uri = '$uri/ws';
+    final parsed = Uri.parse(uri);
+    uri = 'ws://${parsed.host}:${parsed.port}/ws';
+  } else if (uri.startsWith('https://')) {
+    final parsed = Uri.parse(uri);
+    uri = 'wss://${parsed.host}:${parsed.port}/ws';
   }
 
   print('Connecting to Flutter app at $uri...');
@@ -113,6 +111,12 @@ Future<void> runConnect(List<String> args) async {
       await doShutdown();
     });
   }
+
+  // Listen for server-initiated shutdown (e.g. via `flutter_skill server stop`).
+  server.onShutdownRequested.listen((_) async {
+    print('\nServer "$id" received shutdown request.');
+    await doShutdown();
+  });
 
   await shutdown.future;
   exit(0);

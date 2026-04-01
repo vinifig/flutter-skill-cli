@@ -19,6 +19,7 @@ import 'package:flutter_skill/src/cli/security.dart';
 import 'package:flutter_skill/src/cli/diff.dart';
 import 'package:flutter_skill/src/cli/quickstart.dart';
 import 'package:flutter_skill/src/cli/client.dart';
+import 'package:flutter_skill/src/cli/ping_cmd.dart';
 
 void main(List<String> args) async {
   if (args.isEmpty) {
@@ -30,6 +31,7 @@ void main(List<String> args) async {
     print('  demo         Launch a built-in demo app — zero setup needed');
     print('  launch       Launch and auto-connect to an app');
     print('  connect      Attach to a running Flutter app and name it');
+    print('  ping         Health check one or more named server instances');
     print('  server       Start MCP server / manage named server instances');
     print('  servers      List all running named server instances');
     print('  inspect      Inspect interactive elements');
@@ -110,6 +112,11 @@ void main(List<String> args) async {
       break;
     case 'connect':
       await runConnect(commandArgs);
+      break;
+    case 'ping':
+      // Quick health check for one or more named servers.
+      // Usage: flutter_skill ping --server=<id>[,<id2>,...]
+      await runPing(commandArgs);
       break;
     case 'servers':
       // Shorthand for `server list`

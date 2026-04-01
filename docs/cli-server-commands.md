@@ -359,6 +359,52 @@ Identical to `flutter_skill server list`. Useful for quick checks.
 
 ---
 
+### `flutter_skill ping`
+
+**Quick health check for one or more named server instances.**
+
+```bash
+flutter_skill ping --server=<id>[,<id2>,...] [--output=json|human]
+```
+
+Sends a `ping` request to each named server and reports whether it responded.
+Exits with code 0 if all servers are reachable, or 1 if any are unreachable.
+
+#### Examples
+
+```bash
+# Check a single server
+flutter_skill ping --server=myapp
+
+# Check multiple servers
+flutter_skill ping --server=feature-auth,feature-payments
+
+# JSON output (useful for scripting and CI)
+flutter_skill ping --server=ci-test --output=json
+```
+
+#### Output (Human)
+
+```
+[myapp] pong (12ms)
+```
+
+#### Output (Human, Unreachable)
+
+```
+[myapp] unreachable: Could not connect to server "myapp": Connection refused
+```
+
+#### Output (JSON)
+
+```json
+[
+  {"server": "myapp", "success": true, "action": "ping", "duration_ms": 12}
+]
+```
+
+---
+
 ### `flutter_skill inspect`
 
 **Inspect the interactive elements of a Flutter app.**
@@ -651,7 +697,7 @@ jobs:
       - name: Wait for app readiness
         run: |
           for i in {1..30}; do
-            if flutter_skill ping --server=ci-test 2>/dev/null; then
+            if flutter_skill ping --server=ci-test --output=json 2>/dev/null; then
               echo "App is ready"
               exit 0
             fi

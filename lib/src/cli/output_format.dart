@@ -32,9 +32,6 @@ OutputFormat resolveOutputFormat(List<String> args) {
 List<String> stripOutputFormatFlag(List<String> args) =>
     args.where((a) => !a.startsWith('--output=')).toList();
 
-@Deprecated('Use stripOutputFormatFlag instead.')
-List<String> stripOutputFlag(List<String> args) => stripOutputFormatFlag(args);
-
 /// Parse `--server=<id>[,<id2>,...]` from args.
 List<String> parseServerIds(List<String> args) {
   for (final arg in args) {
