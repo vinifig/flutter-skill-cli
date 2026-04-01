@@ -3,6 +3,8 @@ import 'package:flutter_skill/src/cli/launch.dart';
 import 'package:flutter_skill/src/cli/inspect.dart';
 import 'package:flutter_skill/src/cli/act.dart';
 import 'package:flutter_skill/src/cli/server.dart';
+import 'package:flutter_skill/src/cli/server_cmd.dart';
+import 'package:flutter_skill/src/cli/connect.dart';
 import 'package:flutter_skill/src/cli/report_error.dart';
 import 'package:flutter_skill/src/cli/setup_priority.dart';
 import 'package:flutter_skill/src/cli/doctor.dart';
@@ -27,7 +29,9 @@ void main(List<String> args) async {
     print('  quickstart   Guided demo — see flutter-skill in action in 30s');
     print('  demo         Launch a built-in demo app — zero setup needed');
     print('  launch       Launch and auto-connect to an app');
-    print('  server       Start MCP server (used by IDEs)');
+    print('  connect      Attach to a running Flutter app and name it');
+    print('  server       Start MCP server / manage named server instances');
+    print('  servers      List all running named server instances');
     print('  inspect      Inspect interactive elements');
     print('  act          Perform actions (tap, enter_text, scroll)');
     print('  screenshot   Take a screenshot of the running app');
@@ -104,8 +108,22 @@ void main(List<String> args) async {
     case 'act':
       await runAct(commandArgs);
       break;
+    case 'connect':
+      await runConnect(commandArgs);
+      break;
+    case 'servers':
+      // Shorthand for `server list`
+      await runServerCmd(['list', ...commandArgs]);
+      break;
     case 'server':
-      await runServer(commandArgs);
+      // Route server subcommands (list, stop, status) to server_cmd.
+      // Plain `server` (no subcommand) or `server` with MCP flags → MCP server.
+      if (commandArgs.isNotEmpty &&
+          const {'list', 'stop', 'status'}.contains(commandArgs[0])) {
+        await runServerCmd(commandArgs);
+      } else {
+        await runServer(commandArgs);
+      }
       break;
     case 'setup':
       await runSetupPriority(commandArgs);

@@ -1,15 +1,30 @@
 import 'dart:convert';
 import 'dart:io';
 import '../drivers/flutter_driver.dart';
+import '../skill_client.dart';
+import 'output_format.dart';
 
 Future<void> runAct(List<String> args) async {
+  // --server=<id>[,<id2>,...] — forward to named SkillServer instance(s)
+  final serverIds = _parseServerIds(args);
+  final format = resolveOutputFormat(args);
+  final effectiveArgs = stripOutputFlag(args)
+      .where((a) => !a.startsWith('--server='))
+      .toList();
+
+  if (serverIds.isNotEmpty) {
+    await _actViaServers(serverIds, effectiveArgs, format);
+    return;
+  }
+
   String uri;
   int argOffset;
 
   // Check if first arg is a URI
-  if (args.isNotEmpty &&
-      (args[0].startsWith('ws://') || args[0].startsWith('http://'))) {
-    uri = args[0];
+  if (effectiveArgs.isNotEmpty &&
+      (effectiveArgs[0].startsWith('ws://') ||
+          effectiveArgs[0].startsWith('http://'))) {
+    uri = effectiveArgs[0];
     argOffset = 1;
   } else {
     // Use auto-discovery (no need for .flutter_skill_uri file!)
@@ -22,19 +37,19 @@ Future<void> runAct(List<String> args) async {
     }
   }
 
-  if (args.length <= argOffset) {
+  if (effectiveArgs.length <= argOffset) {
     print('Missing action argument');
     print('Usage: flutter_skill act [vm-uri] <action> <params...>');
     exit(1);
   }
 
-  String action = args[argOffset];
+  String action = effectiveArgs[argOffset];
   final client = FlutterSkillClient(uri);
 
   String? param1;
   String? param2;
-  if (args.length > argOffset + 1) param1 = args[argOffset + 1];
-  if (args.length > argOffset + 2) param2 = args[argOffset + 2];
+  if (effectiveArgs.length > argOffset + 1) param1 = effectiveArgs[argOffset + 1];
+  if (effectiveArgs.length > argOffset + 2) param2 = effectiveArgs[argOffset + 2];
 
   try {
     await client.connect();
@@ -155,6 +170,157 @@ Future<void> runAct(List<String> args) async {
     await client.disconnect();
   }
 }
+
+// ---------------------------------------------------------------------------
+// Server-forwarding helpers
+// ---------------------------------------------------------------------------
+
+/// Parse `--server=<id>[,<id2>,...]` from args and return the list of IDs.
+List<String> _parseServerIds(List<String> args) {
+  for (final arg in args) {
+    if (arg.startsWith('--server=')) {
+      final value = arg.substring('--server='.length);
+      return value
+          .split(',')
+          .map((s) => s.trim())
+          .where((s) => s.isNotEmpty)
+          .toList();
+    }
+  }
+  return [];
+}
+
+/// Build a JSON-RPC method name + params from the act CLI args.
+Map<String, dynamic> _buildRpcCall(List<String> actArgs) {
+  if (actArgs.isEmpty) return {'method': 'ping', 'params': {}};
+
+  final action = actArgs[0];
+  final param1 = actArgs.length > 1 ? actArgs[1] : null;
+  final param2 = actArgs.length > 2 ? actArgs[2] : null;
+
+  switch (action) {
+    case 'tap':
+      return {
+        'method': 'tap',
+        'params': {'key': param1}
+      };
+    case 'enter_text':
+      return {
+        'method': 'enter_text',
+        'params': {'key': param1, 'text': param2 ?? ''}
+      };
+    case 'scroll':
+    case 'scroll_to':
+      return {
+        'method': 'swipe',
+        'params': {'direction': 'up', 'key': param1}
+      };
+    case 'screenshot':
+      return {
+        'method': 'screenshot',
+        'params': param1 != null ? {'path': param1} : <String, dynamic>{}
+      };
+    case 'swipe':
+      return {
+        'method': 'swipe',
+        'params': {
+          'direction': param1 ?? 'up',
+          'distance': double.tryParse(param2 ?? '') ?? 300,
+        }
+      };
+    case 'go_back':
+      return {'method': 'go_back', 'params': {}};
+    default:
+      return {'method': action, 'params': {}};
+  }
+}
+
+Future<void> _actViaServers(
+    List<String> serverIds, List<String> actArgs, OutputFormat format) async {
+  final rpc = _buildRpcCall(actArgs);
+  final method = rpc['method'] as String;
+  final params = rpc['params'] as Map<String, dynamic>;
+  final action = actArgs.isNotEmpty ? actArgs[0] : method;
+
+  final futures = serverIds.map((id) async {
+    final stopwatch = Stopwatch()..start();
+    try {
+      final client = SkillClient.byId(id);
+      final result = await client.call(method, params);
+      stopwatch.stop();
+
+      // Handle screenshot save when --server is used.
+      if (method == 'screenshot' && actArgs.length > 1) {
+        final path = actArgs[1];
+        final image = result['image'] as String?;
+        if (image != null) {
+          final bytes = base64Decode(image);
+          await File(path).writeAsBytes(bytes);
+        }
+      }
+
+      return _ActResult(
+          serverId: id,
+          success: true,
+          action: action,
+          durationMs: stopwatch.elapsedMilliseconds);
+    } catch (e) {
+      stopwatch.stop();
+      return _ActResult(
+          serverId: id,
+          success: false,
+          action: action,
+          error: e.toString(),
+          durationMs: stopwatch.elapsedMilliseconds);
+    }
+  });
+
+  final results = await Future.wait(futures);
+
+  if (format == OutputFormat.json) {
+    print(jsonEncode(results.map((r) => r.toJson()).toList()));
+    return;
+  }
+
+  for (final r in results) {
+    if (r.success) {
+      print('[${r.serverId}] ${r.action} completed (${r.durationMs}ms)');
+    } else {
+      print('[${r.serverId}] Error: ${r.error}');
+    }
+  }
+
+  // Exit with error code if any server failed.
+  if (results.any((r) => !r.success)) exit(1);
+}
+
+class _ActResult {
+  final String serverId;
+  final bool success;
+  final String action;
+  final String? error;
+  final int durationMs;
+
+  const _ActResult({
+    required this.serverId,
+    required this.success,
+    required this.action,
+    this.error,
+    required this.durationMs,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'server': serverId,
+        'success': success,
+        'action': action,
+        if (error != null) 'error': error,
+        'duration_ms': durationMs,
+      };
+}
+
+// ---------------------------------------------------------------------------
+// Existing helper (unchanged)
+// ---------------------------------------------------------------------------
 
 bool _findTarget(List<dynamic> elements, String target) {
   for (final e in elements) {
