@@ -74,8 +74,9 @@ class ServerRegistry {
         .writeAsString(jsonEncode(entry.toJson()), flush: true);
   }
 
-  /// Read a single server entry by ID. Returns null if not found.
+  /// Read a single server entry by ID. Returns null if not found or id is invalid.
   static Future<ServerEntry?> get(String id) async {
+    if (!RegExp(r'^[a-zA-Z0-9_\-]+$').hasMatch(id)) return null;
     final file = _entryFile(id);
     if (!await file.exists()) return null;
     try {
@@ -87,30 +88,42 @@ class ServerRegistry {
     }
   }
 
-  /// Return all registered entries, filtering out stale ones (PID no longer alive).
+  /// Return all registered entries. Does NOT delete stale entries.
+  /// Call [prune] separately to clean up stale entries.
   static Future<List<ServerEntry>> listAll() async {
     if (!await _registryDir.exists()) return [];
-
     final entries = <ServerEntry>[];
     await for (final entity in _registryDir.list()) {
-      if (entity is! File) continue;
-      if (!entity.path.endsWith('.json')) continue;
+      if (entity is! File || !entity.path.endsWith('.json')) continue;
       try {
         final json =
             jsonDecode(await entity.readAsString()) as Map<String, dynamic>;
-        final entry = ServerEntry.fromJson(json);
-        // Filter stale entries — check if the process is still alive.
-        if (await _isPidAlive(entry.pid)) {
-          entries.add(entry);
-        } else {
-          // Clean up stale entry silently.
-          await entity.delete().catchError((_) => entity);
-        }
+        entries.add(ServerEntry.fromJson(json));
       } catch (_) {
         // Skip malformed files.
       }
     }
     return entries;
+  }
+
+  /// Delete registry entries whose process is no longer alive.
+  static Future<void> prune() async {
+    if (!await _registryDir.exists()) return;
+    await for (final entity in _registryDir.list()) {
+      if (entity is! File || !entity.path.endsWith('.json')) continue;
+      try {
+        final json =
+            jsonDecode(await entity.readAsString()) as Map<String, dynamic>;
+        final entry = ServerEntry.fromJson(json);
+        if (!await _isPidAlive(entry.pid)) {
+          await entity.delete().catchError((_) => entity);
+          final sock = _sockFile(entry.id);
+          if (await sock.exists()) await sock.delete().catchError((_) => sock);
+        }
+      } catch (_) {
+        // Skip malformed files.
+      }
+    }
   }
 
   /// Delete a server entry (and its Unix socket file if present).
@@ -128,9 +141,10 @@ class ServerRegistry {
     return await _isTcpPortOpen('127.0.0.1', entry.port);
   }
 
-  /// Unix socket path for a server id, or null on Windows.
+  /// Unix socket path for a server id, or null on Windows or when id is invalid.
   static String? unixSocketPath(String id) {
     if (Platform.isWindows) return null;
+    if (!RegExp(r'^[a-zA-Z0-9_\-]+$').hasMatch(id)) return null;
     return _sockFile(id).path;
   }
 

@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
 import '../drivers/flutter_driver.dart';
-import '../skill_client.dart';
 import 'output_format.dart';
 
 Future<void> runAct(List<String> args) async {
@@ -195,12 +194,10 @@ Map<String, dynamic> _buildRpcCall(List<String> actArgs) {
         'params': {'key': param1, 'text': param2 ?? ''}
       };
     case 'scroll':
+      // param1 = widget key/text to scroll to (matches direct VM path semantics)
       return {
-        'method': 'swipe',
-        'params': {
-          'direction': param1 ?? 'up', // param1 IS the direction for `scroll`
-          'distance': double.tryParse(param2 ?? '') ?? 300,
-        }
+        'method': 'scroll_to',
+        'params': {'key': param1}
       };
     case 'scroll_to':
       return {
@@ -234,40 +231,22 @@ Future<void> _actViaServers(
   final params = rpc['params'] as Map<String, dynamic>;
   final action = actArgs.isNotEmpty ? actArgs[0] : method;
 
-  final futures = serverIds.map((id) async {
-    final stopwatch = Stopwatch()..start();
-    try {
-      final client = SkillClient.byId(id);
-      final result = await client.call(method, params);
-      stopwatch.stop();
+  final results =
+      await callServersParallel(serverIds, method, params, actionLabel: action);
 
-      // Handle screenshot save when --server is used.
-      if (method == 'screenshot' && actArgs.length > 1) {
-        final path = actArgs[1];
-        final image = result['image'] as String?;
+  // Handle screenshot save when --server is used (specific to this action).
+  if (method == 'screenshot' && actArgs.length > 1) {
+    final path = actArgs[1];
+    for (final r in results) {
+      if (r.success) {
+        final image = r.data?['image'] as String?;
         if (image != null) {
           final bytes = base64Decode(image);
           await File(path).writeAsBytes(bytes);
         }
       }
-
-      return ServerCallResult(
-          serverId: id,
-          success: true,
-          action: action,
-          durationMs: stopwatch.elapsedMilliseconds);
-    } catch (e) {
-      stopwatch.stop();
-      return ServerCallResult(
-          serverId: id,
-          success: false,
-          action: action,
-          error: e.toString(),
-          durationMs: stopwatch.elapsedMilliseconds);
     }
-  });
-
-  final results = await Future.wait(futures);
+  }
 
   if (format == OutputFormat.json) {
     print(jsonEncode(results.map((r) => r.toJson()).toList()));

@@ -40,6 +40,7 @@ Future<void> runServerCmd(List<String> args) async {
 // ---------------------------------------------------------------------------
 
 Future<void> _cmdList(OutputFormat format) async {
+  await ServerRegistry.prune(); // Clean stale entries before listing.
   final entries = await ServerRegistry.listAll();
 
   if (format == OutputFormat.json) {

@@ -68,7 +68,7 @@ Future<void> runLaunch(List<String> args) async {
     final uri = _extractUri(line);
     if (uri != null && discoveredUri == null) {
       discoveredUri = uri;
-      _onUriDiscovered(uri, serverId, projectPath, detach);
+      _onUriDiscovered(uri, serverId, projectPath, detach, process);
     }
   });
 
@@ -97,7 +97,7 @@ String? _extractUri(String line) {
 }
 
 void _onUriDiscovered(
-    String uri, String? serverId, String projectPath, bool detach) {
+    String uri, String? serverId, String projectPath, bool detach, Process process) {
   print('\nFlutter Skill: VM Service is ready');
   print('   URI: $uri');
   print('   Run: flutter_skill inspect  (auto-discovery)');
@@ -110,12 +110,12 @@ void _onUriDiscovered(
     _spawnDetachedServer(serverId, uri, projectPath);
   } else {
     // Attach the SkillServer in-process (background isolate via async).
-    _attachServer(serverId, uri, projectPath);
+    _attachServer(serverId, uri, projectPath, process);
   }
 }
 
 /// Attach a SkillServer in the same process (async, non-blocking).
-void _attachServer(String id, String uri, String projectPath) async {
+void _attachServer(String id, String uri, String projectPath, Process process) async {
   try {
     final driver = FlutterSkillClient(uri);
     await driver.connect();
@@ -126,6 +126,11 @@ void _attachServer(String id, String uri, String projectPath) async {
     // Write a convenience file in the project directory.
     final marker = File('$projectPath/.flutter_skill_server');
     await marker.writeAsString(id, flush: true);
+
+    // Stop the skill server when flutter run exits.
+    process.exitCode.then((_) async {
+      await server.stop().catchError((_) {});
+    });
   } catch (e) {
     print('Warning: Could not start skill server "$id": $e');
   }

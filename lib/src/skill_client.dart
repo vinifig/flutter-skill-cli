@@ -10,11 +10,14 @@ class SkillClient {
   final String? serverId;
   final int? directPort;
 
-  int _nextId = 1;
-
   SkillClient.byId(String id)
       : serverId = id,
-        directPort = null;
+        directPort = null {
+    if (!RegExp(r'^[a-zA-Z0-9_\-]+$').hasMatch(id)) {
+      throw ArgumentError(
+          'Invalid server id "$id". Only letters, numbers, hyphens, and underscores are allowed.');
+    }
+  }
 
   SkillClient.byPort(int port)
       : serverId = null,
@@ -25,7 +28,7 @@ class SkillClient {
   /// Throws if the server returns an error or the connection fails.
   Future<Map<String, dynamic>> call(
       String method, Map<String, dynamic> params) async {
-    final id = _nextId++;
+    const id = 1; // Each client instance makes one call; id is always 1.
 
     Socket socket;
     try {

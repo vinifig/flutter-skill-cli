@@ -91,21 +91,26 @@ Future<void> runConnect(List<String> args) async {
   print('Press Ctrl+C to stop.');
 
   // Keep running until the process is interrupted.
+  var stopping = false;
   final shutdown = Completer<void>();
+
+  Future<void> doShutdown() async {
+    if (stopping) return;
+    stopping = true;
+    await server.stop().catchError((_) {});
+    await driver.disconnect().catchError((_) {});
+    if (!shutdown.isCompleted) shutdown.complete();
+  }
 
   ProcessSignal.sigint.watch().first.then((_) async {
     print('\nShutting down server "$id"...');
-    await server.stop();
-    await driver.disconnect();
-    shutdown.complete();
+    await doShutdown();
   });
 
   // Also handle SIGTERM on Unix.
   if (!Platform.isWindows) {
     ProcessSignal.sigterm.watch().first.then((_) async {
-      await server.stop();
-      await driver.disconnect();
-      if (!shutdown.isCompleted) shutdown.complete();
+      await doShutdown();
     });
   }
 

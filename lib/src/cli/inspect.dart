@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
 import '../drivers/flutter_driver.dart';
-import '../skill_client.dart';
 import 'output_format.dart';
 
 Future<void> runInspect(List<String> args) async {
@@ -56,28 +55,7 @@ Future<void> runInspect(List<String> args) async {
 /// Forward the inspect action to one or more named servers concurrently.
 Future<void> _inspectViaServers(
     List<String> serverIds, OutputFormat format) async {
-  final futures = serverIds.map((id) async {
-    final stopwatch = Stopwatch()..start();
-    try {
-      final client = SkillClient.byId(id);
-      final result = await client.call('inspect', {});
-      stopwatch.stop();
-      return ServerCallResult(
-          serverId: id,
-          success: true,
-          data: result,
-          durationMs: stopwatch.elapsedMilliseconds);
-    } catch (e) {
-      stopwatch.stop();
-      return ServerCallResult(
-          serverId: id,
-          success: false,
-          error: e.toString(),
-          durationMs: stopwatch.elapsedMilliseconds);
-    }
-  });
-
-  final results = await Future.wait(futures);
+  final results = await callServersParallel(serverIds, 'inspect', {});
 
   if (format == OutputFormat.json) {
     print(jsonEncode(results.map((r) => r.toJson()).toList()));

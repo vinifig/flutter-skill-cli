@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import '../skill_client.dart';
+
 /// Returns true when the process is running inside a CI environment.
 ///
 /// Checks common CI environment variables used by GitHub Actions, CircleCI,
@@ -30,9 +32,7 @@ OutputFormat resolveOutputFormat(List<String> args) {
 List<String> stripOutputFormatFlag(List<String> args) =>
     args.where((a) => !a.startsWith('--output=')).toList();
 
-/// Strip `--output=*` entries from an arg list.
-///
-/// Deprecated: use [stripOutputFormatFlag] for clarity.
+@Deprecated('Use stripOutputFormatFlag instead.')
 List<String> stripOutputFlag(List<String> args) => stripOutputFormatFlag(args);
 
 /// Parse `--server=<id>[,<id2>,...]` from args.
@@ -72,4 +72,36 @@ class ServerCallResult {
         if (error != null) 'error': error,
         'duration_ms': durationMs,
       };
+}
+
+/// Fan out a JSON-RPC call to multiple named servers concurrently.
+/// Returns one [ServerCallResult] per server.
+Future<List<ServerCallResult>> callServersParallel(
+    List<String> serverIds,
+    String method,
+    Map<String, dynamic> params,
+    {String? actionLabel}) async {
+  final futures = serverIds.map((id) async {
+    final sw = Stopwatch()..start();
+    try {
+      final client = SkillClient.byId(id);
+      final data = await client.call(method, params);
+      sw.stop();
+      return ServerCallResult(
+          serverId: id,
+          success: true,
+          action: actionLabel ?? method,
+          data: data,
+          durationMs: sw.elapsedMilliseconds);
+    } catch (e) {
+      sw.stop();
+      return ServerCallResult(
+          serverId: id,
+          success: false,
+          action: actionLabel ?? method,
+          error: e.toString(),
+          durationMs: sw.elapsedMilliseconds);
+    }
+  });
+  return Future.wait(futures);
 }
