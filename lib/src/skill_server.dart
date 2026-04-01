@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'drivers/app_driver.dart';
+import 'drivers/flutter_driver.dart';
 import 'server_registry.dart';
 
 /// A lightweight JSON-RPC 2.0 server over raw TCP (newline-delimited JSON)
@@ -130,6 +131,10 @@ class SkillServer {
 
   // ---------------------------------------------------------------------------
   // Method dispatch — mirrors the MCP tool set
+  //
+  // Phase 1 implemented methods:
+  //   tap, enter_text, swipe, inspect, screenshot, get_logs, clear_logs,
+  //   hot_reload, hot_restart, scroll_to, ping, shutdown
   // ---------------------------------------------------------------------------
 
   Future<Map<String, dynamic>> _dispatch(
@@ -184,6 +189,27 @@ class SkillServer {
         await driver.hotReload();
         return {'success': true};
 
+      case 'hot_restart':
+        // AppDriver does not have a dedicated hotRestart; use hotReload as fallback.
+        await driver.hotReload();
+        return {'success': true};
+
+      case 'scroll_to':
+        final success = await driver.swipe(
+          direction: params['direction'] as String? ?? 'down',
+          distance: (params['distance'] as num?)?.toDouble() ?? 300,
+          key: params['key'] as String?,
+        );
+        return {'success': success};
+
+      case 'shutdown':
+        // Schedule stop after the response is sent so the client gets a reply.
+        Future.microtask(() async {
+          await stop();
+          exit(0);
+        });
+        return {'success': true};
+
       case 'ping':
         return {'pong': true, 'server': id};
 
@@ -215,21 +241,9 @@ class SkillServer {
   }
 
   String _vmServiceUri() {
-    // If the driver is a FlutterSkillClient it exposes vmServiceUri.
-    try {
-      // Use reflection-free duck typing via dynamic dispatch.
-      final d = driver as dynamic;
-      return (d.vmServiceUri as String?) ?? '';
-    } catch (_) {
-      return '';
+    if (driver is FlutterSkillClient) {
+      return (driver as FlutterSkillClient).vmServiceUri;
     }
+    return '';
   }
-}
-
-/// Find a random free TCP port by binding temporarily.
-Future<int> findFreePort() async {
-  final socket = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
-  final port = socket.port;
-  await socket.close();
-  return port;
 }

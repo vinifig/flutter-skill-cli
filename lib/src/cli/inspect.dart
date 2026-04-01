@@ -7,10 +7,10 @@ import 'output_format.dart';
 Future<void> runInspect(List<String> args) async {
   // --server=<id>[,<id2>,...] — forward to named SkillServer instance(s)
   // --output=json|human       — output format
-  final serverIds = _parseServerIds(args);
+  final serverIds = parseServerIds(args);
   final format = resolveOutputFormat(args);
   final cleanArgs =
-      stripOutputFlag(args).where((a) => !a.startsWith('--server=')).toList();
+      stripOutputFormatFlag(args).where((a) => !a.startsWith('--server=')).toList();
 
   if (serverIds.isNotEmpty) {
     await _inspectViaServers(serverIds, format);
@@ -62,14 +62,14 @@ Future<void> _inspectViaServers(
       final client = SkillClient.byId(id);
       final result = await client.call('inspect', {});
       stopwatch.stop();
-      return _ServerResult(
+      return ServerCallResult(
           serverId: id,
           success: true,
           data: result,
           durationMs: stopwatch.elapsedMilliseconds);
     } catch (e) {
       stopwatch.stop();
-      return _ServerResult(
+      return ServerCallResult(
           serverId: id,
           success: false,
           error: e.toString(),
@@ -129,42 +129,3 @@ void _printElement(dynamic element, {String prefix = ''}) {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-/// Parse `--server=<id>[,<id2>,...]` from args and return the list of IDs.
-List<String> _parseServerIds(List<String> args) {
-  for (final arg in args) {
-    if (arg.startsWith('--server=')) {
-      final value = arg.substring('--server='.length);
-      return value.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
-    }
-  }
-  return [];
-}
-
-/// Holds the outcome of a single per-server parallel action.
-class _ServerResult {
-  final String serverId;
-  final bool success;
-  final Map<String, dynamic>? data;
-  final String? error;
-  final int durationMs;
-
-  const _ServerResult({
-    required this.serverId,
-    required this.success,
-    this.data,
-    this.error,
-    required this.durationMs,
-  });
-
-  Map<String, dynamic> toJson() => {
-        'server': serverId,
-        'success': success,
-        if (data != null) 'data': data,
-        if (error != null) 'error': error,
-        'duration_ms': durationMs,
-      };
-}

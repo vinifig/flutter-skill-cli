@@ -13,7 +13,7 @@ import 'output_format.dart';
 ///   status --id=<name>          — show status of a named server
 Future<void> runServerCmd(List<String> args) async {
   final format = resolveOutputFormat(args);
-  final cleanArgs = stripOutputFlag(args);
+  final cleanArgs = stripOutputFormatFlag(args);
 
   final sub = cleanArgs.isNotEmpty ? cleanArgs[0] : 'list';
   final subArgs = cleanArgs.length > 1 ? cleanArgs.sublist(1) : <String>[];
@@ -55,18 +55,18 @@ Future<void> _cmdList(OutputFormat format) async {
   // Human-readable table.
   print('Running skill servers:');
   print('');
-  final header = _padRight('ID', 20) +
-      _padRight('PORT', 8) +
-      _padRight('PID', 8) +
+  final header = 'ID'.padRight(20) +
+      'PORT'.padRight(8) +
+      'PID'.padRight(8) +
       'PROJECT';
   print(header);
   print('-' * 60);
   for (final e in entries) {
     final alive = await ServerRegistry.isAlive(e.id);
     final status = alive ? '' : ' (unreachable)';
-    print(_padRight(e.id, 20) +
-        _padRight(e.port.toString(), 8) +
-        _padRight(e.pid.toString(), 8) +
+    print(e.id.padRight(20) +
+        e.port.toString().padRight(8) +
+        e.pid.toString().padRight(8) +
         e.projectPath +
         status);
   }
@@ -84,16 +84,17 @@ Future<void> _cmdStop(List<String> args, OutputFormat format) async {
   }
 
   // Send a JSON-RPC shutdown request — or just unregister if unreachable.
+  // When shutdown succeeds, the server process exits itself (and cleans its
+  // own registry entry). Only unregister manually in the catch path.
   bool sent = false;
   try {
     final client = SkillClient.byId(id);
     await client.call('shutdown', {});
     sent = true;
   } catch (_) {
-    // Server may already be down — just clean the registry entry.
+    // Server unreachable — clean the registry entry manually.
+    await ServerRegistry.unregister(id);
   }
-
-  await ServerRegistry.unregister(id);
 
   if (format == OutputFormat.json) {
     print(jsonEncode({'id': id, 'stopped': true, 'signaled': sent}));
@@ -154,5 +155,3 @@ String? _parseFlag(List<String> args, String flag) {
   }
   return null;
 }
-
-String _padRight(String s, int width) => s.padRight(width);

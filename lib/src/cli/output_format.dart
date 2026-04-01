@@ -27,5 +27,49 @@ OutputFormat resolveOutputFormat(List<String> args) {
 }
 
 /// Strip `--output=*` entries from an arg list.
-List<String> stripOutputFlag(List<String> args) =>
+List<String> stripOutputFormatFlag(List<String> args) =>
     args.where((a) => !a.startsWith('--output=')).toList();
+
+/// Strip `--output=*` entries from an arg list.
+///
+/// Deprecated: use [stripOutputFormatFlag] for clarity.
+List<String> stripOutputFlag(List<String> args) => stripOutputFormatFlag(args);
+
+/// Parse `--server=<id>[,<id2>,...]` from args.
+List<String> parseServerIds(List<String> args) {
+  for (final arg in args) {
+    if (arg.startsWith('--server=')) {
+      final value = arg.substring('--server='.length);
+      return value.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
+    }
+  }
+  return [];
+}
+
+/// Holds the outcome of a single per-server parallel action.
+class ServerCallResult {
+  final String serverId;
+  final bool success;
+  final String? action;
+  final Map<String, dynamic>? data;
+  final String? error;
+  final int durationMs;
+
+  const ServerCallResult({
+    required this.serverId,
+    required this.success,
+    this.action,
+    this.data,
+    this.error,
+    required this.durationMs,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'server': serverId,
+        'success': success,
+        if (action != null) 'action': action,
+        if (data != null) 'data': data,
+        if (error != null) 'error': error,
+        'duration_ms': durationMs,
+      };
+}

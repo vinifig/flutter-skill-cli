@@ -135,9 +135,22 @@ void _attachServer(String id, String uri, String projectPath) async {
 void _spawnDetachedServer(String id, String uri, String projectPath) {
   // We re-invoke ourselves with the `connect` command so the child process
   // manages the server lifecycle independently.
+  final exe = Platform.resolvedExecutable;
+  final script = Platform.script.toFilePath();
+
+  // When running via `dart run`, resolvedExecutable is the Dart VM binary.
+  // Re-invoke as: dart <script> connect ...
+  // When compiled/globally activated, exe IS the flutter_skill binary.
+  final List<String> cmdArgs;
+  if (exe.endsWith('dart') || exe.endsWith('dart.exe')) {
+    cmdArgs = [script, 'connect', '--id=$id', '--uri=$uri', '--project=$projectPath'];
+  } else {
+    cmdArgs = ['connect', '--id=$id', '--uri=$uri', '--project=$projectPath'];
+  }
+
   Process.start(
-    Platform.resolvedExecutable,
-    ['connect', '--id=$id', '--uri=$uri', '--project=$projectPath'],
+    exe,
+    cmdArgs,
     mode: ProcessStartMode.detached,
     runInShell: false,
   ).then((p) {

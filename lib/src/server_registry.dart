@@ -61,7 +61,14 @@ class ServerRegistry {
       File('${_registryDir.path}${Platform.pathSeparator}$id.sock');
 
   /// Write a server entry to disk.
+  ///
+  /// Throws [ArgumentError] if the entry id contains characters that could
+  /// be used for path traversal attacks.
   static Future<void> register(ServerEntry entry) async {
+    if (!RegExp(r'^[a-zA-Z0-9_\-]+$').hasMatch(entry.id)) {
+      throw ArgumentError(
+          'Invalid server id "${entry.id}". Only letters, numbers, hyphens, and underscores are allowed.');
+    }
     await _registryDir.create(recursive: true);
     await _entryFile(entry.id)
         .writeAsString(jsonEncode(entry.toJson()), flush: true);
@@ -137,7 +144,13 @@ class ServerRegistry {
         final result = await Process.run(
             'tasklist', ['/FI', 'PID eq $pid', '/NH'],
             runInShell: true);
-        return result.stdout.toString().contains(pid.toString());
+        // Use word-boundary matching: PID column is space-padded in tasklist output.
+        // A simple contains() would match PID 123 inside 1234.
+        final output = result.stdout.toString();
+        return output.split('\n').any((line) {
+          final parts = line.trim().split(RegExp(r'\s+'));
+          return parts.isNotEmpty && parts.any((p) => p == pid.toString());
+        });
       } else {
         // kill -0 checks existence without sending a real signal.
         final result =

@@ -6,9 +6,9 @@ import 'output_format.dart';
 
 Future<void> runAct(List<String> args) async {
   // --server=<id>[,<id2>,...] — forward to named SkillServer instance(s)
-  final serverIds = _parseServerIds(args);
+  final serverIds = parseServerIds(args);
   final format = resolveOutputFormat(args);
-  final effectiveArgs = stripOutputFlag(args)
+  final effectiveArgs = stripOutputFormatFlag(args)
       .where((a) => !a.startsWith('--server='))
       .toList();
 
@@ -175,21 +175,6 @@ Future<void> runAct(List<String> args) async {
 // Server-forwarding helpers
 // ---------------------------------------------------------------------------
 
-/// Parse `--server=<id>[,<id2>,...]` from args and return the list of IDs.
-List<String> _parseServerIds(List<String> args) {
-  for (final arg in args) {
-    if (arg.startsWith('--server=')) {
-      final value = arg.substring('--server='.length);
-      return value
-          .split(',')
-          .map((s) => s.trim())
-          .where((s) => s.isNotEmpty)
-          .toList();
-    }
-  }
-  return [];
-}
-
 /// Build a JSON-RPC method name + params from the act CLI args.
 Map<String, dynamic> _buildRpcCall(List<String> actArgs) {
   if (actArgs.isEmpty) return {'method': 'ping', 'params': {}};
@@ -210,10 +195,17 @@ Map<String, dynamic> _buildRpcCall(List<String> actArgs) {
         'params': {'key': param1, 'text': param2 ?? ''}
       };
     case 'scroll':
-    case 'scroll_to':
       return {
         'method': 'swipe',
-        'params': {'direction': 'up', 'key': param1}
+        'params': {
+          'direction': param1 ?? 'up', // param1 IS the direction for `scroll`
+          'distance': double.tryParse(param2 ?? '') ?? 300,
+        }
+      };
+    case 'scroll_to':
+      return {
+        'method': 'scroll_to',
+        'params': {'key': param1, 'direction': param2 ?? 'down'}
       };
     case 'screenshot':
       return {
@@ -259,14 +251,14 @@ Future<void> _actViaServers(
         }
       }
 
-      return _ActResult(
+      return ServerCallResult(
           serverId: id,
           success: true,
           action: action,
           durationMs: stopwatch.elapsedMilliseconds);
     } catch (e) {
       stopwatch.stop();
-      return _ActResult(
+      return ServerCallResult(
           serverId: id,
           success: false,
           action: action,
@@ -292,30 +284,6 @@ Future<void> _actViaServers(
 
   // Exit with error code if any server failed.
   if (results.any((r) => !r.success)) exit(1);
-}
-
-class _ActResult {
-  final String serverId;
-  final bool success;
-  final String action;
-  final String? error;
-  final int durationMs;
-
-  const _ActResult({
-    required this.serverId,
-    required this.success,
-    required this.action,
-    this.error,
-    required this.durationMs,
-  });
-
-  Map<String, dynamic> toJson() => {
-        'server': serverId,
-        'success': success,
-        'action': action,
-        if (error != null) 'error': error,
-        'duration_ms': durationMs,
-      };
 }
 
 // ---------------------------------------------------------------------------

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import '../drivers/flutter_driver.dart';
@@ -62,6 +63,12 @@ Future<void> runConnect(List<String> args) async {
     if (!uri.endsWith('/ws')) uri = '$uri/ws';
   }
 
+  // Normalise https:// → wss://
+  if (uri.startsWith('https://')) {
+    uri = uri.replaceFirst('https://', 'wss://');
+    if (!uri.endsWith('/ws')) uri = '$uri/ws';
+  }
+
   print('Connecting to Flutter app at $uri...');
   final driver = FlutterSkillClient(uri);
   try {
@@ -84,11 +91,13 @@ Future<void> runConnect(List<String> args) async {
   print('Press Ctrl+C to stop.');
 
   // Keep running until the process is interrupted.
+  final shutdown = Completer<void>();
+
   ProcessSignal.sigint.watch().first.then((_) async {
     print('\nShutting down server "$id"...');
     await server.stop();
     await driver.disconnect();
-    exit(0);
+    shutdown.complete();
   });
 
   // Also handle SIGTERM on Unix.
@@ -96,10 +105,10 @@ Future<void> runConnect(List<String> args) async {
     ProcessSignal.sigterm.watch().first.then((_) async {
       await server.stop();
       await driver.disconnect();
-      exit(0);
+      if (!shutdown.isCompleted) shutdown.complete();
     });
   }
 
-  // Park the isolate so the process stays alive.
-  await Future<void>.delayed(const Duration(days: 365));
+  await shutdown.future;
+  exit(0);
 }
